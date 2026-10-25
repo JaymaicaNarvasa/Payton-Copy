@@ -7,8 +7,11 @@ import {
   Dimensions,
   Image,
   Modal,
+  Platform,
   RefreshControl,
   ScrollView,
+  StatusBar,
+  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
@@ -17,9 +20,47 @@ import {
 import { Calendar } from 'react-native-calendars';
 import Svg, { Circle, G, Line, Polyline, Text as SvgText } from 'react-native-svg';
 
-import { theme } from '@/constants/theme';
-import { personalHomeStyles as styles } from '@/constants/ui.styles';
 import { supabase } from '../../lib/supabase';
+
+const COLORS = {
+  black: '#000000',
+  headerDark: '#1F4F59',   
+  headerDarker: '#173D45', 
+  deepTeal: '#1F4F59',
+  cyan: '#54C9CC',
+  cyanLight: '#7EDDE0',
+  olive: '#7EA00E',
+  yellowGreen: '#DCD964',
+  darkOlive: '#213502',
+  bg: '#F8FAFC',
+  card: '#FFFFFF',
+  white: '#FFFFFF',
+  textMuted: '#64748B',
+  overlay: 'rgba(9, 20, 19, 0.5)',
+  modalShadow: '#04201C',
+};
+
+const CATEGORY_COLORS = [
+  // Original Colors
+  '#54C9CC', // Cyan
+  '#1F4F59', // Dark Teal
+  '#7EA00E', // Olive Green
+  '#DCD964', // Light Yellow-Green
+  '#213502', // Deep Forest Green
+
+  // New Neighboring Colors
+  '#3AA8AC', // Muted Cyan (closer to Dark Teal / Cyan mix)
+  '#357380', // Medium Teal (between Cyan and Dark Teal)
+  '#9BC915', // Vibrant Olive Green (bright relative to your Olive)
+  '#F4F19C', // Soft Pastel Yellow-Green (lighter shade of Light Yellow-Green)
+  '#3D6105', // Mid Forest Green (softer transition into Deep Forest Green)
+];
+
+const PALETTE_LIGHT_CARDS = [
+  '#E6F0F2',
+  '#F4F8E8',
+  '#FAFAD8',
+];
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -172,7 +213,7 @@ function DueDatesCalendarModal({
       if (due.status === 'pending') {
         marks[due.due_date] = {
           marked: true,
-          dotColor: theme.colors.olive,
+          dotColor: COLORS.olive,
         };
       }
     });
@@ -180,10 +221,10 @@ function DueDatesCalendarModal({
     marks[selectedDate] = {
       ...(marks[selectedDate] || {}),
       selected: true,
-      selectedColor: theme.colors.brand,
-      selectedTextColor: theme.colors.white,
+      selectedColor: COLORS.headerDark,
+      selectedTextColor: COLORS.white,
       // keep the dot visible on the selected (dark) day
-      ...(marks[selectedDate]?.marked ? { dotColor: theme.colors.lime } : {}),
+      ...(marks[selectedDate]?.marked ? { dotColor: COLORS.yellowGreen } : {}),
     };
 
     return marks;
@@ -204,7 +245,7 @@ function DueDatesCalendarModal({
               <Text style={styles.modalSubtitle}>Tap a date to view its reminders</Text>
             </View>
             <TouchableOpacity onPress={onClose} style={styles.modalCloseButton}>
-              <Ionicons name="close" size={20} color={theme.colors.textMuted} />
+              <Ionicons name="close" size={20} color={COLORS.textMuted} />
             </TouchableOpacity>
           </View>
 
@@ -215,18 +256,18 @@ function DueDatesCalendarModal({
               markedDates={markedDates}
               enableSwipeMonths
               theme={{
-                backgroundColor: theme.colors.white,
-                calendarBackground: theme.colors.white,
-                textSectionTitleColor: theme.colors.textMuted,
-                selectedDayBackgroundColor: theme.colors.brand,
-                selectedDayTextColor: theme.colors.white,
-                todayTextColor: theme.colors.aqua,
-                dayTextColor: theme.colors.oliveDeep,
-                textDisabledColor: theme.colors.borderStrong,
-                dotColor: theme.colors.olive,
-                selectedDotColor: theme.colors.lime,
-                arrowColor: theme.colors.brand,
-                monthTextColor: theme.colors.oliveDeep,
+                backgroundColor: COLORS.card,
+                calendarBackground: COLORS.card,
+                textSectionTitleColor: COLORS.textMuted,
+                selectedDayBackgroundColor: COLORS.headerDark,
+                selectedDayTextColor: COLORS.white,
+                todayTextColor: COLORS.cyan,
+                dayTextColor: COLORS.darkOlive,
+                textDisabledColor: '#CBD5E1',
+                dotColor: COLORS.olive,
+                selectedDotColor: COLORS.yellowGreen,
+                arrowColor: COLORS.headerDark,
+                monthTextColor: COLORS.darkOlive,
                 textDayFontWeight: '600',
                 textMonthFontWeight: '700',
                 textDayHeaderFontWeight: '700',
@@ -408,7 +449,7 @@ export default function PersonalHomeScreen() {
             icon: item.icon,
             total: item.total,
             percentage,
-            color: theme.chart.category[index % theme.chart.category.length],
+            color: CATEGORY_COLORS[index % CATEGORY_COLORS.length],
           };
         });
 
@@ -739,9 +780,9 @@ const handleSettleReminder = async (reminder: ReminderItem) => {
 
   if (loading) {
     return (
-      <View style={[styles.loadingContainer, { backgroundColor: theme.colors.background }]}>
+      <View style={[styles.loadingContainer, { backgroundColor: COLORS.bg }]}>
         <ExpoStatusBar style="light" />
-        <ActivityIndicator size="large" color={theme.colors.brand} />
+        <ActivityIndicator size="large" color={COLORS.deepTeal} />
       </View>
     );
   }
@@ -811,7 +852,7 @@ const handleSettleReminder = async (reminder: ReminderItem) => {
         <View style={styles.balanceBlock}>
           <View style={styles.balanceLabelRow}>
             <View style={styles.balanceLabelIconWrap}>
-              <Ionicons name="wallet-outline" size={13} color={theme.colors.brand} />
+              <Ionicons name="wallet-outline" size={13} color={COLORS.deepTeal} />
             </View>
             <Text style={styles.balanceLabel}>Total Remaining</Text>
           </View>
@@ -840,7 +881,7 @@ const handleSettleReminder = async (reminder: ReminderItem) => {
               activeOpacity={0.7}
             >
               {/* Updated to pencil icon */}
-              <Ionicons name="create-outline" size={20} color={theme.colors.lime} />
+              <Ionicons name="create-outline" size={20} color={COLORS.yellowGreen} />
             </TouchableOpacity>
           </View>
         </View>
@@ -851,7 +892,7 @@ const handleSettleReminder = async (reminder: ReminderItem) => {
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[theme.colors.olive]} tintColor={theme.colors.olive} />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[COLORS.olive]} tintColor={COLORS.olive} />
         }
         showsVerticalScrollIndicator={false}
         bounces
@@ -883,7 +924,7 @@ const handleSettleReminder = async (reminder: ReminderItem) => {
           style={[styles.dateBox, styles.seeMoreDateBox]}
         >
           {/* You can use react-native-vector-icons or any icon library you prefer */}
-          <Ionicons name="calendar-outline" size={18} color={theme.colors.brand} style={{ marginBottom: theme.space[4] }} />
+          <Ionicons name="calendar-outline" size={18} color={COLORS.deepTeal} style={{ marginBottom: 4 }} />
           <Text style={styles.seeMoreLabel}>More</Text>
         </TouchableOpacity>
       );
@@ -950,7 +991,7 @@ const handleSettleReminder = async (reminder: ReminderItem) => {
                   cx={center}
                   cy={center}
                   r={radius}
-                  stroke={theme.colors.border}
+                  stroke="#E2E8F0"
                   strokeWidth={strokeWidth}
                   fill="none"
                 />
@@ -1055,7 +1096,7 @@ const handleSettleReminder = async (reminder: ReminderItem) => {
                             y1={yPos}
                             x2={chartWidth - paddingRight}
                             y2={yPos}
-                            stroke={theme.colors.border}
+                            stroke="#E2E8F0"
                             strokeDasharray="4,4"
                             strokeWidth="1"
                           />
@@ -1063,7 +1104,7 @@ const handleSettleReminder = async (reminder: ReminderItem) => {
                             x={paddingLeft - 15}
                             y={yPos + 4}
                             fontSize="9"
-                            fill={theme.colors.textMuted}
+                            fill={COLORS.textMuted}
                             textAnchor="end"
                           >
                             {valLabel}
@@ -1075,7 +1116,7 @@ const handleSettleReminder = async (reminder: ReminderItem) => {
                     <Polyline
                       points={polylinePoints}
                       fill="none"
-                      stroke={theme.colors.brand}
+                      stroke={COLORS.deepTeal}
                       strokeWidth="3"
                       strokeLinecap="round"
                       strokeLinejoin="round"
@@ -1087,15 +1128,15 @@ const handleSettleReminder = async (reminder: ReminderItem) => {
                           cx={p.x}
                           cy={p.y}
                           r={4.5}
-                          fill={theme.colors.lime}
-                          stroke={theme.colors.brand}
+                          fill={COLORS.yellowGreen}
+                          stroke={COLORS.deepTeal}
                           strokeWidth="2"
                         />
                         <SvgText
                           x={p.x}
                           y={chartHeight - 6}
                           fontSize="9"
-                          fill={theme.colors.textMuted}
+                          fill={COLORS.textMuted}
                           textAnchor="middle"
                         >
                           {p.displayDay}
@@ -1129,11 +1170,11 @@ const handleSettleReminder = async (reminder: ReminderItem) => {
                 {filteredDues.length > 0 && filteredDues.some(d => d.status === 'pending') && (
                   <View style={[
                     styles.dueBadgeHome, 
-                    { backgroundColor: selectedDaysInfo.urgent ? theme.colors.dangerBg : theme.colors.alpha.brand[10] }
+                    { backgroundColor: selectedDaysInfo.urgent ? '#FEF2F2' : 'rgba(31, 79, 89, 0.1)' }
                   ]}>
                     <Text style={[
                       styles.dueBadgeTextHome, 
-                      { color: selectedDaysInfo.urgent ? theme.colors.danger : theme.colors.brand }
+                      { color: selectedDaysInfo.urgent ? '#DC2626' : COLORS.deepTeal }
                     ]}>
                       {selectedDaysInfo.text}
                     </Text>
@@ -1150,20 +1191,20 @@ const handleSettleReminder = async (reminder: ReminderItem) => {
                 }} 
                 style={styles.modalCloseButton}
               >
-                <Ionicons name="close" size={20} color={theme.colors.textMuted} />
+                <Ionicons name="close" size={20} color={COLORS.textMuted} />
               </TouchableOpacity>
             </View>
 
             {errorMessage && (
               <View style={styles.inlineErrorContainer}>
-                <Ionicons name="alert-circle-outline" size={18} color={theme.colors.danger} />
+                <Ionicons name="alert-circle-outline" size={18} color="#DC2626" />
                 <Text style={styles.inlineErrorText}>{errorMessage}</Text>
               </View>
             )}
 
             {successMessage && (
               <View style={styles.inlineSuccessContainer}>
-                <Ionicons name="checkmark-circle-outline" size={18} color={theme.colors.olive} />
+                <Ionicons name="checkmark-circle-outline" size={18} color={COLORS.olive} />
                 <Text style={styles.inlineSuccessText}>{successMessage}</Text>
               </View>
             )}
@@ -1171,7 +1212,7 @@ const handleSettleReminder = async (reminder: ReminderItem) => {
             <ScrollView contentContainerStyle={styles.modalBody} showsVerticalScrollIndicator={false}>
               {filteredDues.length > 0 ? (
                 filteredDues.map((due, index) => {
-                  const cardBgColor = theme.chart.lightCards[index % theme.chart.lightCards.length];
+                  const cardBgColor = PALETTE_LIGHT_CARDS[index % PALETTE_LIGHT_CARDS.length];
                   const categoryIcon = due.categories?.icon || 'pricetag-outline';
                   const isPaid = due.status === 'paid';
 
@@ -1181,11 +1222,11 @@ const handleSettleReminder = async (reminder: ReminderItem) => {
                       style={[styles.reminderCardHome, { backgroundColor: cardBgColor, opacity: isPaid ? 0.75 : 1 }]}
                     >
                       <View style={styles.calendarBadgeHome}>
-                        <Ionicons name={categoryIcon as any} size={22} color={theme.colors.brand} />
+                        <Ionicons name={categoryIcon as any} size={22} color={COLORS.deepTeal} />
                       </View>
 
                       <View style={styles.cardContentHome}>
-                        <Text style={[styles.reminderTitleHome, isPaid && { textDecorationLine: 'line-through', color: theme.colors.textMuted }]}>
+                        <Text style={[styles.reminderTitleHome, isPaid && { textDecorationLine: 'line-through', color: COLORS.textMuted }]}>
                           {due.title}
                         </Text>
                         <Text style={styles.reminderSubHome}>
@@ -1194,19 +1235,19 @@ const handleSettleReminder = async (reminder: ReminderItem) => {
                       </View>
 
                       {/* Conditional Actions or Paid Badge */}
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.space[8] }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                         {isPaid ? (
-                          <View style={{ paddingHorizontal: theme.space[12], paddingVertical: theme.space[6], backgroundColor: theme.colors.alpha.olive[15], borderRadius: theme.radius.sm, marginRight: theme.space[4] }}>
-                            <Text style={{ color: theme.colors.olive, fontWeight: theme.fontWeight.semibold, fontSize: theme.fontSize.caption }}>Paid</Text>
+                          <View style={{ paddingHorizontal: 12, paddingVertical: 6, backgroundColor: 'rgba(126, 160, 14, 0.15)', borderRadius: 8, marginRight: 4 }}>
+                            <Text style={{ color: COLORS.olive, fontWeight: '600', fontSize: 13 }}>Paid</Text>
                           </View>
                         ) : (
                           /* Settle Button (Only shown when not paid) */
                           <TouchableOpacity 
-                            style={[styles.deleteButtonHome, { backgroundColor: theme.colors.alpha.brand[10] }]} 
+                            style={[styles.deleteButtonHome, { backgroundColor: 'rgba(31, 79, 89, 0.1)' }]} 
                             onPress={() => handleSettleReminder(due)}
                             activeOpacity={0.7}
                           >
-                            <Ionicons name="checkmark-outline" size={18} color={theme.colors.brand} />
+                            <Ionicons name="checkmark-outline" size={18} color={COLORS.deepTeal} />
                           </TouchableOpacity>
                         )}
 
@@ -1216,7 +1257,7 @@ const handleSettleReminder = async (reminder: ReminderItem) => {
                           onPress={() => handleDeleteReminder(due.id, due.title)}
                           activeOpacity={0.7}
                         >
-                          <Ionicons name="trash-outline" size={18} color={theme.colors.danger} />
+                          <Ionicons name="trash-outline" size={18} color="#DC2626" />
                         </TouchableOpacity>
                       </View>
                     </View>
@@ -1224,7 +1265,7 @@ const handleSettleReminder = async (reminder: ReminderItem) => {
                 })
               ) : (
                 <View style={styles.emptyStateContainer}>
-                  <Ionicons name="checkmark-circle-outline" size={48} color={theme.colors.brand} />
+                  <Ionicons name="checkmark-circle-outline" size={48} color={COLORS.deepTeal} />
                   <Text style={styles.emptyStateTitle}>All Clear!</Text>
                   <Text style={styles.emptyStateText}>No reminders set for this date.</Text>
                 </View>
@@ -1243,61 +1284,61 @@ const handleSettleReminder = async (reminder: ReminderItem) => {
 >
   {/* Ensure modalOverlay has justifyContent and alignItems set to 'center' */}
   <View style={[styles.modalOverlay, { justifyContent: 'center', alignItems: 'center' }]}>
-    <View style={[styles.modalContainer2, { width: '85%', maxWidth: 340, padding: theme.space[24], alignItems: 'center', alignSelf: 'center' }]}>
+    <View style={[styles.modalContainer2, { width: '85%', maxWidth: 340, padding: 24, alignItems: 'center', alignSelf: 'center' }]}>
       
       {/* Warning Icon with subtle red aura */}
       <View style={{
         width: 48,
         height: 48,
-        borderRadius: theme.radius.xxl,
-        backgroundColor: theme.colors.dangerBg,
+        borderRadius: 24,
+        backgroundColor: '#FEF2F2',
         alignItems: 'center',
         justifyContent: 'center',
-        marginBottom: theme.space[16],
+        marginBottom: 16,
         borderWidth: 8,
-        borderColor: theme.colors.dangerSoft
+        borderColor: '#FEE2E2'
       }}>
-        <Ionicons name="alert-circle-outline" size={24} color={theme.colors.danger} />
+        <Ionicons name="alert-circle-outline" size={24} color="#DC2626" />
       </View>
 
       {/* Title */}
-      <Text style={{ fontSize: theme.fontSize.title, fontWeight: theme.fontWeight.bold, color: theme.colors.gray900, marginBottom: theme.space[8], textAlign: 'center' }}>
+      <Text style={{ fontSize: 18, fontWeight: '700', color: '#111827', marginBottom: 8, textAlign: 'center' }}>
         Delete Reminder
       </Text>
 
       {/* Subtitle / Description */}
-      <Text style={{ fontSize: theme.fontSize.body, color: theme.colors.textGray, textAlign: 'center', marginBottom: theme.space[24], lineHeight: 20 }}>
+      <Text style={{ fontSize: 14, color: '#6B7280', textAlign: 'center', marginBottom: 24, lineHeight: 20 }}>
         Are you sure you want to delete "{reminderToDelete?.title}"?{'\n'}This action cannot be undone.
       </Text>
 
       {/* Action Buttons */}
-      <View style={{ flexDirection: 'row', gap: theme.space[12], width: '100%' }}>
+      <View style={{ flexDirection: 'row', gap: 12, width: '100%' }}>
         <TouchableOpacity
           style={{
             flex: 1,
-            backgroundColor: theme.colors.surfaceGray,
-            paddingVertical: theme.space[12],
-            borderRadius: theme.radius.md,
+            backgroundColor: '#F3F4F6',
+            paddingVertical: 12,
+            borderRadius: 12,
             alignItems: 'center',
           }}
           onPress={() => setDeleteModalVisible(false)}
           disabled={isDeleting}
         >
-          <Text style={{ color: theme.colors.gray700, fontWeight: theme.fontWeight.semibold, fontSize: theme.fontSize.bodyLg }}>Cancel</Text>
+          <Text style={{ color: '#374151', fontWeight: '600', fontSize: 15 }}>Cancel</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
           style={{
             flex: 1,
-            backgroundColor: theme.colors.danger,
-            paddingVertical: theme.space[12],
-            borderRadius: theme.radius.md,
+            backgroundColor: '#DC2626',
+            paddingVertical: 12,
+            borderRadius: 12,
             alignItems: 'center',
           }}
           onPress={confirmDeleteReminder}
           disabled={isDeleting}
         >
-          <Text style={{ color: theme.colors.white, fontWeight: theme.fontWeight.semibold, fontSize: theme.fontSize.bodyLg }}>
+          <Text style={{ color: '#FFFFFF', fontWeight: '600', fontSize: 15 }}>
             {isDeleting ? 'Deleting...' : 'Delete'}
           </Text>
         </TouchableOpacity>
@@ -1334,14 +1375,14 @@ const handleSettleReminder = async (reminder: ReminderItem) => {
                 }} 
                 style={styles.modalCloseButton}
               >
-                <Ionicons name="close" size={20} color={theme.colors.textMuted} />
+                <Ionicons name="close" size={20} color={COLORS.textMuted} />
               </TouchableOpacity>
             </View>
 
             {/* Inline Error Banner */}
             {errorMessage && (
               <View style={styles.inlineErrorContainer}>
-                <Ionicons name="alert-circle-outline" size={18} color={theme.colors.danger} />
+                <Ionicons name="alert-circle-outline" size={18} color="#DC2626" />
                 <Text style={styles.inlineErrorText}>{errorMessage}</Text>
               </View>
             )}
@@ -1349,7 +1390,7 @@ const handleSettleReminder = async (reminder: ReminderItem) => {
             {/* Inline Success Banner */}
             {successMessage && (
               <View style={styles.inlineSuccessContainer}>
-                <Ionicons name="checkmark-circle-outline" size={18} color={theme.colors.green} />
+                <Ionicons name="checkmark-circle-outline" size={18} color="#16A34A" />
                 <Text style={styles.inlineSuccessText}>{successMessage}</Text>
               </View>
             )}
@@ -1359,7 +1400,7 @@ const handleSettleReminder = async (reminder: ReminderItem) => {
               <TextInput
                 style={styles.textInput}
                 placeholder="e.g., Electricity Bill"
-                placeholderTextColor={theme.colors.textMuted}
+                placeholderTextColor={COLORS.textMuted}
                 value={newTitle}
                 onChangeText={setNewTitle}
               />
@@ -1368,7 +1409,7 @@ const handleSettleReminder = async (reminder: ReminderItem) => {
               <TextInput
                 style={styles.textInput}
                 placeholder="0.00"
-                placeholderTextColor={theme.colors.textMuted}
+                placeholderTextColor={COLORS.textMuted}
                 keyboardType="numeric"
                 value={newAmount}
                 onChangeText={setNewAmount}
@@ -1384,10 +1425,10 @@ const handleSettleReminder = async (reminder: ReminderItem) => {
                       onPress={() => setNewCategoryId(cat.id)}
                       style={[
                         styles.categoryChip,
-                        isSelected && { backgroundColor: theme.colors.brand, borderColor: theme.colors.brand }
+                        isSelected && { backgroundColor: COLORS.headerDark, borderColor: COLORS.headerDark }
                       ]}
                     >
-                      <Text style={[styles.categoryChipText, isSelected && { color: theme.colors.white }]}>
+                      <Text style={[styles.categoryChipText, isSelected && { color: '#FFFFFF' }]}>
                         {cat.name}
                       </Text>
                     </TouchableOpacity>
@@ -1399,7 +1440,7 @@ const handleSettleReminder = async (reminder: ReminderItem) => {
               <TextInput
                 style={styles.textInput}
                 placeholder="YYYY-MM-DD"
-                placeholderTextColor={theme.colors.textMuted}
+                placeholderTextColor={COLORS.textMuted}
                 value={newDueDate}
                 onChangeText={setNewDueDate}
               />
@@ -1410,7 +1451,7 @@ const handleSettleReminder = async (reminder: ReminderItem) => {
                 disabled={submitting}
               >
                 {submitting ? (
-                  <ActivityIndicator color={theme.colors.white} />
+                  <ActivityIndicator color="#FFFFFF" />
                 ) : (
                   <Text style={styles.submitButtonText}>Save Reminder</Text>
                 )}
@@ -1432,3 +1473,533 @@ const handleSettleReminder = async (reminder: ReminderItem) => {
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  mainContainer: { flex: 1, backgroundColor: COLORS.bg },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  scrollView: { flex: 1 },
+  scrollContent: { backgroundColor: COLORS.bg, paddingBottom: 50 },
+
+  headerBackground: {
+    backgroundColor: COLORS.headerDark,
+    paddingHorizontal: 24,
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 24) + 12 : 22,
+    paddingBottom: 30,
+    borderBottomLeftRadius: 32,
+    borderBottomRightRadius: 32,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowRadius: 16,
+    elevation: 5,
+    zIndex: 10,
+  },
+  topRowContainer: { marginBottom: 24 },
+  topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  userProfileGroup: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  avatarImage: { width: 48, height: 48, borderRadius: 24, borderWidth: 2, borderColor: '#FFFFFF' },
+  avatarFallback: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: COLORS.yellowGreen,
+  },
+  avatarInitial: { color: '#FFFFFF', fontSize: 20, fontWeight: '700' },
+  helloText: { fontSize: 16, fontWeight: '700', color: '#FFFFFF', letterSpacing: -0.3, lineHeight: 26 },
+  userNameText: { fontSize: 18, fontWeight: '600', color: 'rgba(255,255,255,0.82)', marginTop: 1 },
+  
+  roleBadgeContainer: {
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+    maxWidth: 120,
+  },
+  roleBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'capitalize',
+    letterSpacing: 0.5,
+  },
+
+  balanceBlock: { alignItems: 'center' },
+  balanceLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 12 },
+  balanceLabelIconWrap: {
+    width: 22, height: 22, borderRadius: 11,
+    backgroundColor: COLORS.yellowGreen, justifyContent: 'center', alignItems: 'center',
+  },
+  balanceLabel: { fontSize: 12, color: COLORS.white, fontWeight: '700', letterSpacing: 1.2, textTransform: 'uppercase' },
+  pillTrackOuter: { width: '100%', padding: 4, borderRadius: 30, backgroundColor: 'rgba(255,255,255,0.08)' },
+  pillTrack: { width: '100%', height: 46, borderRadius: 26, backgroundColor: 'rgba(255,255,255,0.15)', overflow: 'hidden' },
+  pillFill: { height: '100%', borderRadius: 26, backgroundColor: COLORS.cyan },
+  balanceAmountRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginTop: 16 },
+  pillAmountText: { fontSize: 32, fontWeight: '800', color: '#FFFFFF', letterSpacing: -0.6 },
+  pillAmountDivider: { fontSize: 22, color: 'rgba(255,255,255,0.3)', fontWeight: '300' },
+  pillAmountTotal: { fontSize: 15, fontWeight: '600', color: 'rgba(255,255,255,0.65)' },
+
+  sectionBlock: { paddingHorizontal: 24, marginTop: 20 },
+  sectionHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+  sectionTitle: { fontSize: 17, fontWeight: '700', color: COLORS.darkOlive, letterSpacing: -0.3 },
+  seeAllText: { fontSize: 13, color: COLORS.deepTeal, fontWeight: '700' },
+
+  dateStripContainer: {
+    gap: 8,
+    paddingVertical: 4,
+  },
+  dateBox: {
+    width: 54,
+    height: 72,
+    borderRadius: 16,
+    backgroundColor: COLORS.card,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+  },
+  dateBoxToday: {
+    backgroundColor: COLORS.headerDark,
+    borderColor: COLORS.headerDark,
+  },
+  dateBoxBorderSelected: {
+    borderColor: COLORS.headerDark,
+    backgroundColor: COLORS.card,
+  },
+  dateDayName: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: COLORS.textMuted,
+    marginBottom: 2,
+  },
+  dateDayNumber: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: COLORS.darkOlive,
+  },
+  dateTextToday: {
+    color: '#FFFFFF',
+  },
+  dateTextBorderSelected: {
+    color: COLORS.headerDark,
+  },
+  dotContainer: {
+    height: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  pendingDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: COLORS.olive,
+  },
+  pendingDotToday: {
+    backgroundColor: COLORS.yellowGreen,
+  },
+  pendingDotBorderSelected: {
+    backgroundColor: COLORS.deepTeal,
+  },
+
+  // Statistics Styles
+  statsCard: {
+    backgroundColor: COLORS.card,
+    borderRadius: 24,
+    padding: 20,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  circleContainer: {
+    width: 180,
+    height: 180,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  innerCircle: {
+    position: 'absolute',
+    width: 130,
+    height: 130,
+    borderRadius: 65,
+    backgroundColor: COLORS.card,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  statsLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: COLORS.textMuted,
+    marginBottom: 2,
+  },
+  statsAmount: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: COLORS.darkOlive,
+    letterSpacing: -0.5,
+  },
+  legendContainer: {
+    width: '100%',
+    marginTop: 16,
+    gap: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+    paddingTop: 16,
+  },
+  legendRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  legendLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+    marginRight: 12,
+  },
+  legendColorDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+  },
+  legendCategoryName: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: COLORS.darkOlive,
+  },
+  legendRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  legendAmount: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: COLORS.black,
+  },
+  legendPercentage: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: COLORS.textMuted,
+  },
+  emptyLegendText: {
+    textAlign: 'center',
+    fontSize: 13,
+    color: COLORS.textMuted,
+    paddingVertical: 10,
+  },
+  lineGraphSubtitle: {
+    fontSize: 12,
+    color: COLORS.textMuted,
+    fontWeight: '600',
+    marginBottom: 12,
+    alignSelf: 'flex-start',
+  },
+  graphWrapper: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: 8,
+  },
+
+  // Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: COLORS.overlay,
+    justifyContent: 'flex-end',
+  },
+  
+  modalContainer: {
+    backgroundColor: COLORS.bg,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    paddingHorizontal: 24,
+    paddingTop: 24,
+    paddingBottom: 40,
+    maxHeight: SCREEN_HEIGHT * 0.75,
+    shadowColor: COLORS.modalShadow,
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 10,
+  },
+
+modalContainer2: {
+    backgroundColor: COLORS.bg,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    borderBottomLeftRadius: 28,
+    borderBottomRightRadius: 28,
+    paddingHorizontal: 24,
+    paddingTop: 24,
+    paddingBottom: 40,
+    maxHeight: SCREEN_HEIGHT * 0.75,
+    shadowColor: COLORS.modalShadow,
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 10,
+  },
+
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+  },
+  modalHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+    marginRight: 10,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: COLORS.darkOlive,
+  },
+  modalSubtitle: {
+    fontSize: 12,
+    color: COLORS.textMuted,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  modalCloseButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#F1F5F9',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalBody: {
+    gap: 10,
+    paddingBottom: 20,
+  },
+
+  reminderCardHome: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 18,
+  },
+  cardContentHome: {
+    flex: 1,
+    marginRight: 8,
+  },
+  reminderTitleHome: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#1E293B',
+  },
+  reminderSubHome: {
+    fontSize: 11,
+    color: '#475569',
+    marginTop: 2,
+  },
+  dueBadgeHome: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  dueBadgeTextHome: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+
+  calendarBadgeHome: {
+    width: 48,
+    height: 48,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.6)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  deleteButtonHome: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: 'rgba(220, 38, 38, 0.08)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 8,
+  },
+
+  // Form Styles for Add Reminder
+  formContainer: {
+    gap: 12,
+  },
+  inputLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: COLORS.darkOlive,
+  },
+  textInput: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 14,
+    color: COLORS.black,
+  },
+  categoryScroll: {
+    flexDirection: 'row',
+    marginBottom: 4,
+  },
+  categoryChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    backgroundColor: '#FFFFFF',
+    marginRight: 8,
+  },
+  categoryChipText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: COLORS.darkOlive,
+  },
+  submitButton: {
+    backgroundColor: COLORS.headerDark,
+    borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  submitButtonText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  emptyStateContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 32,
+    gap: 8,
+  },
+  emptyStateTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: COLORS.darkOlive,
+    marginTop: 4,
+  },
+  emptyStateText: {
+    fontSize: 13,
+    color: COLORS.textMuted,
+    textAlign: 'center',
+  },
+  inlineErrorContainer: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  backgroundColor: '#FEF2F2',
+  borderColor: '#FCA5A5',
+  borderWidth: 1,
+  paddingHorizontal: 12,
+  paddingVertical: 10,
+  borderRadius: 8,
+  marginBottom: 16,
+  gap: 8,
+},
+inlineErrorText: {
+  color: '#DC2626',
+  fontSize: 13,
+  fontWeight: '500',
+  flex: 1,
+},
+inlineSuccessContainer: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  backgroundColor: 'rgba(126, 160, 14, 0.1)',
+  borderColor: 'rgba(126, 160, 14, 0.3)',
+  borderWidth: 1,
+  paddingHorizontal: 12,
+  paddingVertical: 10,
+  borderRadius: 8,
+  marginBottom: 16,
+  gap: 8,
+},
+inlineSuccessText: {
+  color: COLORS.olive,
+  fontSize: 13,
+  fontWeight: '500',
+  flex: 1,
+},
+balanceAmountLeft: {
+  flexDirection: 'row', alignItems: 'baseline', gap: 8,
+},
+incomeIconButton: {
+  width: 20,
+  height: 20,
+  borderRadius: 14,             // Makes it a perfect circle
+  justifyContent: 'center',
+  alignItems: 'center',
+  shadowColor: '#000',          // Optional subtle shadow
+  shadowOffset: { width: 0, height: 1 },
+  shadowOpacity: 0.2,
+  shadowRadius: 1.41,
+  marginLeft: 8,
+},
+seeMoreDateBox: {
+  justifyContent: 'center',
+  alignItems: 'center',
+  backgroundColor: COLORS.card,
+  borderStyle: 'dashed',
+  borderWidth: 1.5,
+  borderColor: COLORS.deepTeal,
+},
+seeMoreLabel: {
+  fontSize: 12,
+  fontWeight: '600',
+  color: COLORS.deepTeal,
+},
+
+calendarCard: {
+  backgroundColor: COLORS.card,
+  borderRadius: 20,
+  borderWidth: 1,
+  borderColor: '#E2E8F0',
+  paddingVertical: 8,
+  overflow: 'hidden',
+},
+calendarLegendRow: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: 8,
+  marginTop: 14,
+},
+calendarLegendDot: {
+  width: 6,
+  height: 6,
+  borderRadius: 3,
+  backgroundColor: COLORS.olive,
+},
+calendarLegendText: {
+  fontSize: 12,
+  fontWeight: '600',
+  color: COLORS.textMuted,
+},
+
+});
