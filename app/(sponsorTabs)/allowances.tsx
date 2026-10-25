@@ -1,6 +1,5 @@
 // app/(sponsorTabs)/allowances.tsx
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -244,7 +243,7 @@ function Skeleton({
 function AllowancesSkeleton() {
   return (
     <View style={styles.listContent}>
-      <Skeleton width="100%" height={190} radius={26} style={{ marginBottom: 24 }} />
+      <Skeleton width="100%" height={168} radius={26} style={{ marginBottom: 24 }} />
       <View style={styles.sectionHeader}>
         <Skeleton width={90} height={16} radius={8} />
         <Skeleton width={28} height={20} radius={10} />
@@ -557,52 +556,44 @@ export default function AllowancesScreen() {
   const showSkeleton = loading && !refreshing;
 
   /* ---------- Render ---------- */
+  const heroPercent =
+    totals.allocated > 0
+      ? Math.min(100, Math.max(0, Math.round((totals.remaining / totals.allocated) * 100)))
+      : 0;
+  const heroBarColor = progressColor(heroPercent);
+
   const renderHeaderBlock = () => (
     <View>
-      <LinearGradient
-        colors={['#4FA87A', '#1E6244', '#013237']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.heroCard}
-      >
-        <View style={styles.cardCircleLarge} />
-        <View style={styles.cardCircleSmall} />
-
+      <View style={styles.heroCard}>
         <View style={styles.heroLabelRow}>
-          <View style={styles.heroIconChip}>
-            <Ionicons name="layers-outline" size={14} color={COLORS.white} />
+          <View style={styles.heroLabelLeft}>
+            <View style={styles.heroIconChip}>
+              <Ionicons name="layers-outline" size={15} color={COLORS.primaryMid} />
+            </View>
+            <Text style={styles.heroLabel}>Remaining Allowance</Text>
           </View>
-          <Text style={styles.heroLabel}>Total Allocated</Text>
+          <View style={[styles.heroPercentBadge, { backgroundColor: heroBarColor + '1F' }]}>
+            <Text style={[styles.heroPercentText, { color: heroBarColor }]}>{heroPercent}%</Text>
+          </View>
         </View>
 
-        <Text style={styles.heroAmount}>{formatPeso(totals.allocated)}</Text>
-
-        <View style={styles.heroStatsRow}>
-          <View style={styles.heroStat}>
-            <View style={styles.statLabelRow}>
-              <Ionicons name="arrow-up-circle" size={13} color="#FCA5A5" />
-              <Text style={styles.statLabel}>Spent</Text>
-            </View>
-            <Text style={styles.statValue}>{formatPeso(totals.spent, false)}</Text>
-          </View>
-          <View style={styles.statDivider} />
-          <View style={styles.heroStat}>
-            <View style={styles.statLabelRow}>
-              <Ionicons name="checkmark-circle" size={13} color={COLORS.accentGreen} />
-              <Text style={styles.statLabel}>Remaining</Text>
-            </View>
-            <Text style={styles.statValue}>{formatPeso(totals.remaining, false)}</Text>
-          </View>
-          <View style={styles.statDivider} />
-          <View style={styles.heroStat}>
-            <View style={styles.statLabelRow}>
-              <Ionicons name="people" size={13} color="rgba(255,255,255,0.85)" />
-              <Text style={styles.statLabel}>Spenders</Text>
-            </View>
-            <Text style={styles.statValue}>{spenderCards.length}</Text>
-          </View>
+        <View style={styles.heroAmountRow}>
+          <Text style={styles.heroAmount} numberOfLines={1} adjustsFontSizeToFit>
+            {formatPeso(totals.remaining)}
+          </Text>
+          <Text style={styles.heroAmountOf} numberOfLines={1}>
+            / {formatPeso(totals.allocated, false)}
+          </Text>
         </View>
-      </LinearGradient>
+
+        <View style={styles.heroTrack}>
+          <View
+            style={[styles.heroFill, { width: `${heroPercent}%`, backgroundColor: heroBarColor }]}
+          />
+        </View>
+
+        
+      </View>
 
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>Spenders</Text>
@@ -687,10 +678,7 @@ export default function AllowancesScreen() {
 
         {expanded &&
           item.allowances.map((a) => {
-            const remaining = Math.max(0, a.amount - a.spent);
-            const pct = a.amount > 0 ? Math.min(100, Math.round((remaining / a.amount) * 100)) : 0;
             const status = STATUS_STYLES[getAllowanceStatus(a.start_date, a.end_date)];
-            const color = progressColor(pct);
 
             return (
               <View key={a.id} style={styles.allowanceRow}>
@@ -712,28 +700,21 @@ export default function AllowancesScreen() {
                   <Text style={styles.allowanceAmount}>{formatPeso(a.amount)}</Text>
                 </View>
 
-                <View style={styles.miniTrack}>
-                  <View style={[styles.progressFill, { width: `${pct}%`, backgroundColor: color }]} />
-                </View>
-
                 <View style={styles.allowanceBottom}>
-                  <Text style={styles.allowanceMeta} numberOfLines={1}>
-                    {formatPeso(a.spent, false)} spent · {formatPeso(remaining, false)} left
-                  </Text>
                   <View style={styles.rowActions}>
                     <TouchableOpacity
                       onPress={() => askArchive(a)}
                       style={styles.iconBtn}
                       activeOpacity={0.7}
                     >
-                      <Ionicons name="archive-outline" size={15} color={COLORS.primaryMid} />
+                      <Ionicons name="archive-outline" size={18} color={COLORS.primaryMid} />
                     </TouchableOpacity>
                     <TouchableOpacity
                       onPress={() => askDelete(a)}
                       style={[styles.iconBtn, { backgroundColor: COLORS.dangerSoft }]}
                       activeOpacity={0.7}
                     >
-                      <Ionicons name="trash-outline" size={15} color={COLORS.danger} />
+                      <Ionicons name="trash-outline" size={18} color={COLORS.danger} />
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -843,64 +824,50 @@ const styles = StyleSheet.create({
 
   /* Hero card */
   heroCard: {
+    backgroundColor: COLORS.white,
     borderRadius: 26,
     padding: 22,
-    overflow: 'hidden',
     marginBottom: 24,
+    borderWidth: 1,
+    borderColor: COLORS.border,
     shadowColor: '#0F3D2E',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.22,
-    shadowRadius: 16,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.08,
+    shadowRadius: 14,
+    elevation: 4,
   },
-  cardCircleLarge: {
-    position: 'absolute',
-    width: 220,
-    height: 220,
-    borderRadius: 110,
-    backgroundColor: 'rgba(255,255,255,0.07)',
-    top: -80,
-    right: -60,
-  },
-  cardCircleSmall: {
-    position: 'absolute',
-    width: 140,
-    height: 140,
-    borderRadius: 70,
-    backgroundColor: 'rgba(193,240,56,0.08)',
-    bottom: -50,
-    left: -30,
-  },
-  heroLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  heroLabelRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  heroLabelLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   heroIconChip: {
-    width: 26,
-    height: 26,
-    borderRadius: 9,
-    backgroundColor: 'rgba(255,255,255,0.18)',
+    width: 28,
+    height: 28,
+    borderRadius: 10,
+    backgroundColor: COLORS.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  heroLabel: { color: 'rgba(255,255,255,0.88)', fontSize: 14, fontWeight: '600', letterSpacing: 0.2 },
+  heroLabel: { color: COLORS.textSubtle, fontSize: 14, fontWeight: '600', letterSpacing: 0.2 },
+  heroPercentBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10 },
+  heroPercentText: { fontSize: 12, fontWeight: '800' },
+  heroAmountRow: { flexDirection: 'row', alignItems: 'baseline', gap: 8, marginTop: 16 },
   heroAmount: {
-    color: COLORS.white,
-    fontSize: 38,
+    flexShrink: 1,
+    color: COLORS.textPrimary,
+    fontSize: 36,
     fontWeight: '800',
     letterSpacing: -0.8,
-    marginTop: 14,
-    marginBottom: 18,
   },
-  heroStatsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.18)',
-    borderRadius: 16,
-    paddingVertical: 12,
+  heroAmountOf: { fontSize: 15, fontWeight: '600', color: COLORS.textMuted },
+  heroTrack: {
+    height: 18,
+    backgroundColor: COLORS.track,
+    borderRadius: 9,
+    overflow: 'hidden',
+    marginTop: 18,
   },
-  heroStat: { flex: 1, alignItems: 'center', gap: 4 },
-  statLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  statLabel: { fontSize: 11, color: 'rgba(255,255,255,0.75)', fontWeight: '500' },
-  statValue: { fontSize: 14, fontWeight: '700', color: COLORS.white },
-  statDivider: { width: 1, height: 28, backgroundColor: 'rgba(255,255,255,0.18)' },
+  heroFill: { height: '100%', borderRadius: 9 },
+  heroCaptionRow: { marginTop: 10 },
+  heroCaption: { fontSize: 12, color: COLORS.textMuted, fontWeight: '500' },
 
   /* Section header */
   sectionHeader: {
@@ -992,36 +959,23 @@ const styles = StyleSheet.create({
   allowanceRow: {
     backgroundColor: COLORS.bg,
     borderRadius: 16,
-    padding: 12,
-    marginTop: 8,
+    padding: 14,
+    marginTop: 10,
   },
   allowanceTop: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
   allowanceNameRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  allowanceName: { fontSize: 14, fontWeight: '700', color: COLORS.textPrimary, flexShrink: 1 },
-  statusBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8 },
-  statusBadgeText: { fontSize: 9, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.3 },
-  allowanceDateRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 },
-  allowanceDate: { fontSize: 11, color: COLORS.textMuted },
-  allowanceAmount: { fontSize: 14, fontWeight: '800', color: COLORS.textPrimary },
-  miniTrack: {
-    height: 6,
-    backgroundColor: COLORS.track,
-    borderRadius: 3,
-    overflow: 'hidden',
-    marginTop: 10,
-  },
-  allowanceBottom: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 10,
-  },
-  allowanceMeta: { fontSize: 11, color: COLORS.textSubtle, fontWeight: '500', flex: 1, marginRight: 8 },
-  rowActions: { flexDirection: 'row', gap: 8 },
+  allowanceName: { fontSize: 15, fontWeight: '700', color: COLORS.textPrimary, flexShrink: 1 },
+  statusBadge: { paddingHorizontal: 9, paddingVertical: 3, borderRadius: 8 },
+  statusBadgeText: { fontSize: 10, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.3 },
+  allowanceDateRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 6 },
+  allowanceDate: { fontSize: 12, color: COLORS.textMuted },
+  allowanceAmount: { fontSize: 17, fontWeight: '800', color: COLORS.textPrimary, letterSpacing: -0.3 },
+  allowanceBottom: { marginTop: 12 },
+  rowActions: { flexDirection: 'row', gap: 10 },
   iconBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 10,
+    flex: 1,
+    height: 40,
+    borderRadius: 12,
     backgroundColor: COLORS.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',

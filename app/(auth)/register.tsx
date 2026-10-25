@@ -1,4 +1,5 @@
 import { AntDesign, Feather, FontAwesome } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import * as Linking from 'expo-linking';
 import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
@@ -29,7 +30,6 @@ export default function RegisterScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  // Error state for each input field
   const [errors, setErrors] = useState({
     fullName: '',
     email: '',
@@ -37,10 +37,9 @@ export default function RegisterScreen() {
     confirmPassword: '',
   });
 
-  // Helper function to insert logs into your simple logs table (without action)
   const logActivity = async (userId: string | null, details: string) => {
     try {
-      if (!userId) return; // Don't log if we don't have a user ID yet
+      if (!userId) return;
       await supabase.from('logs').insert({
         user_id: userId,
         details: details,
@@ -50,7 +49,6 @@ export default function RegisterScreen() {
     }
   };
 
-  // Helper function to direct users after successful authentication
   const navigateBasedOnRole = async (userId: string) => {
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
@@ -81,7 +79,6 @@ export default function RegisterScreen() {
     }
   };
 
-  // 1. Email/Password Signup Handler with Inline Validation
   const handleRegister = async () => {
     const trimmedEmail = email.trim();
     const trimmedFullName = fullName.trim();
@@ -94,8 +91,6 @@ export default function RegisterScreen() {
     };
 
     let hasError = false;
-
-    // Regex for basic valid email format checking
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
     if (!trimmedFullName) {
@@ -129,9 +124,7 @@ export default function RegisterScreen() {
 
     setErrors(newErrors);
 
-    if (hasError) {
-      return;
-    }
+    if (hasError) return;
 
     setIsLoading(true);
 
@@ -147,7 +140,6 @@ export default function RegisterScreen() {
       });
 
       if (error) {
-        // Parse Supabase error message to assign inline if it targets email or password
         const msg = error.message.toLowerCase();
         if (msg.includes('email') || msg.includes('already registered')) {
           setErrors(prev => ({ ...prev, email: error.message }));
@@ -157,7 +149,6 @@ export default function RegisterScreen() {
           Alert.alert("Signup Failed", error.message);
         }
       } else {
-        // Redirect to the verify-email screen
         router.push('/verify-email');
       }
     } catch (e: any) {
@@ -167,7 +158,6 @@ export default function RegisterScreen() {
     }
   };
 
-  // 2. OAuth URL Parser for Query and Hash Fragments
   const createSessionFromUrl = async (url: string) => {
     const parsed = Linking.parse(url);
     let params: Record<string, any> = parsed.queryParams || {};
@@ -196,10 +186,9 @@ export default function RegisterScreen() {
       return;
     }
 
-    throw new Error('Authentication parameters were not returned. Check your Supabase Redirect URLs.');
+    throw new Error('Authentication parameters were not returned.');
   };
 
-  // 3. Reusable OAuth Handler
   const performOAuthLogin = async (provider: 'google' | 'facebook') => {
     setIsLoading(true);
     try {
@@ -236,7 +225,7 @@ export default function RegisterScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <LinearGradient colors={['#EAF9E7', '#FFFFFF']} style={styles.container}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1 }}
@@ -255,11 +244,11 @@ export default function RegisterScreen() {
             {/* Full Name Field */}
             <View style={styles.inputContainer}>
               <View style={[styles.inputWrapper, errors.fullName ? styles.inputErrorBorder : null]}>
-                <Feather name="user" color="#085334" size={20} style={styles.inputIcon} />
+                <Feather name="user" color="#4CA771" size={20} style={styles.inputIcon} />
                 <TextInput
                   style={styles.input}
                   placeholder="Full Name"
-                  placeholderTextColor="#A0AEC0"
+                  placeholderTextColor="#7A8A85"
                   value={fullName}
                   onChangeText={(text) => {
                     setFullName(text);
@@ -275,11 +264,11 @@ export default function RegisterScreen() {
             {/* Email Address Field */}
             <View style={styles.inputContainer}>
               <View style={[styles.inputWrapper, errors.email ? styles.inputErrorBorder : null]}>
-                <Feather name="mail" color="#085334" size={20} style={styles.inputIcon} />
+                <Feather name="mail" color="#4CA771" size={20} style={styles.inputIcon} />
                 <TextInput
                   style={styles.input}
                   placeholder="Email Address"
-                  placeholderTextColor="#A0AEC0"
+                  placeholderTextColor="#7A8A85"
                   value={email}
                   onChangeText={(text) => {
                     setEmail(text);
@@ -297,11 +286,11 @@ export default function RegisterScreen() {
             {/* Password Field */}
             <View style={styles.inputContainer}>
               <View style={[styles.inputWrapper, errors.password ? styles.inputErrorBorder : null]}>
-                <Feather name="lock" color="#085334" size={20} style={styles.inputIcon} />
+                <Feather name="lock" color="#4CA771" size={20} style={styles.inputIcon} />
                 <TextInput
                   style={styles.input}
                   placeholder="Password"
-                  placeholderTextColor="#A0AEC0"
+                  placeholderTextColor="#7A8A85"
                   value={password}
                   onChangeText={(text) => {
                     setPassword(text);
@@ -316,7 +305,7 @@ export default function RegisterScreen() {
                   style={styles.eyeIcon}
                   disabled={isLoading}
                 >
-                  <Feather name={showPassword ? 'eye-off' : 'eye'} color="#718096" size={20} />
+                  <Feather name={showPassword ? 'eye-off' : 'eye'} color="#4CA771" size={20} />
                 </TouchableOpacity>
               </View>
               {errors.password ? <Text style={styles.errorText}>{errors.password}</Text> : null}
@@ -325,11 +314,11 @@ export default function RegisterScreen() {
             {/* Confirm Password Field */}
             <View style={styles.inputContainer}>
               <View style={[styles.inputWrapper, errors.confirmPassword ? styles.inputErrorBorder : null]}>
-                <Feather name="lock" color="#085334" size={20} style={styles.inputIcon} />
+                <Feather name="lock" color="#4CA771" size={20} style={styles.inputIcon} />
                 <TextInput
                   style={styles.input}
                   placeholder="Confirm Password"
-                  placeholderTextColor="#A0AEC0"
+                  placeholderTextColor="#7A8A85"
                   value={confirmPassword}
                   onChangeText={(text) => {
                     setConfirmPassword(text);
@@ -344,7 +333,7 @@ export default function RegisterScreen() {
                   style={styles.eyeIcon}
                   disabled={isLoading}
                 >
-                  <Feather name={showPassword ? 'eye-off' : 'eye'} color="#718096" size={20} />
+                  <Feather name={showPassword ? 'eye-off' : 'eye'} color="#4CA771" size={20} />
                 </TouchableOpacity>
               </View>
               {errors.confirmPassword ? <Text style={styles.errorText}>{errors.confirmPassword}</Text> : null}
@@ -397,14 +386,13 @@ export default function RegisterScreen() {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
-    </View>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
   container: { 
     flex: 1,
-    backgroundColor: '#FFFFFF',
   },
   scrollContainer: { 
     flexGrow: 1, 
@@ -413,26 +401,26 @@ const styles = StyleSheet.create({
     paddingVertical: 20,
   },
   headerContainer: { 
-    marginBottom: 40,
+    marginBottom: 32,
   },
   title: { 
-    fontSize: 34, 
-    fontWeight: 'bold', 
-    color: '#000000', 
-    lineHeight: 42,
-    marginBottom: 12, 
+    fontSize: 32, 
+    fontWeight: '700', 
+    color: '#013237', 
+    lineHeight: 40,
+    marginBottom: 8, 
   },
   brandText: {
-    color: '#276916', 
+    color: '#4CA771', 
   },
   subtitle: { 
-    fontSize: 13, 
-    color: '#0e9b59',
-    lineHeight: 18,
+    fontSize: 14, 
+    color: '#4CA771',
+    lineHeight: 20,
   },
   form: { 
     width: '100%', 
-    marginBottom: 20,
+    marginBottom: 16,
   },
   inputContainer: {
     marginBottom: 10,
@@ -440,24 +428,19 @@ const styles = StyleSheet.create({
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#e6f5ef',
+    backgroundColor: '#FFFFFF',
     borderRadius: 30, 
     paddingHorizontal: 20,
-    height: 58,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
+    height: 56,
   },
   inputErrorBorder: {
     borderWidth: 1.5,
     borderColor: '#E53E3E',
-    
   },
   errorText: {
     color: '#E53E3E',
     fontSize: 12,
-    marginTop: 6,
+    marginTop: 4,
     marginLeft: 20,
   },
   inputIcon: {
@@ -466,23 +449,19 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     fontSize: 15,
-    color: '#1A202C',
+    color: '#013237',
     height: '100%',
   },
   eyeIcon: {
     padding: 4,
   },
   primaryButton: {
-    backgroundColor: '#204d3a',
+    backgroundColor: '#013237',
     borderRadius: 30,
     height: 56,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 10,
-    shadowColor: '#15492f',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
   },
   buttonText: { 
     color: '#FFFFFF', 
@@ -492,37 +471,35 @@ const styles = StyleSheet.create({
   dividerContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: 20,
+    marginVertical: 18,
   },
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: '#E2E8F0',
+    backgroundColor: '#C0E6BA',
   },
   dividerText: {
-    color: '#0c9c6c',
+    color: '#4CA771',
     fontSize: 14,
     marginHorizontal: 12,
   },
   socialContainer: {
     gap: 12,
-    marginBottom: 32,
+    marginBottom: 28,
   },
   socialButton: {
-    backgroundColor: '#f3fdec',
+    backgroundColor: '#FFFFFF',
     borderRadius: 30,
     height: 54,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'transparent',
   },
   socialIcon: {
     marginRight: 10,
   },
   socialButtonText: {
-    color: '#1A202C',
+    color: '#013237',
     fontSize: 15,
     fontWeight: '500',
   },
@@ -532,12 +509,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   footerText: { 
-    color: '#3e973b', 
+    color: '#013237', 
     fontSize: 14,
   },
   linkText: { 
-    color: '#07756c',
-    fontWeight: 'bold', 
+    color: '#4CA771',
+    fontWeight: '700', 
     fontSize: 14,
   },
 });

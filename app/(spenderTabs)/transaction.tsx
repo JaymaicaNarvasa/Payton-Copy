@@ -19,6 +19,7 @@ import {
   View
 } from 'react-native';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { GradientBackground } from '../../components/GradientBackground';
 import { supabase } from '../../lib/supabase';
 
 const COLORS = {
@@ -436,6 +437,9 @@ function TransactionsScreenContent() {
         styles.topBackgroundHeader, 
         { paddingTop: Platform.OS === 'android' ? insets.top + 12 : insets.top + 8 }
       ]}>
+        <View style={styles.headerGradientFill}>
+          <GradientBackground />
+        </View>
         <View style={styles.header}>
           <TouchableOpacity 
             activeOpacity={0.7}
@@ -469,7 +473,7 @@ function TransactionsScreenContent() {
         showsVerticalScrollIndicator={false}
         onScroll={handleScroll}
         scrollEventThrottle={16}
-        contentContainerStyle={{ paddingBottom: 80, paddingTop: theme.space[16] }}
+        contentContainerStyle={{ paddingBottom: theme.layout.tabBarClearance, paddingTop: theme.space[16] }}
         refreshControl={
           <RefreshControl 
             refreshing={refreshing} 
@@ -546,7 +550,7 @@ function TransactionsScreenContent() {
                   
                   <View style={{ flex: 1, justifyContent: 'center' }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.space[6] }}>
-                      <Text style={{ fontSize: theme.fontSize.body, fontWeight: theme.fontWeight.bold, color: theme.colors.text }} numberOfLines={1}>
+                      <Text style={{ fontSize: theme.fontSize.body, fontFamily: theme.fontFamily.bold, color: theme.colors.text }} numberOfLines={1}>
                         {expense.description}
                       </Text>
                       {expense.photo_url ? (
@@ -558,13 +562,13 @@ function TransactionsScreenContent() {
                         </TouchableOpacity>
                       ) : null}
                     </View>
-                    <Text style={{ fontSize: theme.fontSize.tiny, fontWeight: theme.fontWeight.medium, color: theme.colors.textMuted, marginTop: theme.space[2] }}>
+                    <Text style={{ fontSize: theme.fontSize.tiny, fontFamily: theme.fontFamily.medium, color: theme.colors.textMuted, marginTop: theme.space[2] }}>
                       {formatDate(expense.spent_at)}
                     </Text>
                   </View>
 
                   <View style={{ alignItems: 'flex-end', flexDirection: 'row', gap: theme.space[10] }}>
-                    <Text style={{ fontSize: theme.fontSize.body, fontWeight: theme.fontWeight.bold, color: theme.colors.danger }}>
+                    <Text style={{ fontSize: theme.fontSize.body, fontFamily: theme.fontFamily.bold, color: theme.colors.danger }}>
                       -₱{(expense.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                     </Text>
                     <TouchableOpacity 
@@ -693,7 +697,7 @@ function TransactionsScreenContent() {
 
             <Text style={styles.deleteModalTitle}>Delete Transaction</Text>
             <Text style={styles.deleteModalMessage}>
-              Are you sure you want to delete <Text style={{ fontWeight: theme.fontWeight.bold, color: theme.colors.text }}>"{transactionToDelete?.description}"</Text>? This action cannot be undone.
+              Are you sure you want to delete <Text style={{ fontFamily: theme.fontFamily.bold, color: theme.colors.text }}>"{transactionToDelete?.description}"</Text>? This action cannot be undone.
             </Text>
 
             <View style={styles.deleteModalActions}>

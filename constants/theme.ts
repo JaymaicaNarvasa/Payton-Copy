@@ -1,4 +1,5 @@
 // constants/theme.ts
+import { fonts } from './fonts';
 // Single source of truth for the UI of every actor (Spender, Sponsor, Personal) and the auth screens.
 // Change a value here and it updates everywhere. Use:  import { theme } from '@/constants/theme';
 
@@ -124,7 +125,8 @@ export const colors = {
   // spender home (Figma reference)
   gradientStart: '#75C093',
   gradientEnd: '#013237',
-  progressFill: '#9BE0B5',
+  progressTrack: '#E6F4E8',
+  progressFill: '#5FAE7E',
   mintPill: '#CDEBD7',
   mintPillText: '#1E5F44',
   dueGreen: '#3E9B70',
@@ -179,6 +181,18 @@ export const radius = {xxs: 2, xs: 4, sm: 8, tight: 10, md: 12, soft: 14, lg: 16
 
 export const fontSize = {micro: 10, tiny: 11, small: 12, caption: 13, body: 14, bodyLg: 15, subtitle: 16, title: 18, heading: 20, headingLg: 22, display: 26, displayLg: 28, hero: 32} as const;
 
+/** Lato, one family per weight (Android ignores fontWeight for custom fonts).
+ *  Weights whose file is missing in constants/fonts.ts fall back to the nearest one that exists. */
+const has = (name: string) => name in fonts;
+const REGULAR = 'Lato-Regular';
+const BOLD = has('Lato-Bold') ? 'Lato-Bold' : REGULAR;
+const LIGHT = has('Lato-Light') ? 'Lato-Light' : REGULAR;
+const BLACK = has('Lato-Black') ? 'Lato-Black' : BOLD;
+export const fontFamily = {
+  light: LIGHT, regular: REGULAR, medium: REGULAR,
+  semibold: BOLD, bold: BOLD, extrabold: BLACK, black: BLACK,
+} as const;
+
 export const fontWeight = {light: '300', regular: '400', medium: '500', semibold: '600', bold: '700', extrabold: '800', black: '900'} as const;
 
 /** Ready-made shadows. Usage: ...theme.shadow.md */
@@ -189,9 +203,35 @@ export const shadow = {
   xl: { shadowColor: colors.brandDark, shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.22, shadowRadius: 24, elevation: 12 },
 } as const;
 
-/** Chart / category palettes */
+/** Chart / category palettes — kept inside the brand's own olive / aqua / teal family
+ *  (rather than a generic rainbow) so charts always read as part of the same app. */
 export const chart = {
-  category: [colors.aqua, colors.brand, colors.olive, colors.lime, colors.oliveDeep, colors.aquaMid, colors.brandMid, colors.oliveBright, colors.limeSoft, colors.oliveDark],
+  /** solid category colors (legend dots, labels). Index-aligned with categoryGradients. */
+  category: [
+    colors.olive,      // 1st: olive / yellow-green
+    colors.aqua,        // 2nd: cyan / light-teal
+    colors.dueTeal,      // 3rd: dark navy-teal
+    colors.lime,
+    colors.mint,
+    colors.dueGreen,
+    colors.brand,
+    colors.oliveDark,
+    colors.teal,
+    colors.forest,
+  ],
+  /** donut segment gradients: from (light) -> to (deep) */
+  categoryGradients: [
+    { from: colors.oliveBright, to: colors.olive },
+    { from: colors.aquaSoft, to: colors.aqua },
+    { from: colors.brandMid, to: colors.gradientEnd },
+    { from: colors.limeSoft, to: colors.lime },
+    { from: colors.accentSoft, to: colors.mint },
+    { from: colors.gradientStart, to: colors.dueGreen },
+    { from: colors.brandAlt, to: colors.brandDark },
+    { from: colors.oliveLight, to: colors.oliveDark },
+    { from: colors.aquaMid, to: colors.teal },
+    { from: colors.forestMuted, to: colors.forest },
+  ],
   lightCards: [colors.brandWashAlt, colors.oliveWash, colors.limeWash],
 } as const;
 
@@ -199,7 +239,13 @@ export const chart = {
 export const layout = {
   /** bottom padding so scroll content clears the floating tab bar */
   tabBarClearance: 110,
+  /** collapsing home header (content height, status bar inset is added in code) */
+  headerExpanded: 210,
+  headerCollapsed: 112,
+  /** white content sheet that slides over the gradient header (all screens) */
+  sheetRadius: 36,
+  sheetOverlap: 28,
 } as const;
 
-export const theme = { colors, space, radius, fontSize, fontWeight, shadow, chart, layout } as const;
+export const theme = { colors, space, radius, fontSize, fontWeight, fontFamily, shadow, chart, layout } as const;
 export default theme;

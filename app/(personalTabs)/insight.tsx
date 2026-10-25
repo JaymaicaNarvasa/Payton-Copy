@@ -17,6 +17,7 @@ import { getAiModel } from '../../services/aiClient';
 
 import { theme } from '@/constants/theme';
 import { insightStyles as styles } from '@/constants/ui.styles';
+import { GradientBackground } from '../../components/GradientBackground';
 import { supabase } from '../../lib/supabase';
 
 interface PacingResult {
@@ -336,6 +337,9 @@ export default function InsightScreen() {
     return (
         <View style={styles.safeArea}>
             <Stack.Screen options={{ headerShown: false }} />
+            <View style={styles.screenGradientFill}>
+                <GradientBackground />
+            </View>
             <StatusBar style="light" />
 
             <KeyboardAvoidingView 

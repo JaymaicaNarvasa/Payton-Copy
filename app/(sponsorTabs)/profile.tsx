@@ -1,6 +1,5 @@
 // app/(sponsorTabs)/profile.tsx
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useState } from 'react';
@@ -20,20 +19,26 @@ import {
 
 import { supabase } from '../../lib/supabase';
 
-/* ---------- Design Tokens ---------- */
-const COLORS = {
-  bgLight: '#F3F4F6',
-  lightGreen: '#C0E6BA',
-  mediumGreen: '#4CA771',
-  darkTeal: '#013237',
-  bg: '#F9FAFB',
-  card: '#FFFFFF',
-  white: '#FFFFFF',
-  textPrimary: '#111827',
-  textMuted: '#6B7280',
+export const colors = {
+  headerDark: '#1F4F59',  
+  headerDarker: '#173D45', 
+  primary: '#3AA39F',      
+  primaryTint: '#e9fcfb',
+  cyan: '#9be5d9',
+  olive: '#7EA00E',
+  oliveTint: '#F3F6E4',    
+  yellowGreen: '#DCD964',
+  positive: '#0E7C5A',
+  positiveBg: '#E1F5EC',
   danger: '#DC2626',
-  borderLight: '#E5E7EB',
-  success: '#2E7D32',
+  textDark: '#0F172A',
+  textMuted: '#64748B',
+  textFaint: '#94A3B8',
+  border: '#E2E8F0',
+  surface: '#FFFFFF',
+  surfaceMuted: '#F8FAFC',
+  background: '#F8FAFC',
+  overlay: 'rgba(9, 20, 19, 0.5)',
 };
 
 export default function SponsorProfileScreen() {
@@ -114,54 +119,22 @@ export default function SponsorProfileScreen() {
   if (isLoadingProfile) {
     return (
       <View style={[styles.container, styles.centerLoading]}>
-        <StatusBar style="dark" />
-        <ActivityIndicator size="small" color={COLORS.textPrimary} />
+        <StatusBar style="light" />
+        <ActivityIndicator size="small" color="#3AA39F" />
       </View>
     );
   }
 
-  const initials = fullName
-    .split(' ')
-    .map((w) => w[0])
-    .slice(0, 2)
-    .join('')
-    .toUpperCase() || 'U';
-
-  const roleText = (role || 'Sponsor').toUpperCase();
-
   return (
     <View style={styles.container}>
-      <StatusBar style="dark" />
-
-      {/* HEADER */}
-      <LinearGradient
-        colors={[COLORS.lightGreen, COLORS.bgLight]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 0, y: 1 }}
-        style={styles.heroContainer}
-      >
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton} activeOpacity={0.7}>
-            <Ionicons name="arrow-back" size={20} color={COLORS.darkTeal} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Account Settings</Text>
-          <View style={{ width: 36 }} />
-        </View>
-
-        <View style={styles.profileHeroContent}>
-          {avatarUrl ? (
-            <Image source={{ uri: avatarUrl }} style={styles.heroAvatar} />
-          ) : (
-            <View style={styles.heroAvatarPlaceholder}>
-              <Text style={styles.avatarInitials}>{initials}</Text>
-            </View>
-          )}
-          <Text style={styles.heroName} numberOfLines={1}>{fullName || "User Account"}</Text>
-          <View style={styles.badgeContainer}>
-            <Text style={styles.badgeText}>{roleText}</Text>
-          </View>
-        </View>
-      </LinearGradient>
+      <StatusBar style="light" />
+      <View style={styles.modernHeader}>
+        <TouchableOpacity style={styles.backBtnTouchable} onPress={() => router.back()}>
+          <Ionicons name="arrow-back" size={20} color="#ffffff" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitleCentered}>Account</Text>
+        <View style={{ width: 20 }} />
+      </View>
 
       <ScrollView 
         showsVerticalScrollIndicator={false} 
@@ -170,11 +143,25 @@ export default function SponsorProfileScreen() {
           <RefreshControl 
             refreshing={isRefreshing} 
             onRefresh={onRefresh} 
-            tintColor={COLORS.textPrimary} 
-            colors={[COLORS.textPrimary]} 
+            tintColor="#3AA39F" 
+            colors={['#3AA39F']} 
           />
         }
       >
+        <View style={styles.modernHeroBlock}>
+          {avatarUrl ? (
+            <Image source={{ uri: avatarUrl }} style={styles.heroAvatar} />
+          ) : (
+            <View style={styles.heroAvatarPlaceholder}>
+              <Text style={styles.avatarInitials}>{fullName ? fullName.charAt(0).toUpperCase() : 'U'}</Text>
+            </View>
+          )}
+          <Text style={styles.heroName}>{fullName || "User Account"}</Text>
+          <View style={styles.badgeContainer}>
+            <Text style={styles.badgeText}>{role ? role.toUpperCase() : "USER"}</Text>
+          </View>
+        </View>
+
         <View style={styles.modernCardGroup}>
           <Text style={styles.groupContextLabel}>Account & Security</Text>
           <View style={styles.groupCard}>
@@ -187,15 +174,14 @@ export default function SponsorProfileScreen() {
                 key={item.id}
                 style={[styles.rowItemFlat, index !== arr.length - 1 && styles.rowDivider]}
                 onPress={item.action}
-                activeOpacity={0.7}
               >
                 <View style={styles.modernRowLeft}>
                   <View style={styles.iconWrapperSquare}>
-                    <Ionicons name={item.icon as any} size={18} color={COLORS.textPrimary} />
+                    <Ionicons name={item.icon as any} size={18} color="#000000" />
                   </View>
                   <Text style={styles.rowPrimaryLabel}>{item.label}</Text>
                 </View>
-                <Ionicons name="chevron-forward" size={16} color={COLORS.textMuted} />
+                <Ionicons name="chevron-forward" size={16} color="#173D45" />
               </TouchableOpacity>
             ))}
           </View>
@@ -212,15 +198,14 @@ export default function SponsorProfileScreen() {
                 key={item.id}
                 style={[styles.rowItemFlat, index !== arr.length - 1 && styles.rowDivider]}
                 onPress={item.action}
-                activeOpacity={0.7}
               >
                 <View style={styles.modernRowLeft}>
                   <View style={styles.iconWrapperSquare}>
-                    <Ionicons name={item.icon as any} size={18} color={COLORS.textPrimary} />
+                    <Ionicons name={item.icon as any} size={18} color="#000000" />
                   </View>
                   <Text style={styles.rowPrimaryLabel}>{item.label}</Text>
                 </View>
-                <Ionicons name="chevron-forward" size={16} color={COLORS.textMuted} />
+                <Ionicons name="chevron-forward" size={16} color="#173D45" />
               </TouchableOpacity>
             ))}
           </View>
@@ -239,15 +224,14 @@ export default function SponsorProfileScreen() {
                 key={item.id}
                 style={[styles.rowItemFlat, index !== arr.length - 1 && styles.rowDivider]}
                 onPress={item.action}
-                activeOpacity={0.7}
               >
                 <View style={styles.modernRowLeft}>
                   <View style={styles.iconWrapperSquare}>
-                    <Ionicons name={item.icon as any} size={18} color={COLORS.textPrimary} />
+                    <Ionicons name={item.icon as any} size={18} color="#000000" />
                   </View>
                   <Text style={styles.rowPrimaryLabel}>{item.label}</Text>
                 </View>
-                <Ionicons name="chevron-forward" size={16} color={COLORS.textMuted} />
+                <Ionicons name="chevron-forward" size={16} color="#173D45" />
               </TouchableOpacity>
             ))}
           </View>
@@ -256,9 +240,8 @@ export default function SponsorProfileScreen() {
         <TouchableOpacity 
           style={styles.modernLogoutBtn} 
           onPress={() => setShowLogoutModal(true)} 
-          activeOpacity={0.8}
         >
-          <Ionicons name="log-out-outline" size={18} color={COLORS.danger} style={{ marginRight: 8 }} />
+          <Ionicons name="log-out-outline" size={18} color="#EF4444" style={{ marginRight: 8 }} />
           <Text style={styles.modernLogoutText}>Log Out</Text>
         </TouchableOpacity>
 
@@ -273,21 +256,24 @@ export default function SponsorProfileScreen() {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContentCard}>
+            
+            {/* Top Icon Badge */}
             <View style={styles.modalIconContainer}>
-              <Ionicons name="log-out-outline" size={24} color={COLORS.danger} />
+              <Ionicons name="log-out-outline" size={26} color="#EF4444" />
             </View>
 
+            {/* Title & Subtitle */}
             <Text style={styles.modalTitle}>Sign Out</Text>
             <Text style={styles.modalSubtitle}>
               Are you sure you want to end your session? You will need to log back in to access your data.
             </Text>
 
+            {/* Actions */}
             <View style={styles.modalActionsRow}>
               <TouchableOpacity
                 style={[styles.modalButton, styles.modalCancelButton]}
                 onPress={() => setShowLogoutModal(false)}
                 disabled={isLoggingOut}
-                activeOpacity={0.8}
               >
                 <Text style={styles.modalCancelButtonText}>Cancel</Text>
               </TouchableOpacity>
@@ -296,18 +282,19 @@ export default function SponsorProfileScreen() {
                 style={[styles.modalButton, styles.modalConfirmButton, isLoggingOut && styles.disabledButton]}
                 onPress={executeLogout}
                 disabled={isLoggingOut}
-                activeOpacity={0.8}
               >
                 {isLoggingOut ? (
-                  <ActivityIndicator size="small" color={COLORS.white} />
+                  <ActivityIndicator size="small" color="#FFFFFF" />
                 ) : (
                   <Text style={styles.modalConfirmButtonText}>Sign Out</Text>
                 )}
               </TouchableOpacity>
             </View>
+
           </View>
         </View>
       </Modal>
+
     </View>
   );
 }
@@ -315,113 +302,42 @@ export default function SponsorProfileScreen() {
 const styles = StyleSheet.create({
   container: { 
     flex: 1, 
-    backgroundColor: COLORS.bg,
+    backgroundColor: '#f5fcfa',
+    borderRadius: 12,
   },
-  centerLoading: { 
-    flex: 1, 
+  centerLoading: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  scrollContent: { paddingBottom: 110 },
+  modernHeader: { 
+    flexDirection: 'row', 
     justifyContent: 'center', 
-    alignItems: 'center' 
-  },
-  heroContainer: {
-    paddingTop: (Platform.OS === 'android' ? 24 : 44) + 10,
+    alignItems: 'center', 
     paddingHorizontal: 24,
-    paddingBottom: 24,
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
+    paddingTop: Platform.OS === 'android' ? 44 : 20,
+    paddingBottom: 20,
+    backgroundColor: colors.headerDark,
+    borderBottomLeftRadius: 32,
+    borderBottomRightRadius: 32,
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  backButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: COLORS.white,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: COLORS.borderLight,
-  },
-  headerTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: COLORS.darkTeal,
-  },
-  profileHeroContent: {
-    alignItems: 'center',
-    marginTop: 10,
-  },
-  scrollContent: { 
-    paddingBottom: 110,
-    paddingTop: 10,
-  },
-  heroAvatar: { 
-    width: 76, 
-    height: 76, 
-    borderRadius: 38, 
-    borderWidth: 2,
-    borderColor: COLORS.white,
-  },
-  heroAvatarPlaceholder: { 
-    width: 76, 
-    height: 76, 
-    borderRadius: 38, 
-    backgroundColor: COLORS.white, 
-    justifyContent: 'center', 
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: COLORS.borderLight,
-  },
-  avatarInitials: { 
-    fontSize: 22, 
-    fontWeight: '700', 
-    color: COLORS.darkTeal,
-  },
-  heroName: { 
-    fontSize: 18, 
-    fontWeight: '700', 
-    color: COLORS.darkTeal, 
-    marginTop: 10, 
-  },
-  badgeContainer: { 
-    backgroundColor: COLORS.darkTeal, 
-    paddingHorizontal: 10, 
-    paddingVertical: 4, 
-    borderRadius: 12, 
-    marginTop: 6, 
-  },
-  badgeText: { 
-    fontSize: 10, 
-    fontWeight: '700', 
-    color: COLORS.white, 
-    letterSpacing: 0.6,
-  },
-  modernCardGroup: { 
-    paddingHorizontal: 20, 
-    marginTop: 20, 
-  },
-  groupContextLabel: { 
-    fontSize: 11, 
-    fontWeight: '700', 
-    color: COLORS.textMuted, 
-    textTransform: 'uppercase', 
-    marginBottom: 8, 
-    letterSpacing: 0.6, 
-    paddingLeft: 4,
-  },
+  backBtnTouchable: { width: 20 },
+  headerTitleCentered: { flex: 1, textAlign: 'center', fontSize: 20, fontWeight: '800', color: '#ffffff', letterSpacing: -0.5 },
+  modernHeroBlock: { alignItems: 'center', marginTop: 30, marginBottom: 15 },
+  heroAvatar: { width: 88, height: 88, borderRadius: 28, backgroundColor: '#E2E8F0' },
+  heroAvatarPlaceholder: { width: 88, height: 88, borderRadius: 28, backgroundColor: '#F1F5F9', justifyContent: 'center', alignItems: 'center' },
+  avatarInitials: { fontSize: 26, fontWeight: '600', color: '#475569' },
+  heroName: { fontSize: 22, fontWeight: '700', color: '#1E293B', marginTop: 14, letterSpacing: -0.5 },
+  badgeContainer: { backgroundColor: '#ffffff', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 11, marginTop: 8, borderWidth: 1, borderColor: '#0E7C5A' },
+  badgeText: { fontSize: 11, fontWeight: '700', color: '#0E7C5A', letterSpacing: 0.5 },
+  modernCardGroup: { paddingHorizontal: 20, marginTop: 24 },
+  groupContextLabel: { fontSize: 12, fontWeight: '600', color: '#94A3B8', textTransform: 'uppercase', marginBottom: 10, letterSpacing: 0.5, paddingLeft: 4 },
+  modernRowLeft: { flexDirection: 'row', alignItems: 'center', flex: 1, paddingRight: 10 },
+  iconWrapperSquare: { width: 36, height: 36, justifyContent: 'center', alignItems: 'center', marginRight: 14 },
+  rowPrimaryLabel: { fontSize: 14, fontWeight: '600', color: '#1E293B' },
   groupCard: {
-    backgroundColor: COLORS.card,
-    borderRadius: 20,
-    borderColor: COLORS.borderLight,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 22,
+    borderColor: '#E2E8F0',
     borderWidth: 1,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2,
+    shadowColor: '#0F172A',
     overflow: 'hidden',
   },
   rowItemFlat: {
@@ -432,56 +348,36 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   rowDivider: {
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.borderLight,
-  },
-  modernRowLeft: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    flex: 1, 
-    paddingRight: 10 
-  },
-  iconWrapperSquare: { 
-    width: 32, 
-    height: 32, 
-    borderRadius: 10,
-    backgroundColor: COLORS.bgLight,
-    justifyContent: 'center', 
-    alignItems: 'center', 
-    marginRight: 12,
-    borderWidth: 1,
-    borderColor: COLORS.borderLight,
-  },
-  rowPrimaryLabel: { 
-    fontSize: 14, 
-    fontWeight: '600', 
-    color: COLORS.textPrimary,
+    borderBottomWidth: 3,
+    borderBottomColor: '#F1F5F9',
   },
   modernLogoutBtn: {
     backgroundColor: '#FEF2F2', 
-    borderRadius: 18,                             
-    padding: 16,                     
+    borderRadius: 24,                             
+    padding: 18,                     
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#FEE2E2',       
-    marginTop: 24,            
-    marginHorizontal: 20,      
+    borderColor: '#ffb8b8',       
+    marginTop: 30,            
+    marginHorizontal: 24,      
   },
   modernLogoutText: {
-    color: COLORS.danger,            
-    fontSize: 14,
+    color: '#EF4444',            
+    fontSize: 15,
     fontWeight: '700',
     letterSpacing: 0.5,
   },
   disabledButton: { 
-    opacity: 0.6,
+    backgroundColor: '#F1F5F9', 
+    borderColor: '#E2E8F0' 
   },
 
+  // Modal Styles
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    backgroundColor: colors.overlay,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 24,
@@ -489,41 +385,37 @@ const styles = StyleSheet.create({
   modalContentCard: {
     width: '100%',
     maxWidth: 340,
-    backgroundColor: COLORS.card,
-    borderRadius: 24,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 28,
     padding: 24,
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: COLORS.borderLight,
-    shadowColor: '#000000',
+    shadowColor: '#0F172A',
     shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.15,
-    shadowRadius: 16,
-    elevation: 5,
+    shadowOpacity: 0.25,
+    shadowRadius: 15,
+    elevation: 8,
   },
   modalIconContainer: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
+    width: 56,
+    height: 56,
+    borderRadius: 20,
     backgroundColor: '#FEF2F2',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#FEE2E2',
   },
   modalTitle: {
-    fontSize: 17,
+    fontSize: 18,
     fontWeight: '700',
-    color: COLORS.textPrimary,
+    color: '#0F172A',
     marginBottom: 8,
     textAlign: 'center',
   },
   modalSubtitle: {
-    fontSize: 13,
-    color: COLORS.textMuted,
+    fontSize: 14,
+    color: '#64748B',
     textAlign: 'center',
-    lineHeight: 18,
+    lineHeight: 20,
     marginBottom: 24,
   },
   modalActionsRow: {
@@ -533,27 +425,27 @@ const styles = StyleSheet.create({
   },
   modalButton: {
     flex: 1,
-    paddingVertical: 12,
-    borderRadius: 14,
+    paddingVertical: 14,
+    borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
   },
   modalCancelButton: {
-    backgroundColor: COLORS.bg,
+    backgroundColor: '#F1F5F9',
     borderWidth: 1,
-    borderColor: COLORS.borderLight,
+    borderColor: '#E2E8F0',
   },
   modalCancelButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: COLORS.textPrimary,
+    color: '#475569',
   },
   modalConfirmButton: {
-    backgroundColor: COLORS.danger,
+    backgroundColor: '#EF4444',
   },
   modalConfirmButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: COLORS.white,
+    color: '#FFFFFF',
   },
 });

@@ -1,11 +1,14 @@
+import { useFonts } from 'expo-font';
 import * as Linking from 'expo-linking';
 import { Stack, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect } from 'react';
+import { fonts } from '../constants/fonts';
 import { supabase } from '../lib/supabase';
 
 export default function RootLayout() {
   const router = useRouter();
+  const [fontsLoaded, fontError] = useFonts(fonts);
 
   useEffect(() => {
     // 1. Listen gamit ang onAuthStateChange alang sa PASSWORD_RECOVERY event
@@ -52,6 +55,9 @@ export default function RootLayout() {
       listener.remove();
     };
   }, []);
+
+  // wait for Lato (if it fails to load we still start, with the system font)
+  if (!fontsLoaded && !fontError) return null;
 
   return (
     <>

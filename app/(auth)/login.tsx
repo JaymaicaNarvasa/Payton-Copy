@@ -1,4 +1,5 @@
 import { AntDesign, Feather, FontAwesome } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import * as Linking from 'expo-linking';
 import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
@@ -27,15 +28,13 @@ export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  // Inline error state variables
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [generalError, setGeneralError] = useState('');
 
-  // Helper function to insert logs into your simple logs table (without action)
   const logActivity = async (userId: string | null, details: string) => {
     try {
-      if (!userId) return; // Don't log if we don't have a user ID yet
+      if (!userId) return;
       await supabase.from('logs').insert({
         user_id: userId,
         details: details,
@@ -45,7 +44,6 @@ export default function LoginScreen() {
     }
   };
 
-  // Helper function to direct users after successful authentication
   const navigateBasedOnRole = async (userId: string) => {
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
@@ -76,9 +74,7 @@ export default function LoginScreen() {
     }
   };
 
-  // 1. Password Login Handler
   const handleLogin = async () => {
-    // Reset errors before validation
     setEmailError('');
     setPasswordError('');
     setGeneralError('');
@@ -110,7 +106,6 @@ export default function LoginScreen() {
       }
 
       if (authData?.user) { 
-        // Log successful login with email-focused details
         await logActivity(authData.user.id, `signed in successfully.`);
         await navigateBasedOnRole(authData.user.id);
       }
@@ -121,12 +116,10 @@ export default function LoginScreen() {
     }
   };
 
-  // 2. Forgot Password Navigation
   const handleForgotPassword = () => {
     router.push('/forgot-password');
   };
 
-  // 3. OAuth Deep Link Session Creator
   const createSessionFromUrl = async (url: string) => {
     const parsed = Linking.parse(url);
     let params: Record<string, any> = parsed.queryParams || {};
@@ -156,7 +149,6 @@ export default function LoginScreen() {
     }
   };
 
-  // 4. OAuth Handler
   const performOAuthLogin = async (provider: 'google' | 'facebook') => {
     setGeneralError('');
     setLoading(true);
@@ -181,7 +173,6 @@ export default function LoginScreen() {
 
           const { data: authUser } = await supabase.auth.getUser();
           if (authUser?.user) {
-            // Log successful OAuth sign in
             await logActivity(authUser.user.id, `signed in via ${provider}.`);
             await navigateBasedOnRole(authUser.user.id);
           }
@@ -195,7 +186,7 @@ export default function LoginScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <LinearGradient colors={['#EAF9E7', '#FFFFFF']} style={styles.container}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1 }}
@@ -215,7 +206,6 @@ export default function LoginScreen() {
             </Text>
           </View>
 
-          {/* General / Authentication-wide error message */}
           {generalError ? (
             <View style={styles.generalErrorContainer}>
               <Text style={styles.errorText}>{generalError}</Text>
@@ -225,11 +215,11 @@ export default function LoginScreen() {
           <View style={styles.form}>
             {/* Email Input Field */}
             <View style={[styles.inputWrapper, emailError ? styles.inputErrorBorder : null]}>
-              <Feather name="mail" color="#085334" size={20} style={styles.inputIcon} />
+              <Feather name="mail" color="#4CA771" size={20} style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
                 placeholder="Email Address"
-                placeholderTextColor="#A0AEC0"
+                placeholderTextColor="#7A8A85"
                 value={email}
                 onChangeText={(text) => {
                   setEmail(text);
@@ -246,11 +236,11 @@ export default function LoginScreen() {
 
             {/* Password Input Field */}
             <View style={[styles.inputWrapper, passwordError ? styles.inputErrorBorder : null]}>
-              <Feather name="lock" color="#085334" size={20} style={styles.inputIcon} />
+              <Feather name="lock" color="#4CA771" size={20} style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
                 placeholder="Password"
-                placeholderTextColor="#A0AEC0"
+                placeholderTextColor="#7A8A85"
                 value={password}
                 onChangeText={(text) => {
                   setPassword(text);
@@ -267,7 +257,7 @@ export default function LoginScreen() {
                 style={styles.eyeIcon}
                 disabled={loading}
               >
-                <Feather name={showPassword ? 'eye-off' : 'eye'} color="#718096" size={20} />
+                <Feather name={showPassword ? 'eye-off' : 'eye'} color="#4CA771" size={20} />
               </TouchableOpacity>
             </View>
             {passwordError ? <Text style={styles.errorText}>{passwordError}</Text> : null}
@@ -323,14 +313,13 @@ export default function LoginScreen() {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
-    </View>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
   container: { 
     flex: 1,
-    backgroundColor: '#FFFFFF',
   },
   scrollContainer: { 
     flexGrow: 1, 
@@ -349,36 +338,34 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   title: { 
-    fontSize: 34, 
-    fontWeight: 'bold', 
-    color: '#000000', 
-    lineHeight: 42,
-    marginBottom: 12, 
+    fontSize: 32, 
+    fontWeight: '700', 
+    color: '#013237', 
+    lineHeight: 40,
+    marginBottom: 8, 
     textAlign: 'center',
   },
   brandText: {
-    color: '#276916', 
+    color: '#4CA771', 
   },
   subtitle: { 
-    fontSize: 13, 
-    color: '#0e9b59',
-    lineHeight: 18,
+    fontSize: 14, 
+    color: '#4CA771',
+    lineHeight: 20,
     textAlign: 'center',
   },
   form: { 
     width: '100%', 
-    marginBottom: 20,
+    marginBottom: 16,
   },
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#e6f5ef',
+    backgroundColor: '#FFFFFF',
     borderRadius: 30, 
     paddingHorizontal: 20,
-    height: 58,
-    marginBottom: 6,
-    borderWidth: 1,
-    borderColor: 'transparent',
+    height: 56,
+    marginBottom: 8,
   },
   inputErrorBorder: {
     borderWidth: 1.5,
@@ -388,10 +375,10 @@ const styles = StyleSheet.create({
     color: '#E53E3E',
     fontSize: 12,
     marginLeft: 20,
-    marginBottom: 12,
+    marginBottom: 8,
   },
   generalErrorContainer: {
-    marginBottom: 15,
+    marginBottom: 12,
     paddingHorizontal: 4,
   },
   inputIcon: {
@@ -400,7 +387,7 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     fontSize: 15,
-    color: '#1A202C',
+    color: '#013237',
     height: '100%',
     backgroundColor: 'transparent',
   },
@@ -408,16 +395,12 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   primaryButton: {
-    backgroundColor: '#204d3a',
+    backgroundColor: '#013237',
     borderRadius: 30,
     height: 56,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 10,
-    shadowColor: '#15492f',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
+    marginTop: 4,
   },
   buttonText: { 
     color: '#FFFFFF', 
@@ -427,37 +410,35 @@ const styles = StyleSheet.create({
   dividerContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: 20,
+    marginVertical: 18,
   },
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: '#E2E8F0',
+    backgroundColor: '#C0E6BA',
   },
   dividerText: {
-    color: '#0c9c6c',
+    color: '#4CA771',
     fontSize: 14,
     marginHorizontal: 12,
   },
   socialContainer: {
     gap: 12,
-    marginBottom: 32,
+    marginBottom: 28,
   },
   socialButton: {
-    backgroundColor: '#f3fdec',
+    backgroundColor: '#FFFFFF',
     borderRadius: 30,
     height: 54,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'transparent',
   },
   socialIcon: {
     marginRight: 10,
   },
   socialButtonText: {
-    color: '#1A202C',
+    color: '#013237',
     fontSize: 15,
     fontWeight: '500',
   },
@@ -467,18 +448,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   footerText: { 
-    color: '#3e973b', 
+    color: '#013237', 
     fontSize: 14,
   },
   linkText: { 
-    color: '#07756c',
-    fontWeight: 'bold', 
+    color: '#4CA771',
+    fontWeight: '700', 
     fontSize: 14,
   },
   forgot: {
-    color: '#3f7c77',
+    color: '#4CA771',
     textAlign: 'right',
-    marginBottom: 15,
+    marginBottom: 16,
     paddingVertical: 4,
+    fontWeight: '500',
   },
 });

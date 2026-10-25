@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
   Image,
   Modal,
+  Platform,
   RefreshControl,
   ScrollView,
   Text,
@@ -18,6 +19,8 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { GradientBackground } from '../../components/GradientBackground';
 import { useAlert } from '../../components/PaytonAlert';
 
 type Friend = {
@@ -57,6 +60,7 @@ type ActiveSplit = {
 };
 
 export default function SplitScreen() {
+  const insets = useSafeAreaInsets();
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [refreshing, setRefreshing] = useState<boolean>(false);
@@ -519,46 +523,46 @@ const handleCreateSplitDirectly = async () => {
   setLoading(true);
 
   try {
-    // 1. Fetch the user's most recent active income dynamically (including its amount)
-    let activeIncomeId = null;
-    const { data: latestIncome, error: incomeFetchErr } = await supabase
-      .from('income')
+    // 1. Fetch the user's most recent active allowance dynamically (including its amount)
+    let activeAllowanceId = null;
+    const { data: latestAllowance, error: allowFetchErr } = await supabase
+      .from('allowances')
       .select('id, amount')
-      .eq('user_id', user.id)
+      .eq('spender_id', user.id)
       .eq('is_archived', false) // ensure it's not archived
       .order('received_at', { ascending: false })
       .limit(1)
       .maybeSingle();
 
-    if (incomeFetchErr) throw incomeFetchErr;
+    if (allowFetchErr) throw allowFetchErr;
 
-    // Validation: Ensure an active income exists
-    if (!latestIncome) {
+    // Validation: Ensure an active allowance exists
+    if (!latestAllowance) {
       setSplitFormMessage({ 
-        text: 'No active income found. Please create an income before splitting expenses.', 
+        text: 'No active allowance found. Please create an allowance before splitting expenses.', 
         type: 'error' 
       });
       setLoading(false);
       return;
     }
 
-    activeIncomeId = latestIncome.id;
+    activeAllowanceId = latestAllowance.id;
 
-    // 1b. Fetch all expenses linked to this active income to calculate total spent
-    const { data: incomeExpenses, error: expFetchErr } = await supabase
+    // 1b. Fetch all expenses linked to this active allowance to calculate total spent
+    const { data: allowanceExpenses, error: expFetchErr } = await supabase
       .from('expenses')
       .select('amount')
-      .eq('income_id', activeIncomeId);
+      .eq('allowance_id', activeAllowanceId);
 
     if (expFetchErr) throw expFetchErr;
 
-    const totalExpenses = (incomeExpenses || []).reduce((sum, exp) => sum + (exp.amount || 0), 0);
-    const remainingBalance = latestIncome.amount - totalExpenses;
+    const totalExpenses = (allowanceExpenses || []).reduce((sum, exp) => sum + (exp.amount || 0), 0);
+    const remainingBalance = latestAllowance.amount - totalExpenses;
 
     // Validation: Ensure split amount does not exceed remaining balance
     if (numericAmount > remainingBalance) {
       setSplitFormMessage({ 
-        text: `Split amount (${numericAmount}) exceeds your remaining income balance (${remainingBalance.toFixed(2)}).`, 
+        text: `Split amount (${numericAmount}) exceeds your remaining allowance balance (${remainingBalance.toFixed(2)}).`, 
         type: 'error' 
       });
       setLoading(false);
@@ -595,14 +599,14 @@ const handleCreateSplitDirectly = async () => {
     const { error: friendsErr } = await supabase.from('split_friends').insert(friendInserts);
     if (friendsErr) throw friendsErr;
 
-    // 3. Insert into general expenses table using category_id, fetched income_id, and spent_at
+    // 3. Insert into general expenses table using category_id, fetched allowance_id, and spent_at
     const { error: expenseErr } = await supabase.from('expenses').insert([
       {
         user_id: user.id,
         amount: numericAmount,
         description: description.trim(),
         category_id: selectedCategoryId,
-        income_id: activeIncomeId,
+        allowance_id: activeAllowanceId,
         spent_at: new Date().toISOString(),
       },
     ]);
@@ -669,20 +673,20 @@ const handleConfirmSettlePayment = async () => {
   setLoading(true);
 
   try {
-    // 1. Validate that an active income exists FIRST before changing any data
-    const { data: latestIncome, error: incomeFetchErr } = await supabase
-      .from('income')
+    // 1. Validate that an active allowance exists FIRST before changing any data
+    const { data: latestAllowance, error: allowFetchErr } = await supabase
+      .from('allowances')
       .select('id, amount')
-      .eq('user_id', user.id)
+      .eq('spender_id', user.id)
       .eq('is_archived', false)
       .order('received_at', { ascending: false })
       .limit(1)
       .maybeSingle();
 
-    if (incomeFetchErr) throw incomeFetchErr;
+    if (allowFetchErr) throw allowFetchErr;
     
-    if (!latestIncome) {
-      throw new Error('No active income found. Please create an active income before settling payments.');
+    if (!latestAllowance) {
+      throw new Error('No active allowance found. Please create an active allowance before settling payments.');
     }
 
     const friendName = selectedFriendToSettle.friends?.full_name || 'Friend';
@@ -702,18 +706,18 @@ const handleConfirmSettlePayment = async () => {
 
     if (updateFriendErr) throw updateFriendErr;
 
-    // 3. Add the received payment to the active income found earlier
-    const currentIncomeAmount = parseFloat(latestIncome.amount) || 0;
-    const updatedIncomeAmount = currentIncomeAmount + paidVal;
+    // 3. Add the received payment to the active allowance found earlier
+    const currentAllowanceAmount = parseFloat(latestAllowance.amount) || 0;
+    const updatedAllowanceAmount = currentAllowanceAmount + paidVal;
 
-    const { error: incomeUpdateErr } = await supabase
-      .from('income')
-      .update({ amount: updatedIncomeAmount })
-      .eq('id', latestIncome.id);
+    const { error: allowUpdateErr } = await supabase
+      .from('allowances')
+      .update({ amount: updatedAllowanceAmount })
+      .eq('id', latestAllowance.id);
 
-    if (incomeUpdateErr) {
-      console.error('Failed to update income amount:', incomeUpdateErr.message);
-      throw incomeUpdateErr;
+    if (allowUpdateErr) {
+      console.error('Failed to update allowance amount:', allowUpdateErr.message);
+      throw allowUpdateErr;
     }
 
     // 4. Log the successful settlement payment action matching your logs table schema
@@ -722,7 +726,7 @@ const handleConfirmSettlePayment = async () => {
       details: `settled split payment of ₱${paidVal.toFixed(2)} from "${friendName}".`,
     });
 
-    let successMessage = `Successfully received ₱${paidVal.toFixed(2)} from ${friendName} (added to your active income). ${
+    let successMessage = `Successfully received ₱${paidVal.toFixed(2)} from ${friendName} (added to your active allowance). ${
       isFullyPaid ? 'Fully settled!' : `Remaining balance: ₱${newOwed.toFixed(2)}`
     }`;
 
@@ -873,14 +877,23 @@ const handleConfirmSettlePayment = async () => {
   return (
     <View style={styles.container}>
       {/* HEADER */}
-      <View style={styles.modernHeader}>
+      <View
+        style={[
+          styles.modernHeader,
+          { paddingTop: Platform.OS === 'android' ? insets.top + 12 : insets.top + 8 },
+        ]}
+      >
+        <View style={styles.headerGradientFill}>
+          <GradientBackground />
+        </View>
         <View style={styles.headerLeft}>
-          <Ionicons name="people-circle-outline" size={28} color={theme.colors.white} />
+          <Ionicons name="people-circle-outline" size={24} color={theme.colors.white} />
           <Text style={styles.modernHeaderTitle}>Split Expenses</Text>
         </View>
         <TouchableOpacity
           style={styles.quickFormTrigger}
           onPress={() => setFormVisible(true)}
+          activeOpacity={0.8}
         >
           <Ionicons name="add" size={18} color={theme.colors.white} />
           <Text style={styles.quickFormTriggerText}>New Split</Text>
@@ -893,6 +906,7 @@ const handleConfirmSettlePayment = async () => {
         </View>
       ) : (
         <ScrollView
+          style={styles.sheet}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
           refreshControl={
@@ -1072,7 +1086,7 @@ const handleConfirmSettlePayment = async () => {
                     </View>
 
                     <View style={{ alignItems: 'flex-end', justifyContent: 'center', marginRight: theme.space[10] }}>
-                      <Text style={{ fontSize: theme.fontSize.tiny, color: theme.colors.textMuted }}>Total Amount</Text>
+                      <Text style={{ fontFamily: theme.fontFamily.regular, fontSize: theme.fontSize.tiny, color: theme.colors.textMuted }}>Total Amount</Text>
                       <Text style={styles.settleCardTotalValue}>₱{totalAmount.toFixed(2)}</Text>
                     </View>
 
@@ -1362,7 +1376,7 @@ const handleConfirmSettlePayment = async () => {
                 <View style={styles.previewBanner}>
                   <Ionicons name="information-circle-outline" size={20} color={theme.colors.success} />
                   <Text style={styles.previewText}>
-                    Your Personal Share: <Text style={{ fontWeight: theme.fontWeight.extrabold }}>₱{calculateOwnerShare()}</Text>
+                    Your Personal Share: <Text style={{ fontFamily: theme.fontFamily.extrabold }}>₱{calculateOwnerShare()}</Text>
                   </Text>
                 </View>
               )}
@@ -1414,8 +1428,8 @@ const handleConfirmSettlePayment = async () => {
       <Text style={[styles.modalTitle, { textAlign: 'center', marginBottom: theme.space[8] }]}>
         Delete Split Expense?
       </Text>
-      <Text style={{ textAlign: 'center', color: theme.colors.textMuted || theme.colors.textSecondary, fontSize: theme.fontSize.body, marginBottom: theme.space[24], paddingHorizontal: theme.space[10] }}>
-        Are you sure you want to delete <Text style={{ fontWeight: theme.fontWeight.semibold, color: theme.colors.textStrong || theme.colors.text }}>"{splitToDelete?.description}"</Text>? This action cannot be undone.
+      <Text style={{ textAlign: 'center', color: theme.colors.textMuted || theme.colors.textSecondary, fontFamily: theme.fontFamily.regular, fontSize: theme.fontSize.body, marginBottom: theme.space[24], paddingHorizontal: theme.space[10] }}>
+        Are you sure you want to delete <Text style={{ fontFamily: theme.fontFamily.semibold, color: theme.colors.textStrong || theme.colors.text }}>"{splitToDelete?.description}"</Text>? This action cannot be undone.
       </Text>
 
       {/* Action Buttons */}
@@ -1430,7 +1444,7 @@ const handleConfirmSettlePayment = async () => {
           }}
           onPress={() => setSplitToDelete(null)}
         >
-          <Text style={{ fontWeight: theme.fontWeight.semibold, color: theme.colors.text }}>Cancel</Text>
+          <Text style={{ fontFamily: theme.fontFamily.semibold, color: theme.colors.text }}>Cancel</Text>
         </TouchableOpacity>
 
         <TouchableOpacity 
@@ -1447,7 +1461,7 @@ const handleConfirmSettlePayment = async () => {
             await handleDeleteSplit(idToDelete); // Call your existing delete handler
           }}
         >
-          <Text style={{ fontWeight: theme.fontWeight.semibold, color: theme.colors.white }}>Delete</Text>
+          <Text style={{ fontFamily: theme.fontFamily.semibold, color: theme.colors.white }}>Delete</Text>
         </TouchableOpacity>
       </View>
 
@@ -1638,8 +1652,8 @@ const handleConfirmSettlePayment = async () => {
       <Text style={[styles.modalTitle, { textAlign: 'center', marginBottom: theme.space[8] }]}>
         Delete Friend?
       </Text>
-      <Text style={{ textAlign: 'center', color: theme.colors.textMuted || theme.colors.textSecondary, fontSize: theme.fontSize.body, marginBottom: theme.space[24], paddingHorizontal: theme.space[10] }}>
-        Are you sure you want to delete <Text style={{ fontWeight: theme.fontWeight.semibold, color: theme.colors.textStrong || theme.colors.text }}>{friendToDelete?.full_name}</Text>? This action cannot be undone.
+      <Text style={{ textAlign: 'center', color: theme.colors.textMuted || theme.colors.textSecondary, fontFamily: theme.fontFamily.regular, fontSize: theme.fontSize.body, marginBottom: theme.space[24], paddingHorizontal: theme.space[10] }}>
+        Are you sure you want to delete <Text style={{ fontFamily: theme.fontFamily.semibold, color: theme.colors.textStrong || theme.colors.text }}>{friendToDelete?.full_name}</Text>? This action cannot be undone.
       </Text>
 
       {/* Action Buttons */}
@@ -1654,7 +1668,7 @@ const handleConfirmSettlePayment = async () => {
           }}
           onPress={() => setFriendToDelete(null)}
         >
-          <Text style={{ fontWeight: theme.fontWeight.semibold, color: theme.colors.text }}>Cancel</Text>
+          <Text style={{ fontFamily: theme.fontFamily.semibold, color: theme.colors.text }}>Cancel</Text>
         </TouchableOpacity>
 
         <TouchableOpacity 
@@ -1706,7 +1720,7 @@ const handleConfirmSettlePayment = async () => {
     }
   }}
 >
-  <Text style={{ fontWeight: theme.fontWeight.semibold, color: theme.colors.white }}>Delete</Text>
+  <Text style={{ fontFamily: theme.fontFamily.semibold, color: theme.colors.white }}>Delete</Text>
 </TouchableOpacity>
       </View>
 

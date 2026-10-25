@@ -16,6 +16,7 @@ import {
 
 import { theme } from '@/constants/theme';
 import { profileStyles as styles } from '@/constants/ui.styles';
+import { GradientBackground } from '../../components/GradientBackground';
 import { useAlert } from '../../components/PaytonAlert';
 import { supabase } from '../../lib/supabase';
 
@@ -130,6 +131,9 @@ export default function PersonalProfileScreen() {
     <View style={styles.container}>
       <StatusBar style="light" />
       <View style={styles.modernHeader}>
+        <View style={styles.headerGradientFill}>
+          <GradientBackground />
+        </View>
         <TouchableOpacity style={styles.backBtnTouchable} onPress={() => router.back()}>
           <Ionicons name="arrow-back" size={20} color={theme.colors.white} />
         </TouchableOpacity>
@@ -138,6 +142,7 @@ export default function PersonalProfileScreen() {
       </View>
 
       <ScrollView 
+        style={styles.sheet}
         showsVerticalScrollIndicator={false} 
         contentContainerStyle={styles.scrollContent}
         refreshControl={

@@ -7,14 +7,33 @@ import {
   Dimensions,
   Image,
   Modal,
+  Platform,
   RefreshControl,
   ScrollView,
+  StatusBar,
   Text,
   TextInput,
   TouchableOpacity,
   View
 } from 'react-native';
-import Svg, { Circle, G, Line, Polyline, Text as SvgText } from 'react-native-svg';
+import Animated, {
+  Extrapolation,
+  interpolate,
+  useAnimatedScrollHandler,
+  useAnimatedStyle,
+  useSharedValue,
+} from 'react-native-reanimated';
+import Svg, {
+  Circle,
+  Defs,
+  G,
+  Line,
+  Path,
+  Polyline,
+  Stop,
+  LinearGradient as SvgLinearGradient,
+  Text as SvgText,
+} from 'react-native-svg';
 
 import { theme } from '@/constants/theme';
 import { homeStyles as styles } from '@/constants/ui.styles';
@@ -148,15 +167,42 @@ export default function SpenderHomeScreen() {
   const [categories, setCategories] = useState<CategoryItem[]>([]);
   
   // Statistics State
-  const [categoryStats, setCategoryStats] = useState<CategoryStat[]>([]);
   const [overallTotalExpenses, setOverallTotalExpenses] = useState<number>(0);
   const [dailyTrends, setDailyTrends] = useState<DailyTrendItem[]>([]);
-  
+  const [rawExpenses, setRawExpenses] = useState<any[]>([]);
+
+  // "Expense per Category" period filter (Weekly / Monthly / Yearly)
+  type StatsPeriod = 'weekly' | 'monthly' | 'yearly';
+  const [statsPeriod, setStatsPeriod] = useState<StatsPeriod>('monthly');
+  const [periodMenuVisible, setPeriodMenuVisible] = useState(false);
+  const periodLabels: Record<StatsPeriod, string> = { weekly: 'Weekly', monthly: 'Monthly', yearly: 'Yearly' };
+
   const dateList = generateDateRange();
   const todayStr = new Date().toISOString().split('T')[0];
   const [selectedDate, setSelectedDate] = useState<string>(todayStr);
   const [modalVisible, setModalVisible] = useState(false);
   const horizontalScrollRef = useRef<ScrollView>(null);
+
+  // ---- collapsing header (driven by scroll) ----
+  const topInset = (Platform.OS === 'android' ? StatusBar.currentHeight || 24 : 50) + theme.space[8];
+  const HEADER_EXPANDED = topInset + theme.layout.headerExpanded;
+  const HEADER_COLLAPSED = topInset + theme.layout.headerCollapsed;
+  const COLLAPSE_RANGE = HEADER_EXPANDED - HEADER_COLLAPSED;
+  const scrollY = useSharedValue(0);
+  const onScroll = useAnimatedScrollHandler((e) => {
+    scrollY.value = e.contentOffset.y;
+  });
+  const headerAnimatedStyle = useAnimatedStyle(() => ({
+    height: interpolate(scrollY.value, [0, COLLAPSE_RANGE], [HEADER_EXPANDED, HEADER_COLLAPSED], Extrapolation.CLAMP),
+  }));
+  const expandedLayerStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(scrollY.value, [0, COLLAPSE_RANGE * 0.55], [1, 0], Extrapolation.CLAMP),
+    pointerEvents: scrollY.value > COLLAPSE_RANGE * 0.5 ? 'none' : 'auto',
+  }));
+  const compactLayerStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(scrollY.value, [COLLAPSE_RANGE * 0.45, COLLAPSE_RANGE], [0, 1], Extrapolation.CLAMP),
+    pointerEvents: scrollY.value < COLLAPSE_RANGE * 0.5 ? 'none' : 'auto',
+  }));
 
   const [addModalVisible, setAddModalVisible] = useState(false);
   const [newTitle, setNewTitle] = useState('');
@@ -272,33 +318,10 @@ export default function SpenderHomeScreen() {
 
         setOverallTotalExpenses(totalSpentCounter);
 
-        const categoryMap: { [key: string]: { name: string; icon?: string; total: number } } = {};
-        (expensesData || []).forEach((exp: any) => {
-          const catId = exp.category_id || 'uncategorized';
-          const catName = exp.categories?.name || 'Uncategorized';
-          const catIcon = exp.categories?.icon;
-          const amt = Number(exp.amount || 0);
-
-          if (!categoryMap[catId]) {
-            categoryMap[catId] = { name: catName, icon: catIcon, total: 0 };
-          }
-          categoryMap[catId].total += amt;
-        });
-
-        const statsArray: CategoryStat[] = Object.keys(categoryMap).map((catId, index) => {
-          const item = categoryMap[catId];
-          const percentage = totalSpentCounter > 0 ? (item.total / totalSpentCounter) * 100 : 0;
-          return {
-            categoryId: catId,
-            categoryName: item.name,
-            icon: item.icon,
-            total: item.total,
-            percentage,
-            color: theme.chart.category[index % theme.chart.category.length],
-          };
-        });
-
-        setCategoryStats(statsArray);
+        // Keep the raw, per-expense rows (with spent_at) so the Weekly / Monthly / Yearly
+        // filter on "Expense per Category" can recompute the breakdown client-side,
+        // without another round trip to Supabase.
+        setRawExpenses(expensesData || []);
 
         // Compute past 7 days trend data for the Line Graph
         const todayObj = new Date();
@@ -332,7 +355,7 @@ export default function SpenderHomeScreen() {
       } else {
         setSummary(null);
         setOverallTotalExpenses(0);
-        setCategoryStats([]);
+        setRawExpenses([]);
         setDailyTrends([]);
       }
 
@@ -640,77 +663,202 @@ const handleSettleReminder = async (reminder: ReminderItem) => {
   const radius = center - strokeWidth;
   const circumference = 2 * Math.PI * radius;
 
-  let accumulatedPercent = 0;
+  // Opens the soonest pending due (or the add-reminder form when there is none)
+  const openSoonestDue = () => {
+    const next = upcomingDues
+      .filter((due) => due.status === 'pending')
+      .sort((x, y) => x.due_date.localeCompare(y.due_date))[0];
+    if (next) handleDatePress(next.due_date);
+    else setAddModalVisible(true);
+  };
+
+  // "Expense per Category" breakdown, recomputed client-side for the selected
+  // Weekly / Monthly / Yearly period from the raw expense rows already fetched above.
+  const periodTotalExpenses = (() => {
+    const now = new Date();
+    const cutoff = new Date(now);
+    if (statsPeriod === 'weekly') cutoff.setDate(now.getDate() - 7);
+    else if (statsPeriod === 'monthly') cutoff.setMonth(now.getMonth() - 1);
+    else cutoff.setFullYear(now.getFullYear() - 1);
+
+    const inRange = rawExpenses.filter((exp: any) => exp.spent_at && new Date(exp.spent_at) >= cutoff);
+    const total = inRange.reduce((sum: number, exp: any) => sum + Number(exp.amount || 0), 0);
+
+    const map: { [key: string]: { name: string; icon?: string; total: number } } = {};
+    inRange.forEach((exp: any) => {
+      const catId = exp.category_id || 'uncategorized';
+      const catName = exp.categories?.name || 'Uncategorized';
+      const catIcon = exp.categories?.icon;
+      const amt = Number(exp.amount || 0);
+      if (!map[catId]) map[catId] = { name: catName, icon: catIcon, total: 0 };
+      map[catId].total += amt;
+    });
+
+    const stats: CategoryStat[] = Object.keys(map).map((catId, index) => {
+      const item = map[catId];
+      const percentage = total > 0 ? (item.total / total) * 100 : 0;
+      return {
+        categoryId: catId,
+        categoryName: item.name,
+        icon: item.icon,
+        total: item.total,
+        percentage,
+        color: theme.chart.category[index % theme.chart.category.length],
+      };
+    });
+
+    return { total, stats };
+  })();
+  const categoryStats = periodTotalExpenses.stats;
+
+  // donut segments: arc path + gradient end points for each category
+  const donutSegments = (() => {
+    let acc = 0;
+    return categoryStats.map((stat, index) => {
+      const startAngle = (acc / 100) * 2 * Math.PI - Math.PI / 2;
+      const endAngle = ((acc + stat.percentage) / 100) * 2 * Math.PI - Math.PI / 2;
+      acc += stat.percentage;
+      const pt = (angle: number) => ({ x: center + radius * Math.cos(angle), y: center + radius * Math.sin(angle) });
+      const start = pt(startAngle);
+      const end = pt(endAngle);
+      const full = stat.percentage >= 99.9;
+      return {
+        stat,
+        index,
+        midAngle: (startAngle + endAngle) / 2,
+        full,
+        gradient: theme.chart.categoryGradients[index % theme.chart.categoryGradients.length],
+        gx1: full ? center : start.x,
+        gy1: full ? 0 : start.y,
+        gx2: full ? center : end.x,
+        gy2: full ? size : end.y,
+        path: `M ${start.x} ${start.y} A ${radius} ${radius} 0 ${stat.percentage > 50 ? 1 : 0} 1 ${end.x} ${end.y}`,
+      };
+    });
+  })();
 
   return (
     <View style={styles.mainContainer}>
       <ExpoStatusBar style="light" />
 
-      {/* HEADER */}
-      <View style={styles.headerBackground}>
+      {/* HEADER (collapses while scrolling) */}
+      <Animated.View style={[styles.headerBackground, headerAnimatedStyle]}>
         <View style={styles.headerGradientClip}>
           <GradientBackground />
         </View>
-        <View style={styles.topRowContainer}>
-          <View style={styles.topRow}>
-            <View style={styles.userProfileGroup}>
-              <TouchableOpacity onPress={() => router.push('/profile')}>
-                <View>
-                  {avatarUrl ? (
-                    <Image source={{ uri: avatarUrl }} style={styles.avatarImage} />
-                  ) : (
-                    <View style={styles.avatarFallback}>
-                      <Text style={styles.avatarInitial}>{spenderName.charAt(0).toUpperCase()}</Text>
-                    </View>
-                  )}
-                </View>
-              </TouchableOpacity>
 
-              <View>
-                <Text style={styles.helloText}>Hello,</Text>
-                <Text style={styles.userNameText} numberOfLines={1}>
-                  {spenderName}
+        {/* expanded layer */}
+        <Animated.View style={[styles.headerExpanded, { paddingTop: topInset }, expandedLayerStyle]}>
+          <View style={styles.topRowContainer}>
+            <View style={styles.topRow}>
+              <View style={styles.userProfileGroup}>
+                <TouchableOpacity onPress={() => router.push('/profile')}>
+                  <View>
+                    {avatarUrl ? (
+                      <Image source={{ uri: avatarUrl }} style={styles.avatarImage} />
+                    ) : (
+                      <View style={styles.avatarFallback}>
+                        <Text style={styles.avatarInitial}>{spenderName.charAt(0).toUpperCase()}</Text>
+                      </View>
+                    )}
+                  </View>
+                </TouchableOpacity>
+
+                <View>
+                  <Text style={styles.helloText}>Hello,</Text>
+                  <Text style={styles.userNameText} numberOfLines={1}>
+                    {spenderName}
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.roleBadgeContainer}>
+                <Text style={styles.roleBadgeText} numberOfLines={1}>
+                  {spenderRole || ''}
                 </Text>
               </View>
             </View>
+          </View>
 
-            <View style={styles.roleBadgeContainer}>
-              <Text style={styles.roleBadgeText} numberOfLines={1}>
-                {spenderRole || ''}
+          <View style={styles.balanceBlock}>
+            <View style={styles.balanceLabelRow}>
+              <Text style={styles.balanceLabel}>Remaining Balance</Text>
+            </View>
+
+            <View style={styles.pillTrackOuter}>
+              <View style={styles.pillTrack}>
+                <View style={[styles.pillFill, { width: `${remainingPercentage}%` }]} />
+              </View>
+            </View>
+
+            <View style={styles.balanceAmountRow}>
+              <Text style={styles.pillAmountText}>
+                ₱{summary ? summary.remaining.toLocaleString('en-US') : '0'}
+              </Text>
+              <Text style={styles.pillAmountDivider}>/</Text>
+              <Text style={styles.pillAmountTotal}>
+                ₱{summary ? summary.totalAllowance.toLocaleString('en-US') : '0'}
               </Text>
             </View>
           </View>
-        </View>
+        </Animated.View>
 
-        <View style={styles.balanceBlock}>
-          <View style={styles.balanceLabelRow}>
-            <Text style={styles.balanceLabel}>Remaining Balance</Text>
-          </View>
+        {/* compact layer (shown after scrolling) */}
+        <Animated.View style={[styles.headerCompact, { paddingTop: topInset }, compactLayerStyle]}>
+          <View style={styles.compactTopRow}>
+            <TouchableOpacity style={styles.compactUser} onPress={() => router.push('/profile')} activeOpacity={0.8}>
+              {avatarUrl ? (
+                <Image source={{ uri: avatarUrl }} style={styles.compactAvatarImage} />
+              ) : (
+                <View style={styles.compactAvatarFallback}>
+                  <Text style={styles.compactAvatarInitial}>{spenderName.charAt(0).toUpperCase()}</Text>
+                </View>
+              )}
+              <Text style={styles.compactName} numberOfLines={1}>
+                {spenderName}
+              </Text>
+            </TouchableOpacity>
 
-          <View style={styles.pillTrackOuter}>
-            <View style={styles.pillTrack}>
-              <View style={[styles.pillFill, { width: `${remainingPercentage}%` }]} />
+            <View style={styles.compactActions}>
+              {/* <TouchableOpacity style={styles.headerIconButton} onPress={openSoonestDue} activeOpacity={0.8}>
+                <Ionicons name="calendar-outline" size={18} color={theme.colors.white} />
+              </TouchableOpacity> */}
+              <TouchableOpacity style={styles.headerIconButton} onPress={() => setAddModalVisible(true)} activeOpacity={0.8}>
+                <Ionicons name="add" size={20} color={theme.colors.white} />
+              </TouchableOpacity>
             </View>
           </View>
 
-          <View style={styles.balanceAmountRow}>
-            <Text style={styles.pillAmountText}>
+          <View style={styles.compactTrack}>
+            <View style={[styles.pillFill, { width: `${remainingPercentage}%` }]} />
+          </View>
+
+          <View style={styles.compactAmountRow}>
+            <Text style={styles.compactAmountText}>
               ₱{summary ? summary.remaining.toLocaleString('en-US') : '0'}
             </Text>
-            <Text style={styles.pillAmountDivider}>/</Text>
-            <Text style={styles.pillAmountTotal}>
+            <Text style={styles.compactAmountDivider}>/</Text>
+            <Text style={styles.compactAmountTotal}>
               ₱{summary ? summary.totalAllowance.toLocaleString('en-US') : '0'}
             </Text>
           </View>
-        </View>
-      </View>
+        </Animated.View>
+      </Animated.View>
 
       {/* SCROLLABLE CONTENT */}
-      <ScrollView
+      <Animated.ScrollView
         style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingTop: HEADER_EXPANDED + theme.space[8] }]}
+        onScroll={onScroll}
+        scrollEventThrottle={16}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[theme.colors.olive]} tintColor={theme.colors.olive} />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[theme.colors.olive]}
+            tintColor={theme.colors.olive}
+            progressViewOffset={HEADER_EXPANDED}
+          />
         }
         showsVerticalScrollIndicator={false}
         bounces
@@ -718,10 +866,17 @@ const handleSettleReminder = async (reminder: ReminderItem) => {
         <View style={styles.sectionBlock}>
           <View style={styles.sectionHeaderRow}>
             <Text style={styles.sectionTitle}>Upcoming Dues</Text>
-            <TouchableOpacity style={styles.addReminderPill} onPress={() => setAddModalVisible(true)} activeOpacity={0.8}>
-              <Ionicons name="add" size={14} color={theme.colors.mintPillText} />
-              <Text style={styles.seeAllText}>Set Reminders</Text>
-            </TouchableOpacity>
+            <View style={styles.duesActions}>
+              {/* <TouchableOpacity style={styles.dueIconButton} onPress={openSoonestDue} activeOpacity={0.8}>
+                <Ionicons name="calendar-outline" size={15} color={theme.colors.mintPillText} />
+              </TouchableOpacity> */}
+              <TouchableOpacity style={styles.addReminderPill} onPress={() => setAddModalVisible(true)} activeOpacity={0.8}>
+                <View style={styles.pillPlusCircle}>
+                  <Ionicons name="add" size={12} color={theme.colors.white} />
+                </View>
+                <Text style={styles.seeAllText}>Set Reminders</Text>
+              </TouchableOpacity>
+            </View>
           </View>
 
           {/* Upcoming due cards */}
@@ -769,6 +924,7 @@ const handleSettleReminder = async (reminder: ReminderItem) => {
                           Due {monthShort} {d} · {daysInfo.text}
                         </Text>
                       </View>
+                      <Ionicons name="chevron-forward" size={14} color={theme.colors.textSubtle} />
                     </TouchableOpacity>
                   );
                 })}
@@ -781,81 +937,124 @@ const handleSettleReminder = async (reminder: ReminderItem) => {
         <View style={styles.sectionBlock}>
           <View style={styles.sectionHeaderRow}>
             <Text style={styles.sectionTitle}>Expense per Category</Text>
-            <View style={styles.addReminderPill}>
-              <Text style={styles.seeAllText}>Current</Text>
-            </View>
+            <TouchableOpacity
+              style={styles.addReminderPill}
+              onPress={() => setPeriodMenuVisible(true)}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.seeAllText}>{periodLabels[statsPeriod]}</Text>
+              <Ionicons name="chevron-down" size={14} color={theme.colors.mintPillText} />
+            </TouchableOpacity>
           </View>
+
+          <Modal
+            visible={periodMenuVisible}
+            transparent
+            animationType="fade"
+            onRequestClose={() => setPeriodMenuVisible(false)}
+          >
+            <TouchableOpacity
+              style={styles.periodDropdownOverlay}
+              activeOpacity={1}
+              onPress={() => setPeriodMenuVisible(false)}
+            >
+              <View style={styles.periodDropdownMenu}>
+                {(['weekly', 'monthly', 'yearly'] as const).map((period) => (
+                  <TouchableOpacity
+                    key={period}
+                    style={styles.periodDropdownItem}
+                    activeOpacity={0.7}
+                    onPress={() => {
+                      setStatsPeriod(period);
+                      setPeriodMenuVisible(false);
+                    }}
+                  >
+                    <Text
+                      style={[
+                        styles.periodDropdownItemText,
+                        statsPeriod === period && styles.periodDropdownItemTextActive,
+                      ]}
+                    >
+                      {periodLabels[period]}
+                    </Text>
+                    {statsPeriod === period && (
+                      <Ionicons name="checkmark" size={16} color={theme.colors.mintPillText} />
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </TouchableOpacity>
+          </Modal>
 
           <View style={styles.statsCard}>
             {/* Multi-Segment Donut Chart Display */}
             <View style={styles.circleContainer}>
               <Svg width={size} height={size}>
-                {/* Background Track Circle */}
-                <Circle
-                  cx={center}
-                  cy={center}
-                  r={radius}
-                  stroke={theme.colors.border}
-                  strokeWidth={strokeWidth}
-                  fill="none"
-                />
-                
-                {/* Dynamic Category Segments */}
-                {categoryStats.map((stat) => {
-                  const strokeDashoffset = circumference - (circumference * stat.percentage) / 100;
-                  const currentRotation = (accumulatedPercent / 100) * 360 - 90;
-                  accumulatedPercent += stat.percentage;
+                <Defs>
+                  {donutSegments.map((seg) => (
+                    <SvgLinearGradient
+                      key={`donut-grad-${seg.stat.categoryId}`}
+                      id={`donut-${seg.index}`}
+                      gradientUnits="userSpaceOnUse"
+                      x1={seg.gx1}
+                      y1={seg.gy1}
+                      x2={seg.gx2}
+                      y2={seg.gy2}
+                    >
+                      <Stop offset="0" stopColor={seg.gradient.from} />
+                      <Stop offset="1" stopColor={seg.gradient.to} />
+                    </SvgLinearGradient>
+                  ))}
+                </Defs>
 
-                  return (
+                {/* Background Track Circle */}
+                <Circle cx={center} cy={center} r={radius} stroke={theme.colors.surfaceAlt} strokeWidth={strokeWidth} fill="none" />
+
+                {/* Gradient category segments */}
+                {donutSegments.map((seg) => {
+                  if (seg.stat.percentage < 0.4) return null;
+                  return seg.full ? (
                     <Circle
-                      key={stat.categoryId}
+                      key={seg.stat.categoryId}
                       cx={center}
                       cy={center}
                       r={radius}
-                      stroke={stat.color}
+                      stroke={`url(#donut-${seg.index})`}
                       strokeWidth={strokeWidth}
-                      strokeDasharray={circumference}
-                      strokeDashoffset={strokeDashoffset}
+                      fill="none"
+                    />
+                  ) : (
+                    <Path
+                      key={seg.stat.categoryId}
+                      d={seg.path}
+                      stroke={`url(#donut-${seg.index})`}
+                      strokeWidth={strokeWidth}
                       strokeLinecap="round"
                       fill="none"
-                      rotation={currentRotation}
-                      origin={`${center}, ${center}`}
                     />
                   );
                 })}
               </Svg>
 
-              {/* Percentage labels around the ring */}
-              {(() => {
-                let acc = 0;
-                const labelRadius = radius + strokeWidth / 2 + 16;
-                return categoryStats.map((stat) => {
-                  const mid = ((acc + stat.percentage / 2) / 100) * 2 * Math.PI - Math.PI / 2;
-                  acc += stat.percentage;
-                  if (stat.percentage < 4) return null;
-                  return (
-                    <Text
-                      key={`lbl-${stat.categoryId}`}
-                      style={[
-                        styles.donutLabel,
-                        {
-                          color: stat.color,
-                          left: CHART_BOX / 2 + labelRadius * Math.cos(mid) - 20,
-                          top: CHART_BOX / 2 + labelRadius * Math.sin(mid) - 8,
-                        },
-                      ]}
-                    >
-                      {Math.round(stat.percentage)}%
-                    </Text>
-                  );
-                });
-              })()}
+              {/* Icon + percentage labels around the ring */}
+              {donutSegments.map((seg) => {
+                if (seg.stat.percentage < 4) return null;
+                const labelRadius = radius + strokeWidth / 2 + 24;
+                const lx = CHART_BOX / 2 + labelRadius * Math.cos(seg.midAngle);
+                const ly = CHART_BOX / 2 + labelRadius * Math.sin(seg.midAngle);
+                return (
+                  <View key={`lbl-${seg.stat.categoryId}`} style={[styles.donutLabelWrap, { left: lx - 30, top: ly - 9 }]}>
+                    <Ionicons name={(seg.stat.icon || 'pricetag-outline') as any} size={12} color={seg.gradient.to} />
+                    <Text style={styles.donutLabelText}>{Math.round(seg.stat.percentage)}%</Text>
+                  </View>
+                );
+              })}
 
               <View style={styles.innerCircle}>
-                <Text style={styles.statsLabel}>Total Expenses</Text>
                 <Text style={styles.statsAmount}>
-                  ₱{overallTotalExpenses.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+                  ₱{periodTotalExpenses.total.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
                 </Text>
+                <Text style={styles.statsLabel}>Total Expenses</Text>
               </View>
             </View>
 
@@ -893,22 +1092,23 @@ const handleSettleReminder = async (reminder: ReminderItem) => {
             <Text style={styles.sectionTitle}>Daily Spending Trend</Text>
           </View>
 
-          <View style={styles.statsCard}>
+          <View style={styles.trendCard}>
             <Text style={styles.lineGraphSubtitle}>Expenses incurred per day (Past 7 Days)</Text>
-            
+
             <View style={styles.graphWrapper}>
               {(() => {
-                const chartWidth = SCREEN_WIDTH - 88;
-                const chartHeight = 160;
-                const paddingLeft = 35;
-                const paddingRight = 15;
-                const paddingTop = 20;
-                const paddingBottom = 35;
+                const chartWidth = SCREEN_WIDTH - 92;
+                const chartHeight = 190;
+                const paddingLeft = 34;
+                const paddingRight = 14;
+                const paddingTop = 16;
+                const paddingBottom = 34;
 
                 const usableWidth = chartWidth - paddingLeft - paddingRight;
                 const usableHeight = chartHeight - paddingTop - paddingBottom;
+                const baseY = paddingTop + usableHeight;
 
-                const maxAmount = Math.max(...dailyTrends.map(d => d.amount), 100);
+                const maxAmount = Math.max(...dailyTrends.map((d) => d.amount), 100);
 
                 const points = dailyTrends.map((item, index) => {
                   const x = paddingLeft + (index / (dailyTrends.length - 1 || 1)) * usableWidth;
@@ -916,10 +1116,21 @@ const handleSettleReminder = async (reminder: ReminderItem) => {
                   return { x, y, ...item };
                 });
 
-                const polylinePoints = points.map(p => `${p.x},${p.y}`).join(' ');
+                const polylinePoints = points.map((p) => `${p.x},${p.y}`).join(' ');
+                const areaPath =
+                  points.length > 0
+                    ? `M ${points[0].x} ${baseY} L ${points.map((p) => `${p.x} ${p.y}`).join(' L ')} L ${points[points.length - 1].x} ${baseY} Z`
+                    : '';
 
                 return (
                   <Svg width={chartWidth} height={chartHeight}>
+                    <Defs>
+                      <SvgLinearGradient id="trend-area" x1="0" y1="0" x2="0" y2="1">
+                        <Stop offset="0" stopColor={theme.colors.dueGreen} stopOpacity={0.28} />
+                        <Stop offset="1" stopColor={theme.colors.dueGreen} stopOpacity={0} />
+                      </SvgLinearGradient>
+                    </Defs>
+
                     {[0, 0.5, 1].map((ratio, idx) => {
                       const yPos = paddingTop + usableHeight * ratio;
                       const valLabel = Math.round(maxAmount * (1 - ratio));
@@ -931,14 +1142,15 @@ const handleSettleReminder = async (reminder: ReminderItem) => {
                             x2={chartWidth - paddingRight}
                             y2={yPos}
                             stroke={theme.colors.border}
-                            strokeDasharray="4,4"
+                            strokeDasharray="3,5"
                             strokeWidth="1"
                           />
                           <SvgText
-                            x={paddingLeft - 15}
-                            y={yPos + 4}
-                            fontSize="9"
-                            fill={theme.colors.textMuted}
+                            x={paddingLeft - 10}
+                            y={yPos + 3.5}
+                            fontSize="10"
+                            fontFamily={theme.fontFamily.regular}
+                            fill={theme.colors.textSecondary}
                             textAnchor="end"
                           >
                             {valLabel}
@@ -947,11 +1159,13 @@ const handleSettleReminder = async (reminder: ReminderItem) => {
                       );
                     })}
 
+                    {areaPath ? <Path d={areaPath} fill="url(#trend-area)" /> : null}
+
                     <Polyline
                       points={polylinePoints}
                       fill="none"
-                      stroke={theme.colors.brand}
-                      strokeWidth="3"
+                      stroke={theme.colors.dueGreen}
+                      strokeWidth="2.5"
                       strokeLinecap="round"
                       strokeLinejoin="round"
                     />
@@ -961,16 +1175,17 @@ const handleSettleReminder = async (reminder: ReminderItem) => {
                         <Circle
                           cx={p.x}
                           cy={p.y}
-                          r={4.5}
-                          fill={theme.colors.lime}
-                          stroke={theme.colors.brand}
-                          strokeWidth="2"
+                          r={5}
+                          fill={theme.colors.white}
+                          stroke={theme.colors.dueGreen}
+                          strokeWidth="2.5"
                         />
                         <SvgText
                           x={p.x}
-                          y={chartHeight - 6}
-                          fontSize="9"
-                          fill={theme.colors.textMuted}
+                          y={chartHeight - 8}
+                          fontSize="9.5"
+                          fontFamily={theme.fontFamily.regular}
+                          fill={theme.colors.textSecondary}
                           textAnchor="middle"
                         >
                           {p.displayDay}
@@ -983,7 +1198,7 @@ const handleSettleReminder = async (reminder: ReminderItem) => {
             </View>
           </View>
         </View>
-      </ScrollView>
+      </Animated.ScrollView>
 
       {/* MODAL FOR PENDING DUES */}
       <Modal
@@ -1072,7 +1287,7 @@ const handleSettleReminder = async (reminder: ReminderItem) => {
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.space[8] }}>
                         {isPaid ? (
                           <View style={{ paddingHorizontal: theme.space[12], paddingVertical: theme.space[6], backgroundColor: theme.colors.alpha.olive[15], borderRadius: theme.radius.sm, marginRight: theme.space[4] }}>
-                            <Text style={{ color: theme.colors.olive, fontWeight: theme.fontWeight.semibold, fontSize: theme.fontSize.caption }}>Paid</Text>
+                            <Text style={{ color: theme.colors.olive, fontFamily: theme.fontFamily.semibold, fontSize: theme.fontSize.caption }}>Paid</Text>
                           </View>
                         ) : (
                           /* Settle Button (Only shown when not paid) */
@@ -1136,12 +1351,12 @@ const handleSettleReminder = async (reminder: ReminderItem) => {
       </View>
 
       {/* Title */}
-      <Text style={{ fontSize: theme.fontSize.title, fontWeight: theme.fontWeight.bold, color: theme.colors.gray900, marginBottom: theme.space[8], textAlign: 'center' }}>
+      <Text style={{ fontSize: theme.fontSize.title, fontFamily: theme.fontFamily.bold, color: theme.colors.gray900, marginBottom: theme.space[8], textAlign: 'center' }}>
         Delete Reminder
       </Text>
 
       {/* Subtitle / Description */}
-      <Text style={{ fontSize: theme.fontSize.body, color: theme.colors.textGray, textAlign: 'center', marginBottom: theme.space[24], lineHeight: 20 }}>
+      <Text style={{ fontFamily: theme.fontFamily.regular, fontSize: theme.fontSize.body, color: theme.colors.textGray, textAlign: 'center', marginBottom: theme.space[24], lineHeight: 20 }}>
         Are you sure you want to delete "{reminderToDelete?.title}"?{'\n'}This action cannot be undone.
       </Text>
 
@@ -1158,7 +1373,7 @@ const handleSettleReminder = async (reminder: ReminderItem) => {
           onPress={() => setDeleteModalVisible(false)}
           disabled={isDeleting}
         >
-          <Text style={{ color: theme.colors.gray700, fontWeight: theme.fontWeight.semibold, fontSize: theme.fontSize.bodyLg }}>Cancel</Text>
+          <Text style={{ color: theme.colors.gray700, fontFamily: theme.fontFamily.semibold, fontSize: theme.fontSize.bodyLg }}>Cancel</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -1172,7 +1387,7 @@ const handleSettleReminder = async (reminder: ReminderItem) => {
           onPress={confirmDeleteReminder}
           disabled={isDeleting}
         >
-          <Text style={{ color: theme.colors.white, fontWeight: theme.fontWeight.semibold, fontSize: theme.fontSize.bodyLg }}>
+          <Text style={{ color: theme.colors.white, fontFamily: theme.fontFamily.semibold, fontSize: theme.fontSize.bodyLg }}>
             {isDeleting ? 'Deleting...' : 'Delete'}
           </Text>
         </TouchableOpacity>

@@ -42,7 +42,7 @@ export const tabLayoutStyles = StyleSheet.create({
   },
   scanLabel: {
     fontSize: 10.5,
-    fontWeight: theme.fontWeight.bold,
+    fontFamily: theme.fontFamily.bold,
     marginTop: -1,
     marginBottom: Platform.OS === "ios" ? -2 : 0,
   },
@@ -106,7 +106,7 @@ export const tabLayoutStyles = StyleSheet.create({
   },
   speechBubbleText: {
     color: theme.colors.brand,
-    fontWeight: theme.fontWeight.bold,
+    fontFamily: theme.fontFamily.bold,
     fontSize: theme.fontSize.caption,
   },
   speechBubbleArrow: {
@@ -128,7 +128,7 @@ export const tabLayoutStyles = StyleSheet.create({
   layoutRoot: { flex: 1 },
   layoutBlurTarget: { flex: 1 },
   tabBarRow: { flex: 1, flexDirection: 'row', alignItems: 'center' },
-  tabLabel: { fontSize: theme.fontSize.micro, fontWeight: theme.fontWeight.semibold, marginTop: theme.space[2] },
+  tabLabel: { fontSize: theme.fontSize.micro, fontFamily: theme.fontFamily.semibold, marginTop: theme.space[2] },
 });
 
 
@@ -141,30 +141,31 @@ export const homeStyles = StyleSheet.create({
   scrollContent: { backgroundColor: theme.colors.background, paddingBottom: theme.layout.tabBarClearance},
 
   headerBackground: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 20,
     backgroundColor: theme.colors.gradientEnd,
-    paddingHorizontal: theme.space[24],
-    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 24) + 12 : 22,
-    paddingBottom: theme.space[28],
-    borderBottomLeftRadius: 32,
-    borderBottomRightRadius: 32,
+    borderBottomLeftRadius: 28,
+    borderBottomRightRadius: 28,
     shadowColor: theme.colors.black,
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.12,
     shadowRadius: 16,
     elevation: 5,
-    zIndex: 10,
   },
-  topRowContainer: { marginBottom: theme.space[24] },
+  topRowContainer: { marginBottom: theme.space[20] },
   topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   userProfileGroup: { flexDirection: 'row', alignItems: 'center', gap: theme.space[12] },
   avatarImage: { width: 56, height: 56, borderRadius: 28, borderWidth: 2, borderColor: theme.colors.white },
   avatarFallback: { width: 56, height: 56, borderRadius: 28, backgroundColor: theme.colors.white, justifyContent: 'center', alignItems: 'center' },
-  avatarInitial: { color: theme.colors.brand, fontSize: theme.fontSize.heading, fontWeight: theme.fontWeight.bold },
-  helloText: { fontSize: theme.fontSize.heading, fontWeight: theme.fontWeight.bold, color: theme.colors.white, letterSpacing: -0.3, lineHeight: 24 },
-  userNameText: { fontSize: theme.fontSize.body, fontWeight: theme.fontWeight.semibold, color: theme.colors.alpha.white[82], marginTop: theme.space[1] },
+  avatarInitial: { color: theme.colors.brand, fontSize: theme.fontSize.heading, fontFamily: theme.fontFamily.bold },
+  helloText: { fontSize: theme.fontSize.heading, fontFamily: theme.fontFamily.bold, color: theme.colors.white, letterSpacing: -0.3, lineHeight: 24 },
+  userNameText: { fontSize: theme.fontSize.body, fontFamily: theme.fontFamily.semibold, color: theme.colors.alpha.white[82], marginTop: theme.space[1] },
   
   roleBadgeContainer: { backgroundColor: theme.colors.white, paddingHorizontal: theme.space[14], paddingVertical: theme.space[6], borderRadius: theme.radius.pill, justifyContent: 'center', alignItems: 'center', maxWidth: 120 },
-  roleBadgeText: { color: theme.colors.brand, fontSize: theme.fontSize.small, fontWeight: theme.fontWeight.bold, textTransform: 'capitalize' },
+  roleBadgeText: { color: theme.colors.brand, fontSize: theme.fontSize.small, fontFamily: theme.fontFamily.bold, textTransform: 'capitalize' },
 
   balanceBlock: { alignItems: 'center' },
   balanceLabelRow: { flexDirection: 'row', alignItems: 'center', marginBottom: theme.space[10] },
@@ -172,19 +173,19 @@ export const homeStyles = StyleSheet.create({
     width: 22, height: 22, borderRadius: 11,
     backgroundColor: theme.colors.lime, justifyContent: 'center', alignItems: 'center',
   },
-  balanceLabel: { fontSize: theme.fontSize.caption, color: theme.colors.white, fontWeight: theme.fontWeight.medium },
+  balanceLabel: { fontSize: theme.fontSize.caption, color: theme.colors.white, fontFamily: theme.fontFamily.medium },
   pillTrackOuter: { width: '100%' },
-  pillTrack: { width: '100%', height: 30, borderRadius: 15, backgroundColor: theme.colors.alpha.heroEnd[35], overflow: 'hidden' },
-  pillFill: { height: '100%', borderRadius: 15, backgroundColor: theme.colors.progressFill },
+  pillTrack: { width: '100%', height: 26, borderRadius: 13, backgroundColor: theme.colors.progressTrack, overflow: 'hidden' },
+  pillFill: { height: '100%', borderRadius: 13, backgroundColor: theme.colors.progressFill },
   balanceAmountRow: { flexDirection: 'row', alignItems: 'baseline', gap: theme.space[8], marginTop: theme.space[14] },
-  pillAmountText: { fontSize: theme.fontSize.hero, fontWeight: theme.fontWeight.extrabold, color: theme.colors.white, letterSpacing: -0.6 },
-  pillAmountDivider: { fontSize: theme.fontSize.headingLg, color: theme.colors.alpha.white[60], fontWeight: theme.fontWeight.light },
-  pillAmountTotal: { fontSize: theme.fontSize.subtitle, fontWeight: theme.fontWeight.semibold, color: theme.colors.alpha.white[82] },
+  pillAmountText: { fontSize: theme.fontSize.hero, fontFamily: theme.fontFamily.extrabold, color: theme.colors.white, letterSpacing: -0.6 },
+  pillAmountDivider: { fontSize: theme.fontSize.headingLg, color: theme.colors.alpha.white[60], fontFamily: theme.fontFamily.light },
+  pillAmountTotal: { fontSize: theme.fontSize.subtitle, fontFamily: theme.fontFamily.semibold, color: theme.colors.alpha.white[82] },
 
   sectionBlock: { paddingHorizontal: theme.space[24], marginTop: theme.space[20] },
   sectionHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: theme.space[16] },
-  sectionTitle: { fontSize: 17, fontWeight: theme.fontWeight.extrabold, color: theme.colors.brandInk, letterSpacing: -0.3 },
-  seeAllText: { fontSize: theme.fontSize.small, color: theme.colors.mintPillText, fontWeight: theme.fontWeight.bold },
+  sectionTitle: { fontSize: 17, fontFamily: theme.fontFamily.extrabold, color: theme.colors.brandInk, letterSpacing: -0.3 },
+  seeAllText: { fontSize: theme.fontSize.small, color: theme.colors.mintPillText, fontFamily: theme.fontFamily.bold },
 
   dateStripContainer: {
     gap: theme.space[8],
@@ -214,13 +215,13 @@ export const homeStyles = StyleSheet.create({
   },
   dateDayName: {
     fontSize: theme.fontSize.micro,
-    fontWeight: theme.fontWeight.bold,
+    fontFamily: theme.fontFamily.bold,
     color: theme.colors.textMuted,
     marginBottom: theme.space[2],
   },
   dateDayNumber: {
     fontSize: theme.fontSize.title,
-    fontWeight: theme.fontWeight.extrabold,
+    fontFamily: theme.fontFamily.extrabold,
     color: theme.colors.oliveDeep,
   },
   dateTextToday: {
@@ -249,33 +250,11 @@ export const homeStyles = StyleSheet.create({
   },
 
   // Statistics Styles
-  statsCard: {
-    backgroundColor: theme.colors.white,
-    borderRadius: theme.radius.xxl,
-    padding: theme.space[20],
-    alignItems: 'center',
-    shadowColor: theme.colors.black,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
+  statsCard: { backgroundColor: theme.colors.white, borderRadius: 28, paddingVertical: theme.space[20], paddingHorizontal: theme.space[18], alignItems: 'center', borderWidth: 1, borderColor: theme.colors.border },
   circleContainer: { width: 260, height: 260, alignItems: 'center', justifyContent: 'center' },
   innerCircle: { position: 'absolute', width: 130, height: 130, borderRadius: 65, backgroundColor: theme.colors.white, justifyContent: 'center', alignItems: 'center' },
-  statsLabel: {
-    fontSize: theme.fontSize.tiny,
-    fontWeight: theme.fontWeight.semibold,
-    color: theme.colors.textMuted,
-    marginBottom: theme.space[2],
-  },
-  statsAmount: {
-    fontSize: theme.fontSize.title,
-    fontWeight: theme.fontWeight.extrabold,
-    color: theme.colors.oliveDeep,
-    letterSpacing: -0.5,
-  },
+  statsLabel: { fontSize: theme.fontSize.micro, fontFamily: theme.fontFamily.regular, color: theme.colors.textMuted, marginTop: theme.space[2] },
+  statsAmount: { fontSize: theme.fontSize.headingLg, fontFamily: theme.fontFamily.extrabold, color: theme.colors.textStrong, letterSpacing: -0.5 },
   legendContainer: { width: '100%', marginTop: theme.space[8], gap: theme.space[14] },
   legendRow: {
     flexDirection: 'row',
@@ -288,7 +267,7 @@ export const homeStyles = StyleSheet.create({
     height: 12,
     borderRadius: 6,
   },
-  legendCategoryName: { fontSize: theme.fontSize.body, fontWeight: theme.fontWeight.bold, color: theme.colors.brandInk },
+  legendCategoryName: { fontSize: theme.fontSize.body, fontFamily: theme.fontFamily.bold, color: theme.colors.brandInk },
   legendRight: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -296,32 +275,22 @@ export const homeStyles = StyleSheet.create({
   },
   legendAmount: {
     fontSize: theme.fontSize.caption,
-    fontWeight: theme.fontWeight.bold,
+    fontFamily: theme.fontFamily.bold,
     color: theme.colors.black,
   },
   legendPercentage: {
     fontSize: theme.fontSize.tiny,
-    fontWeight: theme.fontWeight.semibold,
+    fontFamily: theme.fontFamily.semibold,
     color: theme.colors.textMuted,
   },
   emptyLegendText: {
     textAlign: 'center',
-    fontSize: theme.fontSize.caption,
+    fontFamily: theme.fontFamily.regular, fontSize: theme.fontSize.caption,
     color: theme.colors.textMuted,
     paddingVertical: theme.space[10],
   },
-  lineGraphSubtitle: {
-    fontSize: theme.fontSize.small,
-    color: theme.colors.textMuted,
-    fontWeight: theme.fontWeight.semibold,
-    marginBottom: theme.space[12],
-    alignSelf: 'flex-start',
-  },
-  graphWrapper: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginVertical: theme.space[8],
-  },
+  lineGraphSubtitle: { fontSize: theme.fontSize.tiny, fontFamily: theme.fontFamily.medium, color: theme.colors.textSecondary, marginBottom: theme.space[12] },
+  graphWrapper: { alignItems: 'center' },
 
   // Modal Styles
   modalOverlay: {
@@ -380,13 +349,13 @@ modalContainer2: {
   },
   modalTitle: {
     fontSize: theme.fontSize.title,
-    fontWeight: theme.fontWeight.bold,
+    fontFamily: theme.fontFamily.bold,
     color: theme.colors.oliveDeep,
   },
   modalSubtitle: {
     fontSize: theme.fontSize.small,
     color: theme.colors.textMuted,
-    fontWeight: theme.fontWeight.semibold,
+    fontFamily: theme.fontFamily.semibold,
     marginTop: theme.space[2],
   },
   modalCloseButton: {
@@ -415,11 +384,11 @@ modalContainer2: {
   },
   reminderTitleHome: {
     fontSize: theme.fontSize.body,
-    fontWeight: theme.fontWeight.bold,
+    fontFamily: theme.fontFamily.bold,
     color: theme.colors.text,
   },
   reminderSubHome: {
-    fontSize: theme.fontSize.tiny,
+    fontFamily: theme.fontFamily.regular, fontSize: theme.fontSize.tiny,
     color: theme.colors.textSecondary,
     marginTop: theme.space[2],
   },
@@ -430,7 +399,7 @@ modalContainer2: {
   },
   dueBadgeTextHome: {
     fontSize: theme.fontSize.tiny,
-    fontWeight: theme.fontWeight.bold,
+    fontFamily: theme.fontFamily.bold,
   },
 
   calendarBadgeHome: {
@@ -458,7 +427,7 @@ modalContainer2: {
   },
   inputLabel: {
     fontSize: theme.fontSize.caption,
-    fontWeight: theme.fontWeight.bold,
+    fontFamily: theme.fontFamily.bold,
     color: theme.colors.oliveDeep,
   },
   textInput: {
@@ -468,7 +437,7 @@ modalContainer2: {
     borderRadius: theme.radius.md,
     paddingHorizontal: theme.space[16],
     paddingVertical: theme.space[12],
-    fontSize: theme.fontSize.body,
+    fontFamily: theme.fontFamily.regular, fontSize: theme.fontSize.body,
     color: theme.colors.black,
   },
   categoryScroll: {
@@ -486,7 +455,7 @@ modalContainer2: {
   },
   categoryChipText: {
     fontSize: theme.fontSize.small,
-    fontWeight: theme.fontWeight.semibold,
+    fontFamily: theme.fontFamily.semibold,
     color: theme.colors.oliveDeep,
   },
   submitButton: {
@@ -499,7 +468,7 @@ modalContainer2: {
   submitButtonText: {
     color: theme.colors.white,
     fontSize: theme.fontSize.bodyLg,
-    fontWeight: theme.fontWeight.bold,
+    fontFamily: theme.fontFamily.bold,
   },
   emptyStateContainer: {
     alignItems: 'center',
@@ -509,12 +478,12 @@ modalContainer2: {
   },
   emptyStateTitle: {
     fontSize: theme.fontSize.subtitle,
-    fontWeight: theme.fontWeight.bold,
+    fontFamily: theme.fontFamily.bold,
     color: theme.colors.oliveDeep,
     marginTop: theme.space[4],
   },
   emptyStateText: {
-    fontSize: theme.fontSize.caption,
+    fontFamily: theme.fontFamily.regular, fontSize: theme.fontSize.caption,
     color: theme.colors.textMuted,
     textAlign: 'center',
   },
@@ -533,7 +502,7 @@ modalContainer2: {
 inlineErrorText: {
   color: theme.colors.danger,
   fontSize: theme.fontSize.caption,
-  fontWeight: theme.fontWeight.medium,
+  fontFamily: theme.fontFamily.medium,
   flex: 1,
 },
 inlineSuccessContainer: {
@@ -551,17 +520,28 @@ inlineSuccessContainer: {
 inlineSuccessText: {
   color: theme.colors.olive,
   fontSize: theme.fontSize.caption,
-  fontWeight: theme.fontWeight.medium,
+  fontFamily: theme.fontFamily.medium,
   flex: 1,
 },
-  headerGradientClip: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, borderBottomLeftRadius: 32, borderBottomRightRadius: 32, overflow: 'hidden' },
+  headerGradientClip: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, borderBottomLeftRadius: 28, borderBottomRightRadius: 28, overflow: 'hidden' },
   addReminderPill: { flexDirection: 'row', alignItems: 'center', gap: theme.space[4], backgroundColor: theme.colors.mintPill, paddingHorizontal: theme.space[12], paddingVertical: theme.space[6], borderRadius: theme.radius.pill },
+  periodDropdownOverlay: { flex: 1, backgroundColor: theme.colors.overlay, justifyContent: 'flex-start', alignItems: 'flex-end', paddingTop: 220, paddingRight: theme.space[20] },
+  periodDropdownMenu: {
+    backgroundColor: theme.colors.white,
+    borderRadius: theme.radius.lg,
+    paddingVertical: theme.space[6],
+    width: 150,
+    ...theme.shadow.lg,
+  },
+  periodDropdownItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: theme.space[16], paddingVertical: theme.space[12] },
+  periodDropdownItemText: { fontSize: theme.fontSize.body, fontFamily: theme.fontFamily.medium, color: theme.colors.text },
+  periodDropdownItemTextActive: { color: theme.colors.mintPillText, fontFamily: theme.fontFamily.bold },
   dueStripContainer: { gap: theme.space[12], paddingVertical: theme.space[4], paddingRight: theme.space[4] },
   dueCard: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: theme.space[10],
-    width: 188,
+    width: 208,
     backgroundColor: theme.colors.white,
     borderRadius: theme.radius.lg,
     padding: theme.space[10],
@@ -575,20 +555,41 @@ inlineSuccessText: {
   },
   dueDateBlock: { width: 46, height: 54, borderRadius: theme.radius.md, backgroundColor: theme.colors.dueGreen, alignItems: 'center', justifyContent: 'center' },
   dueDateBlockAlt: { backgroundColor: theme.colors.dueTeal },
-  dueDay: { fontSize: theme.fontSize.title, fontWeight: theme.fontWeight.extrabold, color: theme.colors.white, lineHeight: 20 },
-  dueMonth: { fontSize: theme.fontSize.micro, fontWeight: theme.fontWeight.semibold, color: theme.colors.alpha.white[82] },
+  dueDay: { fontSize: theme.fontSize.title, fontFamily: theme.fontFamily.extrabold, color: theme.colors.white, lineHeight: 20 },
+  dueMonth: { fontSize: theme.fontSize.micro, fontFamily: theme.fontFamily.semibold, color: theme.colors.alpha.white[82] },
   dueInfo: { flex: 1 },
-  dueTitle: { fontSize: theme.fontSize.small, fontWeight: theme.fontWeight.semibold, color: theme.colors.textSecondary },
-  dueAmount: { fontSize: theme.fontSize.bodyLg, fontWeight: theme.fontWeight.extrabold, color: theme.colors.brandInk, marginTop: theme.space[1] },
-  dueMeta: { fontSize: 9, color: theme.colors.textMuted, marginTop: theme.space[2] },
-  dueMetaUrgent: { color: theme.colors.danger, fontWeight: theme.fontWeight.semibold },
+  dueTitle: { fontSize: theme.fontSize.small, fontFamily: theme.fontFamily.semibold, color: theme.colors.textSecondary },
+  dueAmount: { fontSize: theme.fontSize.bodyLg, fontFamily: theme.fontFamily.extrabold, color: theme.colors.brandInk, marginTop: theme.space[1] },
+  dueMeta: { fontFamily: theme.fontFamily.regular, fontSize: 9, color: theme.colors.textMuted, marginTop: theme.space[2] },
+  dueMetaUrgent: { color: theme.colors.danger, fontFamily: theme.fontFamily.semibold },
   dueEmpty: { backgroundColor: theme.colors.white, borderRadius: theme.radius.lg, padding: theme.space[16], borderWidth: 1, borderColor: theme.colors.border },
-  dueEmptyText: { fontSize: theme.fontSize.caption, color: theme.colors.textMuted, textAlign: 'center' },
-  donutLabel: { position: 'absolute', width: 40, textAlign: 'center', fontSize: theme.fontSize.small, fontWeight: theme.fontWeight.bold },
+  dueEmptyText: { fontFamily: theme.fontFamily.regular, fontSize: theme.fontSize.caption, color: theme.colors.textMuted, textAlign: 'center' },
+  donutLabel: { position: 'absolute', width: 40, textAlign: 'center', fontSize: theme.fontSize.small, fontFamily: theme.fontFamily.bold },
   legendIconCircle: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
   legendTextCol: { flex: 1 },
-  legendSubtitle: { fontSize: theme.fontSize.tiny, color: theme.colors.textMuted, marginTop: theme.space[1] },
-  legendAmountNeg: { fontSize: theme.fontSize.body, fontWeight: theme.fontWeight.bold, color: theme.colors.danger },
+  legendSubtitle: { fontFamily: theme.fontFamily.regular, fontSize: theme.fontSize.tiny, color: theme.colors.textMuted, marginTop: theme.space[1] },
+  legendAmountNeg: { fontSize: theme.fontSize.body, fontFamily: theme.fontFamily.bold, color: theme.colors.danger },
+  headerExpanded: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, paddingHorizontal: theme.space[24] },
+  headerCompact: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, paddingHorizontal: theme.space[20] },
+  compactTopRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  compactUser: { flexDirection: 'row', alignItems: 'center', gap: theme.space[10], flex: 1, marginRight: theme.space[12] },
+  compactAvatarImage: { width: 36, height: 36, borderRadius: 18, borderWidth: 2, borderColor: theme.colors.white },
+  compactAvatarFallback: { width: 36, height: 36, borderRadius: 18, backgroundColor: theme.colors.white, justifyContent: 'center', alignItems: 'center' },
+  compactAvatarInitial: { color: theme.colors.brand, fontSize: theme.fontSize.body, fontFamily: theme.fontFamily.bold },
+  compactName: { flex: 1, fontSize: theme.fontSize.bodyLg, fontFamily: theme.fontFamily.bold, color: theme.colors.white },
+  compactActions: { flexDirection: 'row', gap: theme.space[8] },
+  headerIconButton: { width: 36, height: 36, borderRadius: theme.radius.md, backgroundColor: theme.colors.alpha.white[20], borderWidth: 1, borderColor: theme.colors.alpha.white[30], alignItems: 'center', justifyContent: 'center' },
+  compactTrack: { height: 14, borderRadius: 7, backgroundColor: theme.colors.progressTrack, overflow: 'hidden', marginTop: theme.space[12] },
+  compactAmountRow: { flexDirection: 'row', alignItems: 'baseline', gap: theme.space[6], marginTop: theme.space[8] },
+  compactAmountText: { fontSize: theme.fontSize.heading, fontFamily: theme.fontFamily.extrabold, color: theme.colors.white, letterSpacing: -0.3 },
+  compactAmountDivider: { fontFamily: theme.fontFamily.regular, fontSize: theme.fontSize.body, color: theme.colors.alpha.white[60] },
+  compactAmountTotal: { fontSize: theme.fontSize.small, fontFamily: theme.fontFamily.semibold, color: theme.colors.alpha.white[82] },
+  duesActions: { flexDirection: 'row', alignItems: 'center', gap: theme.space[8] },
+  dueIconButton: { width: 36, height: 36, borderRadius: theme.radius.md, backgroundColor: theme.colors.mintPill, alignItems: 'center', justifyContent: 'center' },
+  pillPlusCircle: { width: 16, height: 16, borderRadius: 8, backgroundColor: theme.colors.mintPillText, alignItems: 'center', justifyContent: 'center' },
+  trendCard: { backgroundColor: theme.colors.white, borderRadius: 28, paddingVertical: theme.space[20], paddingHorizontal: theme.space[20], borderWidth: 1, borderColor: theme.colors.border },
+  donutLabelWrap: { position: 'absolute', width: 60, height: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: theme.space[4] },
+  donutLabelText: { fontSize: theme.fontSize.tiny, fontFamily: theme.fontFamily.bold, color: theme.colors.textStrong },
 });
 
 
@@ -597,66 +598,67 @@ inlineSuccessText: {
 export const transactionStyles = StyleSheet.create({
   container: { flex: 1, backgroundColor: theme.colors.white },
   centeredContent: { justifyContent: 'center', alignItems: 'center' },
-  topBackgroundHeader: { backgroundColor: theme.colors.brand, borderBottomLeftRadius: 32, borderBottomRightRadius: 32, paddingBottom: theme.space[15] },
+  topBackgroundHeader: { backgroundColor: theme.colors.gradientEnd, paddingBottom: theme.space[40] },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: theme.space[20] },
   backButton: { width: 40, height: 40, borderRadius: theme.radius.xl, backgroundColor: theme.colors.alpha.white[15], justifyContent: 'center', alignItems: 'center' },
   headerContent: { flex: 1, alignItems: 'center', paddingHorizontal: theme.space[12] },
-  headerTitle: { fontSize: theme.fontSize.title, fontWeight: theme.fontWeight.bold, color: theme.colors.white, letterSpacing: -0.3 },
-  scrollContent: { flex: 1, backgroundColor: theme.colors.white },
+  headerTitle: { fontSize: theme.fontSize.headingLg, fontFamily: theme.fontFamily.bold, color: theme.colors.white, letterSpacing: -0.3 },
+  scrollContent: { flex: 1, marginTop: -theme.layout.sheetOverlap, borderTopLeftRadius: theme.layout.sheetRadius, borderTopRightRadius: theme.layout.sheetRadius, overflow: 'hidden', backgroundColor: theme.colors.white },
   searchContainer: { paddingVertical: theme.space[4], marginTop: theme.space[4] },
   searchWrapper: { flexDirection: 'row', alignItems: 'center', backgroundColor: theme.colors.white, borderWidth: 1, borderColor: theme.colors.border, borderRadius: theme.radius.md, paddingHorizontal: theme.space[12], height: 42 },
-  searchInput: { flex: 1, fontSize: theme.fontSize.caption, color: theme.colors.textStrong, paddingVertical: 0 },
+  searchInput: { flex: 1, fontFamily: theme.fontFamily.regular, fontSize: theme.fontSize.caption, color: theme.colors.textStrong, paddingVertical: 0 },
   
   // Modern Screen-Level Inline Success Banner Styles
   screenInlineSuccessContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: theme.colors.greenBg, borderWidth: 1, borderColor: theme.colors.greenBorder, paddingHorizontal: theme.space[14], paddingVertical: theme.space[10], borderRadius: theme.radius.md, marginBottom: theme.space[12] },
-  screenInlineSuccessText: { flex: 1, color: theme.colors.green, fontSize: theme.fontSize.caption, fontWeight: theme.fontWeight.semibold },
+  screenInlineSuccessText: { flex: 1, color: theme.colors.green, fontSize: theme.fontSize.caption, fontFamily: theme.fontFamily.semibold },
 
   emptyTransactions: { alignItems: 'center', justifyContent: 'center', paddingVertical: 50, paddingHorizontal: theme.space[36], gap: theme.space[8] },
   emptyIconContainer: { width: 56, height: 56, borderRadius: theme.radius.soft, backgroundColor: theme.colors.brandWash, justifyContent: 'center', alignItems: 'center', marginBottom: theme.space[4] },
-  emptyText: { fontSize: theme.fontSize.bodyLg, fontWeight: theme.fontWeight.bold, color: theme.colors.textSoft, letterSpacing: -0.3 },
+  emptyText: { fontSize: theme.fontSize.bodyLg, fontFamily: theme.fontFamily.bold, color: theme.colors.textSoft, letterSpacing: -0.3 },
   scrollTopFAB: { position: 'absolute', bottom: 24, right: 24, width: 42, height: 42, borderRadius: 21, backgroundColor: theme.colors.brand, justifyContent: 'center', alignItems: 'center', elevation: 5 },
   quickFormTrigger: { width: 38, height: 38, borderRadius: theme.radius.soft, backgroundColor: theme.colors.alpha.white[12], justifyContent: 'center', alignItems: 'center' },
   modalOverlay: { flex: 1, backgroundColor: theme.colors.alpha.black[50], justifyContent: 'flex-end' },
   modalContent: { backgroundColor: theme.colors.white, borderTopLeftRadius: theme.radius.xxxl, borderTopRightRadius: theme.radius.xxxl, padding: theme.space[24], paddingBottom: theme.space[40] },
   modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: theme.space[12] },
-  modalTitle: { fontSize: theme.fontSize.title, fontWeight: theme.fontWeight.bold, color: theme.colors.text },
+  modalTitle: { fontSize: theme.fontSize.title, fontFamily: theme.fontFamily.bold, color: theme.colors.text },
   inlineErrorContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: theme.colors.dangerBg, borderWidth: 1, borderColor: theme.colors.dangerBorder, paddingHorizontal: theme.space[12], paddingVertical: theme.space[10], borderRadius: theme.radius.tight, marginBottom: theme.space[16] },
-  inlineErrorText: { flex: 1, color: theme.colors.danger, fontSize: theme.fontSize.small, fontWeight: theme.fontWeight.semibold },
+  inlineErrorText: { flex: 1, color: theme.colors.danger, fontSize: theme.fontSize.small, fontFamily: theme.fontFamily.semibold },
   inlineSuccessContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: theme.colors.greenBg, borderWidth: 1, borderColor: theme.colors.greenBorder, paddingHorizontal: theme.space[12], paddingVertical: theme.space[10], borderRadius: theme.radius.tight, marginBottom: theme.space[16] },
-  inlineSuccessText: { flex: 1, color: theme.colors.green, fontSize: theme.fontSize.small, fontWeight: theme.fontWeight.semibold },
+  inlineSuccessText: { flex: 1, color: theme.colors.green, fontSize: theme.fontSize.small, fontFamily: theme.fontFamily.semibold },
   calcInputContainer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: theme.colors.background, borderRadius: theme.radius.lg, borderWidth: 1, borderColor: theme.colors.border, paddingVertical: theme.space[12], marginBottom: theme.space[20] },
-  calcInput: { fontSize: 36, fontWeight: theme.fontWeight.bold, color: theme.colors.text, minWidth: 140, textAlign: 'center' },
+  calcInput: { fontSize: 36, fontFamily: theme.fontFamily.bold, color: theme.colors.text, minWidth: 140, textAlign: 'center' },
   inputGroup: { marginBottom: theme.space[16] },
-  inputLabel: { fontSize: theme.fontSize.caption, fontWeight: theme.fontWeight.semibold, color: theme.colors.textMuted, marginBottom: theme.space[8] },
-  textInputStyle: { backgroundColor: theme.colors.background, borderWidth: 1, borderColor: theme.colors.border, borderRadius: theme.radius.md, paddingHorizontal: theme.space[14], height: 46, fontSize: theme.fontSize.body, color: theme.colors.text },
+  inputLabel: { fontSize: theme.fontSize.caption, fontFamily: theme.fontFamily.semibold, color: theme.colors.textMuted, marginBottom: theme.space[8] },
+  textInputStyle: { backgroundColor: theme.colors.background, borderWidth: 1, borderColor: theme.colors.border, borderRadius: theme.radius.md, paddingHorizontal: theme.space[14], height: 46, fontFamily: theme.fontFamily.regular, fontSize: theme.fontSize.body, color: theme.colors.text },
   categoryChip: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: theme.space[12], paddingVertical: theme.space[8], borderRadius: theme.radius.md, borderWidth: 1, gap: theme.space[6] },
-  categoryChipText: { fontSize: theme.fontSize.caption, fontWeight: theme.fontWeight.semibold },
+  categoryChipText: { fontSize: theme.fontSize.caption, fontFamily: theme.fontFamily.semibold },
   submitButton: { backgroundColor: theme.colors.brand, borderRadius: theme.radius.soft, height: 50, justifyContent: 'center', alignItems: 'center', marginTop: theme.space[10] },
-  submitButtonText: { color: theme.colors.white, fontSize: theme.fontSize.bodyLg, fontWeight: theme.fontWeight.bold },
+  submitButtonText: { color: theme.colors.white, fontSize: theme.fontSize.bodyLg, fontFamily: theme.fontFamily.bold },
   deleteIconButton: { padding: theme.space[4], justifyContent: 'center', alignItems: 'center' },
   
   // Modern Delete Modal Styles
   deleteModalOverlay: { flex: 1, backgroundColor: theme.colors.alpha.black[55], justifyContent: 'center', alignItems: 'center', paddingHorizontal: theme.space[24] },
   deleteModalCard: { width: '100%', maxWidth: 340, backgroundColor: theme.colors.white, borderRadius: theme.radius.xxl, padding: theme.space[24], alignItems: 'center', shadowColor: theme.colors.black, shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.15, shadowRadius: 20, elevation: 10 },
   deleteIconBadge: { width: 52, height: 52, borderRadius: 26, backgroundColor: theme.colors.dangerBg, justifyContent: 'center', alignItems: 'center', marginBottom: theme.space[16] },
-  deleteModalTitle: { fontSize: theme.fontSize.title, fontWeight: theme.fontWeight.bold, color: theme.colors.text, marginBottom: theme.space[8], textAlign: 'center' },
-  deleteModalMessage: { fontSize: theme.fontSize.caption, fontWeight: theme.fontWeight.regular, color: theme.colors.textMuted, textAlign: 'center', lineHeight: 18, marginBottom: theme.space[24] },
+  deleteModalTitle: { fontSize: theme.fontSize.title, fontFamily: theme.fontFamily.bold, color: theme.colors.text, marginBottom: theme.space[8], textAlign: 'center' },
+  deleteModalMessage: { fontSize: theme.fontSize.caption, fontFamily: theme.fontFamily.regular, color: theme.colors.textMuted, textAlign: 'center', lineHeight: 18, marginBottom: theme.space[24] },
   deleteModalActions: { flexDirection: 'row', width: '100%', gap: theme.space[12] },
   cancelDeleteButton: { flex: 1, height: 46, borderRadius: theme.radius.md, borderWidth: 1, borderColor: theme.colors.border, backgroundColor: theme.colors.background, justifyContent: 'center', alignItems: 'center' },
-  cancelDeleteButtonText: { fontSize: theme.fontSize.body, fontWeight: theme.fontWeight.semibold, color: theme.colors.textSecondary },
+  cancelDeleteButtonText: { fontSize: theme.fontSize.body, fontFamily: theme.fontFamily.semibold, color: theme.colors.textSecondary },
   confirmDeleteButton: { flex: 1, height: 46, borderRadius: theme.radius.md, backgroundColor: theme.colors.danger, justifyContent: 'center', alignItems: 'center' },
-  confirmDeleteButtonText: { fontSize: theme.fontSize.body, fontWeight: theme.fontWeight.semibold, color: theme.colors.white },
+  confirmDeleteButtonText: { fontSize: theme.fontSize.body, fontFamily: theme.fontFamily.semibold, color: theme.colors.white },
 
   imageModalOverlay: { flex: 1, backgroundColor: theme.colors.alpha.black[90], justifyContent: 'center', alignItems: 'center' },
   fullScreenImage: { width: '90%', height: '80%' },
-  closeImageButton: { position: 'absolute', top: 50, right: 20, zIndex: 10, padding: theme.space[10] }
+  closeImageButton: { position: 'absolute', top: 50, right: 20, zIndex: 10, padding: theme.space[10] },
+  headerGradientFill: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
 });
 
 
 // ======================================================================
 // INSIGHT / COACH
 export const insightStyles = StyleSheet.create({
-    safeArea: { flex: 1, backgroundColor: theme.colors.brand },
+  safeArea: { flex: 1, backgroundColor: theme.colors.gradientEnd },
     modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: theme.colors.alpha.emerald900[60] },
     mainContainer: {
         flex: 1,
@@ -703,9 +705,9 @@ export const insightStyles = StyleSheet.create({
         borderColor: theme.colors.white,
     },
     titleContainer: { flexDirection: 'column' },
-    screenTitle: { fontSize: theme.fontSize.subtitle, fontWeight: theme.fontWeight.bold, color: theme.colors.emerald900, letterSpacing: -0.2 },
+    screenTitle: { fontSize: theme.fontSize.subtitle, fontFamily: theme.fontFamily.bold, color: theme.colors.emerald900, letterSpacing: -0.2 },
     activeStatusRow: { flexDirection: 'row', alignItems: 'center', gap: theme.space[5], marginTop: theme.space[2] },
-    screenSubtitle: { fontSize: theme.fontSize.tiny, color: theme.colors.emerald700, fontWeight: theme.fontWeight.medium },
+    screenSubtitle: { fontSize: theme.fontSize.tiny, color: theme.colors.emerald700, fontFamily: theme.fontFamily.medium },
     chatScrollContent: { padding: theme.space[16], paddingBottom: theme.space[20] },
     userMessageRow: { flexDirection: 'row', justifyContent: 'flex-end', marginVertical: theme.space[6] },
     userBubble: {
@@ -721,7 +723,7 @@ export const insightStyles = StyleSheet.create({
         shadowRadius: 4,
         elevation: 2,
     },
-    userText: { color: theme.colors.white, fontSize: theme.fontSize.body, fontWeight: theme.fontWeight.medium },
+    userText: { color: theme.colors.white, fontSize: theme.fontSize.body, fontFamily: theme.fontFamily.medium },
     coachMessageRow: { flexDirection: 'row', alignItems: 'flex-start', marginVertical: theme.space[8], gap: theme.space[10] },
     coachContentContainer: { flex: 1 },
     coachBubble: {
@@ -739,7 +741,7 @@ export const insightStyles = StyleSheet.create({
         shadowRadius: 2,
         elevation: 1,
     },
-    coachText: { color: theme.colors.emerald900, fontSize: theme.fontSize.body, lineHeight: 21 },
+    coachText: { color: theme.colors.emerald900, fontFamily: theme.fontFamily.regular, fontSize: theme.fontSize.body, lineHeight: 21 },
     typingBubble: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -757,7 +759,7 @@ export const insightStyles = StyleSheet.create({
     dot1: { opacity: 0.4 },
     dot2: { opacity: 0.7 },
     dot3: { opacity: 1 },
-    typingText: { fontSize: theme.fontSize.small, color: theme.colors.emerald700, fontStyle: 'italic' },
+    typingText: { fontFamily: theme.fontFamily.regular, fontSize: theme.fontSize.small, color: theme.colors.emerald700, fontStyle: 'italic' },
     resultContainer: { 
         marginTop: theme.space[4], 
         gap: theme.space[12],
@@ -781,16 +783,16 @@ export const insightStyles = StyleSheet.create({
         paddingBottom: theme.space[10],
     },
     aiCardTitleGroup: { flexDirection: 'row', alignItems: 'center', gap: theme.space[6] },
-    aiCardHeaderTitle: { fontSize: theme.fontSize.caption, fontWeight: theme.fontWeight.bold, color: theme.colors.emerald900 },
+    aiCardHeaderTitle: { fontSize: theme.fontSize.caption, fontFamily: theme.fontFamily.bold, color: theme.colors.emerald900 },
     statusBadge: {
         paddingVertical: theme.space[4],
         paddingHorizontal: theme.space[10],
         borderRadius: theme.radius.xl,
     },
-    statusText: { fontWeight: theme.fontWeight.bold, fontSize: theme.fontSize.tiny, letterSpacing: 0.3 },
+    statusText: { fontFamily: theme.fontFamily.bold, fontSize: theme.fontSize.tiny, letterSpacing: 0.3 },
     progressSection: { gap: theme.space[6], backgroundColor: theme.colors.greenBg, padding: theme.space[12], borderRadius: theme.radius.md, borderWidth: 1, borderColor: theme.colors.greenSoft },
     progressLabels: { flexDirection: 'row', justifyContent: 'space-between' },
-    progressLabelText: { fontSize: theme.fontSize.tiny, fontWeight: theme.fontWeight.semibold, color: theme.colors.emerald700 },
+    progressLabelText: { fontSize: theme.fontSize.tiny, fontFamily: theme.fontFamily.semibold, color: theme.colors.emerald700 },
     progressBarBackground: { height: 8, backgroundColor: theme.colors.mintBorder, borderRadius: theme.radius.xs, overflow: 'hidden' },
     progressBarFill: { height: '100%', backgroundColor: theme.colors.emeraldDark, borderRadius: theme.radius.xs },
     metricsRow: { flexDirection: 'row', gap: theme.space[10] },
@@ -802,8 +804,8 @@ export const insightStyles = StyleSheet.create({
         borderWidth: 1,
         borderColor: theme.colors.greenSoft,
     },
-    metricLabel: { fontSize: theme.fontSize.tiny, color: theme.colors.emerald700, fontWeight: theme.fontWeight.medium },
-    metricValue: { fontSize: theme.fontSize.bodyLg, fontWeight: theme.fontWeight.bold, color: theme.colors.emerald900, marginTop: theme.space[4] },
+    metricLabel: { fontSize: theme.fontSize.tiny, color: theme.colors.emerald700, fontFamily: theme.fontFamily.medium },
+    metricValue: { fontSize: theme.fontSize.bodyLg, fontFamily: theme.fontFamily.bold, color: theme.colors.emerald900, marginTop: theme.space[4] },
     summaryBox: {
         backgroundColor: theme.colors.greenBg,
         padding: theme.space[12],
@@ -811,8 +813,8 @@ export const insightStyles = StyleSheet.create({
         borderWidth: 1,
         borderColor: theme.colors.greenSoft,
     },
-    summaryTitle: { fontSize: theme.fontSize.small, fontWeight: theme.fontWeight.bold, color: theme.colors.emerald900, marginBottom: theme.space[4] },
-    summaryText: { fontSize: theme.fontSize.small, color: theme.colors.emerald800, lineHeight: 18 },
+    summaryTitle: { fontSize: theme.fontSize.small, fontFamily: theme.fontFamily.bold, color: theme.colors.emerald900, marginBottom: theme.space[4] },
+    summaryText: { fontFamily: theme.fontFamily.regular, fontSize: theme.fontSize.small, color: theme.colors.emerald800, lineHeight: 18 },
     tipCard: {
         flexDirection: 'row',
         gap: theme.space[10],
@@ -829,8 +831,8 @@ export const insightStyles = StyleSheet.create({
         borderRadius: theme.radius.sm,
     },
     tipTextContainer: { flex: 1 },
-    tipTitle: { fontSize: theme.fontSize.small, fontWeight: theme.fontWeight.bold, color: theme.colors.warningDeep },
-    tipDescription: { fontSize: theme.fontSize.tiny, color: theme.colors.warning, marginTop: theme.space[2], lineHeight: 16 },
+    tipTitle: { fontSize: theme.fontSize.small, fontFamily: theme.fontFamily.bold, color: theme.colors.warningDeep },
+    tipDescription: { fontFamily: theme.fontFamily.regular, fontSize: theme.fontSize.tiny, color: theme.colors.warning, marginTop: theme.space[2], lineHeight: 16 },
     bottomBarContainer: {
         padding: theme.space[12],
         backgroundColor: theme.colors.white,
@@ -851,7 +853,7 @@ export const insightStyles = StyleSheet.create({
         gap: theme.space[6],
         marginRight: theme.space[8],
     },
-    chipText: { color: theme.colors.emeraldDark, fontWeight: theme.fontWeight.semibold, fontSize: theme.fontSize.small },
+    chipText: { color: theme.colors.emeraldDark, fontFamily: theme.fontFamily.semibold, fontSize: theme.fontSize.small },
     inputRow: { flexDirection: 'row', alignItems: 'center', gap: theme.space[8] },
     textInput: {
         flex: 1,
@@ -861,7 +863,7 @@ export const insightStyles = StyleSheet.create({
         borderRadius: theme.radius.xxl,
         paddingHorizontal: theme.space[16],
         paddingVertical: theme.space[10],
-        fontSize: theme.fontSize.body,
+        fontFamily: theme.fontFamily.regular, fontSize: theme.fontSize.body,
         color: theme.colors.emerald900,
     },
     sendButton: {
@@ -877,6 +879,7 @@ export const insightStyles = StyleSheet.create({
         elevation: 2,
     },
     sendButtonDisabled: { backgroundColor: theme.colors.mintGray, shadowOpacity: 0 },
+  screenGradientFill: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
 });
 
 
@@ -890,31 +893,29 @@ export const profileStyles = StyleSheet.create({
   },
   centerLoading: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   scrollContent: { paddingBottom: theme.layout.tabBarClearance},
-  modernHeader: { 
-    flexDirection: 'row', 
-    justifyContent: 'center', 
-    alignItems: 'center', 
+  modernHeader: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
     paddingHorizontal: theme.space[24],
     paddingTop: Platform.OS === 'android' ? 44 : 20,
-    paddingBottom: theme.space[20],
-    backgroundColor: theme.colors.brand,
-    borderBottomLeftRadius: 32,
-    borderBottomRightRadius: 32,
+    paddingBottom: theme.space[20] + theme.layout.sheetOverlap,
+    backgroundColor: theme.colors.gradientEnd,
   },
   backBtnTouchable: { width: 20 },
-  headerTitleCentered: { flex: 1, textAlign: 'center', fontSize: theme.fontSize.heading, fontWeight: theme.fontWeight.extrabold, color: theme.colors.white, letterSpacing: -0.5 },
+  headerTitleCentered: { flex: 1, textAlign: 'center', fontSize: theme.fontSize.heading, fontFamily: theme.fontFamily.extrabold, color: theme.colors.white, letterSpacing: -0.5 },
   modernHeroBlock: { alignItems: 'center', marginTop: theme.space[30], marginBottom: theme.space[15] },
   heroAvatar: { width: 88, height: 88, borderRadius: theme.radius.xxxl, backgroundColor: theme.colors.border },
   heroAvatarPlaceholder: { width: 88, height: 88, borderRadius: theme.radius.xxxl, backgroundColor: theme.colors.surfaceAlt, justifyContent: 'center', alignItems: 'center' },
-  avatarInitials: { fontSize: theme.fontSize.display, fontWeight: theme.fontWeight.semibold, color: theme.colors.textSecondary },
-  heroName: { fontSize: theme.fontSize.headingLg, fontWeight: theme.fontWeight.bold, color: theme.colors.text, marginTop: theme.space[14], letterSpacing: -0.5 },
+  avatarInitials: { fontSize: theme.fontSize.display, fontFamily: theme.fontFamily.semibold, color: theme.colors.textSecondary },
+  heroName: { fontSize: theme.fontSize.headingLg, fontFamily: theme.fontFamily.bold, color: theme.colors.text, marginTop: theme.space[14], letterSpacing: -0.5 },
   badgeContainer: { backgroundColor: theme.colors.white, paddingHorizontal: theme.space[10], paddingVertical: theme.space[4], borderRadius: 11, marginTop: theme.space[8], borderWidth: 1, borderColor: theme.colors.success },
-  badgeText: { fontSize: theme.fontSize.tiny, fontWeight: theme.fontWeight.bold, color: theme.colors.success, letterSpacing: 0.5 },
+  badgeText: { fontSize: theme.fontSize.tiny, fontFamily: theme.fontFamily.bold, color: theme.colors.success, letterSpacing: 0.5 },
   modernCardGroup: { paddingHorizontal: theme.space[20], marginTop: theme.space[24] },
-  groupContextLabel: { fontSize: theme.fontSize.small, fontWeight: theme.fontWeight.semibold, color: theme.colors.textSubtle, textTransform: 'uppercase', marginBottom: theme.space[10], letterSpacing: 0.5, paddingLeft: theme.space[4] },
+  groupContextLabel: { fontSize: theme.fontSize.small, fontFamily: theme.fontFamily.semibold, color: theme.colors.textSubtle, textTransform: 'uppercase', marginBottom: theme.space[10], letterSpacing: 0.5, paddingLeft: theme.space[4] },
   modernRowLeft: { flexDirection: 'row', alignItems: 'center', flex: 1, paddingRight: theme.space[10] },
   iconWrapperSquare: { width: 36, height: 36, justifyContent: 'center', alignItems: 'center', marginRight: theme.space[14] },
-  rowPrimaryLabel: { fontSize: theme.fontSize.body, fontWeight: theme.fontWeight.semibold, color: theme.colors.text },
+  rowPrimaryLabel: { fontSize: theme.fontSize.body, fontFamily: theme.fontFamily.semibold, color: theme.colors.text },
   groupCard: {
     backgroundColor: theme.colors.white,
     borderRadius: 22,
@@ -949,7 +950,7 @@ export const profileStyles = StyleSheet.create({
   modernLogoutText: {
     color: theme.colors.dangerBright,            
     fontSize: theme.fontSize.bodyLg,
-    fontWeight: theme.fontWeight.bold,
+    fontFamily: theme.fontFamily.bold,
     letterSpacing: 0.5,
   },
   disabledButton: { 
@@ -989,13 +990,13 @@ export const profileStyles = StyleSheet.create({
   },
   modalTitle: {
     fontSize: theme.fontSize.title,
-    fontWeight: theme.fontWeight.bold,
+    fontFamily: theme.fontFamily.bold,
     color: theme.colors.textStrong,
     marginBottom: theme.space[8],
     textAlign: 'center',
   },
   modalSubtitle: {
-    fontSize: theme.fontSize.body,
+    fontFamily: theme.fontFamily.regular, fontSize: theme.fontSize.body,
     color: theme.colors.textMuted,
     textAlign: 'center',
     lineHeight: 20,
@@ -1020,7 +1021,7 @@ export const profileStyles = StyleSheet.create({
   },
   modalCancelButtonText: {
     fontSize: theme.fontSize.body,
-    fontWeight: theme.fontWeight.semibold,
+    fontFamily: theme.fontFamily.semibold,
     color: theme.colors.textSecondary,
   },
   modalConfirmButton: {
@@ -1028,9 +1029,11 @@ export const profileStyles = StyleSheet.create({
   },
   modalConfirmButtonText: {
     fontSize: theme.fontSize.body,
-    fontWeight: theme.fontWeight.semibold,
+    fontFamily: theme.fontFamily.semibold,
     color: theme.colors.white,
   },
+  headerGradientFill: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
+  sheet: { flex: 1, marginTop: -theme.layout.sheetOverlap, borderTopLeftRadius: theme.layout.sheetRadius, borderTopRightRadius: theme.layout.sheetRadius, overflow: 'hidden', backgroundColor: theme.colors.mintWash },
 });
 
 
@@ -1081,7 +1084,7 @@ export const scanStyles = StyleSheet.create({
   instructionText: { 
     color: theme.colors.white, 
     fontSize: theme.fontSize.caption, 
-    fontWeight: theme.fontWeight.semibold, 
+    fontFamily: theme.fontFamily.semibold, 
     letterSpacing: 0.2,
   },
   overlayContainer: { 
@@ -1211,7 +1214,7 @@ export const scanStyles = StyleSheet.create({
     borderWidth: 1,
     borderColor: theme.colors.alpha.emerald[30]
   },
-  loadingText: { color: theme.colors.border, fontSize: theme.fontSize.caption, fontWeight: theme.fontWeight.semibold, letterSpacing: -0.2 },
+  loadingText: { color: theme.colors.border, fontSize: theme.fontSize.caption, fontFamily: theme.fontFamily.semibold, letterSpacing: -0.2 },
   permissionIconCircle: { 
     width: 64, 
     height: 64, 
@@ -1223,10 +1226,10 @@ export const scanStyles = StyleSheet.create({
     borderWidth: 1,
     borderColor: theme.colors.border
   },
-  permissionTitle: { fontSize: theme.fontSize.heading, fontWeight: theme.fontWeight.bold, color: theme.colors.text, textAlign: 'center', letterSpacing: -0.4 },
-  permissionDescription: { fontSize: theme.fontSize.body, color: theme.colors.textMuted, textAlign: 'center', marginTop: theme.space[8], lineHeight: 22, fontWeight: theme.fontWeight.regular },
+  permissionTitle: { fontSize: theme.fontSize.heading, fontFamily: theme.fontFamily.bold, color: theme.colors.text, textAlign: 'center', letterSpacing: -0.4 },
+  permissionDescription: { fontSize: theme.fontSize.body, color: theme.colors.textMuted, textAlign: 'center', marginTop: theme.space[8], lineHeight: 22, fontFamily: theme.fontFamily.regular },
   grantPermissionBtn: { backgroundColor: theme.colors.text, paddingVertical: theme.space[14], paddingHorizontal: theme.space[28], borderRadius: theme.radius.lg, marginTop: theme.space[28] },
-  grantPermissionBtnText: { color: theme.colors.white, fontWeight: theme.fontWeight.semibold, fontSize: theme.fontSize.body }
+  grantPermissionBtnText: { color: theme.colors.white, fontFamily: theme.fontFamily.semibold, fontSize: theme.fontSize.body }
 });
 
 
@@ -1255,7 +1258,7 @@ export const loginStyles = StyleSheet.create({
   },
   title: { 
     fontSize: 34, 
-    fontWeight: theme.fontWeight.bold, 
+    fontFamily: theme.fontFamily.bold, 
     color: theme.colors.black, 
     lineHeight: 42,
     marginBottom: theme.space[12], 
@@ -1265,7 +1268,7 @@ export const loginStyles = StyleSheet.create({
     color: theme.colors.auth.g2, 
   },
   subtitle: { 
-    fontSize: theme.fontSize.caption, 
+    fontFamily: theme.fontFamily.regular, fontSize: theme.fontSize.caption, 
     color: theme.colors.auth.greenBright,
     lineHeight: 18,
     textAlign: 'center',
@@ -1291,7 +1294,7 @@ export const loginStyles = StyleSheet.create({
   },
   errorText: {
     color: theme.colors.auth.danger,
-    fontSize: theme.fontSize.small,
+    fontFamily: theme.fontFamily.regular, fontSize: theme.fontSize.small,
     marginLeft: theme.space[20],
     marginBottom: theme.space[12],
   },
@@ -1304,7 +1307,7 @@ export const loginStyles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    fontSize: theme.fontSize.bodyLg,
+    fontFamily: theme.fontFamily.regular, fontSize: theme.fontSize.bodyLg,
     color: theme.colors.auth.text,
     height: '100%',
     backgroundColor: 'transparent',
@@ -1327,7 +1330,7 @@ export const loginStyles = StyleSheet.create({
   buttonText: { 
     color: theme.colors.white, 
     fontSize: theme.fontSize.subtitle, 
-    fontWeight: theme.fontWeight.semibold,
+    fontFamily: theme.fontFamily.semibold,
   },
   dividerContainer: {
     flexDirection: 'row',
@@ -1341,7 +1344,7 @@ export const loginStyles = StyleSheet.create({
   },
   dividerText: {
     color: theme.colors.auth.g4,
-    fontSize: theme.fontSize.body,
+    fontFamily: theme.fontFamily.regular, fontSize: theme.fontSize.body,
     marginHorizontal: theme.space[12],
   },
   socialContainer: {
@@ -1364,7 +1367,7 @@ export const loginStyles = StyleSheet.create({
   socialButtonText: {
     color: theme.colors.auth.text,
     fontSize: theme.fontSize.bodyLg,
-    fontWeight: theme.fontWeight.medium,
+    fontFamily: theme.fontFamily.medium,
   },
   footer: { 
     flexDirection: 'row', 
@@ -1373,11 +1376,11 @@ export const loginStyles = StyleSheet.create({
   },
   footerText: { 
     color: theme.colors.auth.g1, 
-    fontSize: theme.fontSize.body,
+    fontFamily: theme.fontFamily.regular, fontSize: theme.fontSize.body,
   },
   linkText: { 
     color: theme.colors.auth.g5,
-    fontWeight: theme.fontWeight.bold, 
+    fontFamily: theme.fontFamily.bold, 
     fontSize: theme.fontSize.body,
   },
   forgot: {
@@ -1407,7 +1410,7 @@ export const registerStyles = StyleSheet.create({
   },
   title: { 
     fontSize: 34, 
-    fontWeight: theme.fontWeight.bold, 
+    fontFamily: theme.fontFamily.bold, 
     color: theme.colors.black, 
     lineHeight: 42,
     marginBottom: theme.space[12], 
@@ -1416,7 +1419,7 @@ export const registerStyles = StyleSheet.create({
     color: theme.colors.auth.g2, 
   },
   subtitle: { 
-    fontSize: theme.fontSize.caption, 
+    fontFamily: theme.fontFamily.regular, fontSize: theme.fontSize.caption, 
     color: theme.colors.auth.greenBright,
     lineHeight: 18,
   },
@@ -1446,7 +1449,7 @@ export const registerStyles = StyleSheet.create({
   },
   errorText: {
     color: theme.colors.auth.danger,
-    fontSize: theme.fontSize.small,
+    fontFamily: theme.fontFamily.regular, fontSize: theme.fontSize.small,
     marginTop: theme.space[6],
     marginLeft: theme.space[20],
   },
@@ -1455,7 +1458,7 @@ export const registerStyles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    fontSize: theme.fontSize.bodyLg,
+    fontFamily: theme.fontFamily.regular, fontSize: theme.fontSize.bodyLg,
     color: theme.colors.auth.text,
     height: '100%',
   },
@@ -1477,7 +1480,7 @@ export const registerStyles = StyleSheet.create({
   buttonText: { 
     color: theme.colors.white, 
     fontSize: theme.fontSize.subtitle, 
-    fontWeight: theme.fontWeight.semibold,
+    fontFamily: theme.fontFamily.semibold,
   },
   dividerContainer: {
     flexDirection: 'row',
@@ -1491,7 +1494,7 @@ export const registerStyles = StyleSheet.create({
   },
   dividerText: {
     color: theme.colors.auth.g4,
-    fontSize: theme.fontSize.body,
+    fontFamily: theme.fontFamily.regular, fontSize: theme.fontSize.body,
     marginHorizontal: theme.space[12],
   },
   socialContainer: {
@@ -1514,7 +1517,7 @@ export const registerStyles = StyleSheet.create({
   socialButtonText: {
     color: theme.colors.auth.text,
     fontSize: theme.fontSize.bodyLg,
-    fontWeight: theme.fontWeight.medium,
+    fontFamily: theme.fontFamily.medium,
   },
   footer: { 
     flexDirection: 'row', 
@@ -1523,11 +1526,11 @@ export const registerStyles = StyleSheet.create({
   },
   footerText: { 
     color: theme.colors.auth.g1, 
-    fontSize: theme.fontSize.body,
+    fontFamily: theme.fontFamily.regular, fontSize: theme.fontSize.body,
   },
   linkText: { 
     color: theme.colors.auth.g5,
-    fontWeight: theme.fontWeight.bold, 
+    fontFamily: theme.fontFamily.bold, 
     fontSize: theme.fontSize.body,
   },
 });
@@ -1567,13 +1570,13 @@ export const forgotPasswordStyles = StyleSheet.create({
   },
   title: { 
     fontSize: theme.fontSize.displayLg, 
-    fontWeight: theme.fontWeight.bold, 
+    fontFamily: theme.fontFamily.bold, 
     color: theme.colors.black, 
     marginBottom: theme.space[10], 
     textAlign: 'center',
   },
   subtitle: { 
-    fontSize: theme.fontSize.body, 
+    fontFamily: theme.fontFamily.regular, fontSize: theme.fontSize.body, 
     color: theme.colors.auth.greenBright,
     textAlign: 'center',
     lineHeight: 20,
@@ -1600,13 +1603,13 @@ export const forgotPasswordStyles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    fontSize: theme.fontSize.bodyLg,
+    fontFamily: theme.fontFamily.regular, fontSize: theme.fontSize.bodyLg,
     color: theme.colors.auth.text,
     height: '100%',
   },
   errorText: {
     color: theme.colors.auth.danger,
-    fontSize: theme.fontSize.caption,
+    fontFamily: theme.fontFamily.regular, fontSize: theme.fontSize.caption,
     marginTop: theme.space[8],
     marginLeft: theme.space[20],
     marginBottom: theme.space[10],
@@ -1620,7 +1623,7 @@ export const forgotPasswordStyles = StyleSheet.create({
   },
   successText: {
     color: theme.colors.auth.green,
-    fontSize: theme.fontSize.body,
+    fontFamily: theme.fontFamily.regular, fontSize: theme.fontSize.body,
     textAlign: 'center',
     marginBottom: theme.space[12],
     lineHeight: 20,
@@ -1634,7 +1637,7 @@ export const forgotPasswordStyles = StyleSheet.create({
   backLinkText: {
     color: theme.colors.white,
     fontSize: theme.fontSize.body,
-    fontWeight: theme.fontWeight.semibold,
+    fontFamily: theme.fontFamily.semibold,
   },
   primaryButton: {
     backgroundColor: theme.colors.auth.greenDark,
@@ -1647,7 +1650,7 @@ export const forgotPasswordStyles = StyleSheet.create({
   buttonText: { 
     color: theme.colors.white, 
     fontSize: theme.fontSize.subtitle, 
-    fontWeight: theme.fontWeight.semibold,
+    fontFamily: theme.fontFamily.semibold,
   },
 });
 
@@ -1687,13 +1690,13 @@ export const resetPasswordStyles = StyleSheet.create({
   },
   title: { 
     fontSize: theme.fontSize.displayLg, 
-    fontWeight: theme.fontWeight.bold, 
+    fontFamily: theme.fontFamily.bold, 
     color: theme.colors.black, 
     marginBottom: theme.space[10], 
     textAlign: 'center',
   },
   subtitle: { 
-    fontSize: theme.fontSize.body, 
+    fontFamily: theme.fontFamily.regular, fontSize: theme.fontSize.body, 
     color: theme.colors.auth.greenBright, 
     textAlign: 'center',
     lineHeight: 20, 
@@ -1721,7 +1724,7 @@ export const resetPasswordStyles = StyleSheet.create({
   },
   input: { 
     flex: 1, 
-    fontSize: theme.fontSize.bodyLg, 
+    fontFamily: theme.fontFamily.regular, fontSize: theme.fontSize.bodyLg, 
     color: theme.colors.auth.text, 
     height: '100%', 
   },
@@ -1730,13 +1733,13 @@ export const resetPasswordStyles = StyleSheet.create({
   },
   errorText: {
     color: theme.colors.auth.danger,
-    fontSize: theme.fontSize.caption,
+    fontFamily: theme.fontFamily.regular, fontSize: theme.fontSize.caption,
     marginTop: theme.space[6],
     marginLeft: theme.space[20],
   },
   generalErrorText: {
     color: theme.colors.auth.danger,
-    fontSize: theme.fontSize.body,
+    fontFamily: theme.fontFamily.regular, fontSize: theme.fontSize.body,
     textAlign: 'center',
     marginBottom: theme.space[15],
   },
@@ -1753,7 +1756,7 @@ export const resetPasswordStyles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: theme.space[16],
     lineHeight: 22,
-    fontWeight: theme.fontWeight.medium,
+    fontFamily: theme.fontFamily.medium,
   },
   backLinkButton: {
     paddingVertical: theme.space[10],
@@ -1764,7 +1767,7 @@ export const resetPasswordStyles = StyleSheet.create({
   backLinkText: {
     color: theme.colors.white,
     fontSize: theme.fontSize.body,
-    fontWeight: theme.fontWeight.semibold,
+    fontFamily: theme.fontFamily.semibold,
   },
   primaryButton: {
     backgroundColor: theme.colors.auth.greenDark,
@@ -1777,7 +1780,7 @@ export const resetPasswordStyles = StyleSheet.create({
   buttonText: { 
     color: theme.colors.white, 
     fontSize: theme.fontSize.subtitle, 
-    fontWeight: theme.fontWeight.semibold, 
+    fontFamily: theme.fontFamily.semibold, 
   },
 });
 
@@ -1796,9 +1799,9 @@ export const verifyEmailStyles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: theme.space[24],
   },
-  iconText: { fontSize: 40 },
-  title: { fontSize: theme.fontSize.display, fontWeight: theme.fontWeight.bold, color: theme.colors.forest, marginBottom: theme.space[12] },
-  subtitle: { fontSize: theme.fontSize.subtitle, color: theme.colors.forestMuted, textAlign: 'center', marginBottom: theme.space[32], lineHeight: 24 },
+  iconText: { fontFamily: theme.fontFamily.regular, fontSize: 40 },
+  title: { fontSize: theme.fontSize.display, fontFamily: theme.fontFamily.bold, color: theme.colors.forest, marginBottom: theme.space[12] },
+  subtitle: { fontFamily: theme.fontFamily.regular, fontSize: theme.fontSize.subtitle, color: theme.colors.forestMuted, textAlign: 'center', marginBottom: theme.space[32], lineHeight: 24 },
   primaryButton: {
     backgroundColor: theme.colors.forest,
     borderRadius: theme.radius.md,
@@ -1807,9 +1810,9 @@ export const verifyEmailStyles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: theme.space[16],
   },
-  buttonText: { color: theme.colors.white, fontSize: theme.fontSize.subtitle, fontWeight: theme.fontWeight.bold },
+  buttonText: { color: theme.colors.white, fontSize: theme.fontSize.subtitle, fontFamily: theme.fontFamily.bold },
   secondaryButton: { padding: theme.space[12] },
-  secondaryButtonText: { color: theme.colors.oliveLight, fontWeight: theme.fontWeight.bold, fontSize: theme.fontSize.bodyLg },
+  secondaryButtonText: { color: theme.colors.oliveLight, fontFamily: theme.fontFamily.bold, fontSize: theme.fontSize.bodyLg },
 });
 
 
@@ -1849,20 +1852,20 @@ export const roleSelectionStyles = StyleSheet.create({
   },
   title: { 
     fontSize: theme.fontSize.display, 
-    fontWeight: theme.fontWeight.black, 
+    fontFamily: theme.fontFamily.black, 
     color: theme.colors.textStrong, 
     marginBottom: theme.space[4], 
     textAlign: 'center', 
   },
   subtitle: { 
-    fontSize: theme.fontSize.body, 
+    fontFamily: theme.fontFamily.regular, fontSize: theme.fontSize.body, 
     color: theme.colors.textMuted, 
     lineHeight: 18, 
     textAlign: 'center', 
   },
   sectionsContainer: { gap: theme.space[16], marginBottom: theme.space[20] },
   sectionGroup: { gap: theme.space[6] },
-  sectionLabel: { fontSize: theme.fontSize.tiny, fontWeight: theme.fontWeight.bold, color: theme.colors.textSubtle, textTransform: 'uppercase', letterSpacing: 1, marginLeft: theme.space[4] },
+  sectionLabel: { fontSize: theme.fontSize.tiny, fontFamily: theme.fontFamily.bold, color: theme.colors.textSubtle, textTransform: 'uppercase', letterSpacing: 1, marginLeft: theme.space[4] },
   roleList: { gap: theme.space[10] },
   roleCard: {
     flexDirection: 'row', alignItems: 'center', backgroundColor: theme.colors.white,
@@ -1876,11 +1879,11 @@ export const roleSelectionStyles = StyleSheet.create({
   iconBox: { width: 48, height: 48, borderRadius: theme.radius.xxl, backgroundColor: theme.colors.surfaceAlt, justifyContent: 'center', alignItems: 'center', marginRight: theme.space[14] },
   selectedIconBox: { backgroundColor: theme.colors.greenSoft },
   textContainer: { flex: 1 },
-  roleName: { fontSize: theme.fontSize.subtitle, fontWeight: theme.fontWeight.extrabold, color: theme.colors.textStrong, marginBottom: theme.space[2] },
-  roleDesc: { fontSize: theme.fontSize.small, color: theme.colors.textMuted, lineHeight: 16, paddingRight: theme.space[8] },
+  roleName: { fontSize: theme.fontSize.subtitle, fontFamily: theme.fontFamily.extrabold, color: theme.colors.textStrong, marginBottom: theme.space[2] },
+  roleDesc: { fontFamily: theme.fontFamily.regular, fontSize: theme.fontSize.small, color: theme.colors.textMuted, lineHeight: 16, paddingRight: theme.space[8] },
   footerContainer: { gap: theme.space[12] },
   noteText: { 
-    fontSize: theme.fontSize.small, 
+    fontFamily: theme.fontFamily.regular, fontSize: theme.fontSize.small, 
     color: theme.colors.textMuted, 
     textAlign: 'center', 
     fontStyle: 'italic',
@@ -1889,7 +1892,7 @@ export const roleSelectionStyles = StyleSheet.create({
     backgroundColor: theme.colors.roleGreen, height: 56, borderRadius: theme.radius.xxxl, justifyContent: 'center', alignItems: 'center',
     shadowColor: theme.colors.roleGreen, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.3, shadowRadius: 10, 
   },
-  buttonText: { color: theme.colors.white, fontSize: theme.fontSize.subtitle, fontWeight: theme.fontWeight.extrabold },
+  buttonText: { color: theme.colors.white, fontSize: theme.fontSize.subtitle, fontFamily: theme.fontFamily.extrabold },
 });
 
 
@@ -1954,14 +1957,14 @@ export const paytonAlertStyles = StyleSheet.create({
   },
   title: {
     fontSize: 19,
-    fontWeight: '800',
+    fontFamily: theme.fontFamily.extrabold,
     color: theme.colors.textStrong,
     textAlign: 'center',
     letterSpacing: -0.3,
     marginBottom: 8,
   },
   message: {
-    fontSize: 14,
+    fontFamily: theme.fontFamily.regular, fontSize: 14,
     lineHeight: 21,
     color: theme.colors.textMuted,
     textAlign: 'center',
@@ -1989,7 +1992,7 @@ export const paytonAlertStyles = StyleSheet.create({
   },
   buttonText: {
     fontSize: 15,
-    fontWeight: '700',
+    fontFamily: theme.fontFamily.bold,
   },
   buttonGhostText: {
     color: theme.colors.brand,
@@ -2008,12 +2011,9 @@ export const splitStyles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: theme.space[24],
-    paddingTop: Platform.OS === 'android' ? 44 : 20,
-    paddingBottom: theme.space[20],
-    backgroundColor: theme.colors.brand,
-    borderBottomLeftRadius: 32,
-    borderBottomRightRadius: 32,
+    paddingHorizontal: theme.space[20],
+    paddingBottom: theme.space[20] + theme.layout.sheetOverlap,
+    backgroundColor: theme.colors.gradientEnd,
   },
   summaryPillsContainer: { gap: theme.space[12], marginBottom: theme.space[24] },
   summaryPill: {
@@ -2035,29 +2035,31 @@ export const splitStyles = StyleSheet.create({
   },
   summaryPillLabel: {
     fontSize: theme.fontSize.caption,
-    fontWeight: theme.fontWeight.semibold,
+    fontFamily: theme.fontFamily.semibold,
     color: theme.colors.textMuted,
   },
   summaryPillAmount: {
     fontSize: 17,
-    fontWeight: theme.fontWeight.extrabold,
+    fontFamily: theme.fontFamily.extrabold,
     color: theme.colors.textStrong,
   },
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: theme.space[12],
+    gap: theme.space[10],
   },
   modernHeaderTitle: {
-    fontSize: theme.fontSize.heading,
-    fontWeight: theme.fontWeight.extrabold,
+    fontSize: theme.fontSize.headingLg,
+    fontFamily: theme.fontFamily.bold,
     color: theme.colors.white,
-    letterSpacing: -0.5,
+    letterSpacing: -0.3,
   },
   quickFormTrigger: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: theme.colors.brandDark,
+    backgroundColor: theme.colors.alpha.white[15],
+    borderWidth: 1,
+    borderColor: theme.colors.alpha.white[30],
     paddingVertical: theme.space[8],
     paddingHorizontal: theme.space[14],
     borderRadius: theme.radius.xl,
@@ -2066,7 +2068,7 @@ export const splitStyles = StyleSheet.create({
   quickFormTriggerText: {
     color: theme.colors.white,
     fontSize: theme.fontSize.caption,
-    fontWeight: theme.fontWeight.semibold,
+    fontFamily: theme.fontFamily.semibold,
   },
   scrollContent: {
     paddingBottom: theme.layout.tabBarClearance,
@@ -2085,11 +2087,11 @@ export const splitStyles = StyleSheet.create({
   sectionCount: {
     fontSize: theme.fontSize.small,
     color: theme.colors.textMuted,
-    fontWeight: theme.fontWeight.medium,
+    fontFamily: theme.fontFamily.medium,
   },
   sectionTitle: {
     fontSize: theme.fontSize.bodyLg,
-    fontWeight: theme.fontWeight.bold,
+    fontFamily: theme.fontFamily.bold,
     color: theme.colors.textStrong,
     letterSpacing: -0.2,
     paddingBottom: theme.space[10],
@@ -2126,13 +2128,13 @@ export const splitStyles = StyleSheet.create({
   },
   avatarLetter: {
     fontSize: theme.fontSize.subtitle,
-    fontWeight: theme.fontWeight.bold,
+    fontFamily: theme.fontFamily.bold,
     color: theme.colors.brand,
   },
   avatarName: {
     fontSize: theme.fontSize.small,
     color: theme.colors.textStrong,
-    fontWeight: theme.fontWeight.medium,
+    fontFamily: theme.fontFamily.medium,
     textAlign: 'center',
   },
   formDrawerContainer: {
@@ -2155,7 +2157,7 @@ export const splitStyles = StyleSheet.create({
   },
   drawerTitle: {
     fontSize: theme.fontSize.title,
-    fontWeight: theme.fontWeight.extrabold,
+    fontFamily: theme.fontFamily.extrabold,
     color: theme.colors.textStrong,
     letterSpacing: -0.3,
   },
@@ -2170,7 +2172,7 @@ export const splitStyles = StyleSheet.create({
   },
   label: {
     fontSize: theme.fontSize.caption,
-    fontWeight: theme.fontWeight.semibold,
+    fontFamily: theme.fontFamily.semibold,
     color: theme.colors.textMuted,
     marginTop: theme.space[16],
     marginBottom: theme.space[6],
@@ -2181,7 +2183,7 @@ export const splitStyles = StyleSheet.create({
     padding: theme.space[12],
     borderRadius: theme.radius.lg,
     backgroundColor: theme.colors.alpha.black[5],
-    fontSize: theme.fontSize.bodyLg,
+    fontFamily: theme.fontFamily.regular, fontSize: theme.fontSize.bodyLg,
     color: theme.colors.textStrong,
   },
   tabContainer: {
@@ -2204,7 +2206,7 @@ export const splitStyles = StyleSheet.create({
   },
   tabBtnText: {
     fontSize: theme.fontSize.caption,
-    fontWeight: theme.fontWeight.semibold,
+    fontFamily: theme.fontFamily.semibold,
     color: theme.colors.textMuted,
   },
   tabBtnTextActive: {
@@ -2240,11 +2242,11 @@ export const splitStyles = StyleSheet.create({
   checkChipText: {
     fontSize: theme.fontSize.caption,
     color: theme.colors.textSecondary,
-    fontWeight: theme.fontWeight.medium,
+    fontFamily: theme.fontFamily.medium,
   },
   checkChipTextSelected: {
     color: theme.colors.accent,
-    fontWeight: theme.fontWeight.bold,
+    fontFamily: theme.fontFamily.bold,
   },
   customSection: {
     marginTop: theme.space[16],
@@ -2256,7 +2258,7 @@ export const splitStyles = StyleSheet.create({
   },
   customSectionTitle: {
     fontSize: theme.fontSize.caption,
-    fontWeight: theme.fontWeight.bold,
+    fontFamily: theme.fontFamily.bold,
     color: theme.colors.textStrong,
     marginBottom: theme.space[10],
   },
@@ -2269,7 +2271,7 @@ export const splitStyles = StyleSheet.create({
   },
   customMemberName: {
     fontSize: theme.fontSize.caption,
-    fontWeight: theme.fontWeight.semibold,
+    fontFamily: theme.fontFamily.semibold,
     color: theme.colors.slate700,
     flex: 1,
   },
@@ -2282,11 +2284,11 @@ export const splitStyles = StyleSheet.create({
     paddingHorizontal: theme.space[10],
     width: 90,
     textAlign: 'right',
-    fontSize: theme.fontSize.body,
+    fontFamily: theme.fontFamily.regular, fontSize: theme.fontSize.body,
     color: theme.colors.textStrong,
   },
   emptyInlineText: {
-    fontSize: theme.fontSize.small,
+    fontFamily: theme.fontFamily.regular, fontSize: theme.fontSize.small,
     color: theme.colors.textSubtle,
     fontStyle: 'italic',
     paddingVertical: theme.space[8],
@@ -2307,7 +2309,7 @@ export const splitStyles = StyleSheet.create({
     fontSize: theme.fontSize.caption,
     color: theme.colors.success,
     flex: 1,
-    fontWeight: theme.fontWeight.medium,
+    fontFamily: theme.fontFamily.medium,
   },
   submitBtn: {
     backgroundColor: theme.colors.brandDark,
@@ -2322,7 +2324,7 @@ export const splitStyles = StyleSheet.create({
   submitBtnText: {
     color: theme.colors.white,
     fontSize: theme.fontSize.bodyLg,
-    fontWeight: theme.fontWeight.semibold,
+    fontFamily: theme.fontFamily.semibold,
   },
   historyCard: {
   backgroundColor: theme.colors.white,
@@ -2343,12 +2345,12 @@ export const splitStyles = StyleSheet.create({
   },
   historyDesc: {
     fontSize: theme.fontSize.bodyLg,
-    fontWeight: theme.fontWeight.bold,
+    fontFamily: theme.fontFamily.bold,
     color: theme.colors.textStrong,
     letterSpacing: -0.1,
   },
   historyMeta: {
-    fontSize: theme.fontSize.small,
+    fontFamily: theme.fontFamily.regular, fontSize: theme.fontSize.small,
     color: theme.colors.textMuted,
     lineHeight: 16,
   },
@@ -2361,7 +2363,7 @@ export const splitStyles = StyleSheet.create({
   settleOpenBtnText: {
     color: theme.colors.white,
     fontSize: theme.fontSize.small,
-    fontWeight: theme.fontWeight.semibold,
+    fontFamily: theme.fontFamily.semibold,
   },
   fullySettledBadge: {
     flexDirection: 'row',
@@ -2375,7 +2377,7 @@ export const splitStyles = StyleSheet.create({
   fullySettledText: {
     color: theme.colors.success,
     fontSize: theme.fontSize.caption,
-    fontWeight: theme.fontWeight.semibold,
+    fontFamily: theme.fontFamily.semibold,
   },
   emptyContainer: {
     alignItems: 'center',
@@ -2385,7 +2387,7 @@ export const splitStyles = StyleSheet.create({
   },
   emptyText: {
     color: theme.colors.textSubtle,
-    fontSize: theme.fontSize.body,
+    fontFamily: theme.fontFamily.regular, fontSize: theme.fontSize.body,
     textAlign: 'center',
   },
   modalOverlay: {
@@ -2437,12 +2439,12 @@ export const splitStyles = StyleSheet.create({
   },
   modalTitle: {
     fontSize: theme.fontSize.subtitle,
-    fontWeight: theme.fontWeight.extrabold,
+    fontFamily: theme.fontFamily.extrabold,
     color: theme.colors.textStrong,
     flex: 1,
   },
   modalSub: {
-    fontSize: theme.fontSize.body,
+    fontFamily: theme.fontFamily.regular, fontSize: theme.fontSize.body,
     color: theme.colors.textMuted,
     marginBottom: theme.space[16],
   },
@@ -2475,7 +2477,7 @@ export const splitStyles = StyleSheet.create({
   },
   settleMemberAvatarChipText: {
     fontSize: theme.fontSize.caption,
-    fontWeight: theme.fontWeight.bold,
+    fontFamily: theme.fontFamily.bold,
     color: theme.colors.accent,
   },
   
@@ -2493,11 +2495,11 @@ export const splitStyles = StyleSheet.create({
   settleMemberAmountLabel: {
     fontSize: theme.fontSize.small,
     color: theme.colors.textMuted,
-    fontWeight: theme.fontWeight.semibold,
+    fontFamily: theme.fontFamily.semibold,
   },
   settleMemberAmountValue: {
     fontSize: theme.fontSize.subtitle,
-    fontWeight: theme.fontWeight.extrabold,
+    fontFamily: theme.fontFamily.extrabold,
     color: theme.colors.brand,
   },
   settleMemberCTA: {
@@ -2510,7 +2512,7 @@ export const splitStyles = StyleSheet.create({
   settleMemberCTAText: {
     color: theme.colors.white,
     fontSize: theme.fontSize.body,
-    fontWeight: theme.fontWeight.bold,
+    fontFamily: theme.fontFamily.bold,
   },
   settleMemberPaidPill: {
     flexDirection: 'row',
@@ -2524,7 +2526,7 @@ export const splitStyles = StyleSheet.create({
   settleMemberPaidPillText: {
     color: theme.colors.success,
     fontSize: theme.fontSize.body,
-    fontWeight: theme.fontWeight.bold,
+    fontFamily: theme.fontFamily.bold,
   },
   budgetChipOption: {
     flexDirection: 'row',
@@ -2547,10 +2549,10 @@ export const splitStyles = StyleSheet.create({
   },
   budgetName: {
     fontSize: theme.fontSize.body,
-    fontWeight: theme.fontWeight.bold,
+    fontFamily: theme.fontFamily.bold,
   },
   budgetBalance: {
-    fontSize: theme.fontSize.small,
+    fontFamily: theme.fontFamily.regular, fontSize: theme.fontSize.small,
     marginTop: theme.space[2],
     opacity: 0.75,
   },
@@ -2594,7 +2596,7 @@ settleActionBtn: {
 settleActionBtnText: {
   color: theme.colors.white,
   fontSize: theme.fontSize.small,
-  fontWeight: theme.fontWeight.semibold,
+  fontFamily: theme.fontFamily.semibold,
 },
 settleMainCard: {
   flexDirection: 'row',
@@ -2607,22 +2609,22 @@ settleMainCard: {
 },
 settleCardDesc: {
   fontSize: theme.fontSize.bodyLg,
-  fontWeight: theme.fontWeight.bold,
+  fontFamily: theme.fontFamily.bold,
   color: theme.colors.text,
 },
 settleCardDate: {
-  fontSize: theme.fontSize.small,
+  fontFamily: theme.fontFamily.regular, fontSize: theme.fontSize.small,
   color: theme.colors.textMuted,
   marginTop: theme.space[2],
 },
 settleCardTotalLabel: {
-  fontSize: theme.fontSize.tiny,
+  fontFamily: theme.fontFamily.regular, fontSize: theme.fontSize.tiny,
   color: theme.colors.textMuted,
   textAlign: 'right',
 },
 settleCardTotalValue: {
   fontSize: theme.fontSize.subtitle,
-  fontWeight: theme.fontWeight.bold,
+  fontFamily: theme.fontFamily.bold,
   color: theme.colors.textStrong,
 },
 settleMemberRowCard: {
@@ -2663,21 +2665,21 @@ settleAvatarChip: {
 },
 settleAvatarText: {
   fontSize: theme.fontSize.body,
-  fontWeight: theme.fontWeight.bold,
+  fontFamily: theme.fontFamily.bold,
   color: theme.colors.textSecondary,
 },
 settleMemberName: {
   fontSize: theme.fontSize.caption,
-  fontWeight: theme.fontWeight.semibold,
+  fontFamily: theme.fontFamily.semibold,
   color: theme.colors.text,
 },
 settleMemberSub: {
-  fontSize: theme.fontSize.tiny,
+  fontFamily: theme.fontFamily.regular, fontSize: theme.fontSize.tiny,
   color: theme.colors.textMuted,
 },
 settleAmountText: {
   fontSize: theme.fontSize.caption,
-  fontWeight: theme.fontWeight.bold,
+  fontFamily: theme.fontFamily.bold,
   color: theme.colors.textStrong,
 },
 settlePayButton: {
@@ -2689,7 +2691,7 @@ settlePayButton: {
 settlePayButtonText: {
   color: theme.colors.white,
   fontSize: theme.fontSize.small,
-  fontWeight: theme.fontWeight.semibold,
+  fontFamily: theme.fontFamily.semibold,
 },
 settlePaidPill: {
   flexDirection: 'row',
@@ -2703,7 +2705,7 @@ settlePaidPill: {
 settlePaidPillText: {
   color: theme.colors.success,
   fontSize: theme.fontSize.small,
-  fontWeight: theme.fontWeight.semibold,
+  fontFamily: theme.fontFamily.semibold,
 },
 settleOwnerBadge: {
   backgroundColor: theme.colors.surfaceAlt,
@@ -2713,7 +2715,7 @@ settleOwnerBadge: {
 },
 settleOwnerBadgeText: {
   fontSize: theme.fontSize.tiny,
-  fontWeight: theme.fontWeight.semibold,
+  fontFamily: theme.fontFamily.semibold,
   color: theme.colors.textMuted,
 },
 settleAvatarImage: {
@@ -2748,7 +2750,7 @@ paymentIconContainer: {
 },
 paymentModalMainTitle: {
   fontSize: theme.fontSize.title,
-  fontWeight: theme.fontWeight.bold,
+  fontFamily: theme.fontFamily.bold,
   color: theme.colors.text,
 },
 paymentInfoCard: {
@@ -2760,12 +2762,12 @@ paymentInfoCard: {
   borderColor: theme.colors.border,
 },
 paymentCardLabel: {
-  fontSize: theme.fontSize.caption,
+  fontFamily: theme.fontFamily.regular, fontSize: theme.fontSize.caption,
   color: theme.colors.textMuted,
 },
 paymentFriendName: {
   fontSize: theme.fontSize.subtitle,
-  fontWeight: theme.fontWeight.bold,
+  fontFamily: theme.fontFamily.bold,
   color: theme.colors.text,
   marginTop: theme.space[2],
   marginBottom: theme.space[8],
@@ -2783,12 +2785,12 @@ paymentBalanceRow: {
 },
 paymentOwedAmount: {
   fontSize: theme.fontSize.bodyLg,
-  fontWeight: theme.fontWeight.bold,
+  fontFamily: theme.fontFamily.bold,
   color: theme.colors.dangerBright,
 },
 paymentInput: {
   fontSize: theme.fontSize.title,
-  fontWeight: theme.fontWeight.semibold,
+  fontFamily: theme.fontFamily.semibold,
   textAlign: 'center',
   backgroundColor: theme.colors.white,
   borderRadius: theme.radius.tight,
@@ -2809,11 +2811,11 @@ paymentSubmitBtn: {
 paymentSubmitBtnText: {
   color: theme.colors.white,
   fontSize: theme.fontSize.bodyLg,
-  fontWeight: theme.fontWeight.semibold,
+  fontFamily: theme.fontFamily.semibold,
 },
 largeAmountInput: {
   fontSize: theme.fontSize.hero,
-  fontWeight: theme.fontWeight.bold,
+  fontFamily: theme.fontFamily.bold,
   color: theme.colors.textStrong, // Adjust to your theme's primary text color
   borderBottomWidth: 2,
   borderBottomColor: theme.colors.accent,
@@ -2847,16 +2849,16 @@ successBanner: {
   borderColor: theme.colors.successPaleBorder,
 },
 inlineMessageText: {
-  fontSize: theme.fontSize.caption,
+  fontFamily: theme.fontFamily.regular, fontSize: theme.fontSize.caption,
   flex: 1,
 },
 errorText: {
   color: theme.colors.dangerDark,
-  fontWeight: theme.fontWeight.medium,
+  fontFamily: theme.fontFamily.medium,
 },
 successText: {
   color: theme.colors.success,
-  fontWeight: theme.fontWeight.medium,
+  fontFamily: theme.fontFamily.medium,
 },
 // Add inside your StyleSheet.create({})
 manageContentContainer: {
@@ -2872,11 +2874,11 @@ manageProfileRow: {
 },
 manageFriendName: {
   fontSize: theme.fontSize.subtitle,
-  fontWeight: theme.fontWeight.semibold,
+  fontFamily: theme.fontFamily.semibold,
   color: theme.colors.textStrong || theme.colors.ink,
 },
 manageFriendEmail: {
-  fontSize: theme.fontSize.caption,
+  fontFamily: theme.fontFamily.regular, fontSize: theme.fontSize.caption,
   color: theme.colors.textMuted || theme.colors.textSecondary,
   marginTop: theme.space[2],
 },
@@ -2894,12 +2896,14 @@ deleteOptionBtn: {
 },
 actionOptionText: {
   fontSize: theme.fontSize.bodyLg,
-  fontWeight: theme.fontWeight.medium,
+  fontFamily: theme.fontFamily.medium,
   color: theme.colors.textStrong || theme.colors.text,
 },
 deleteOptionText: {
   color: theme.colors.dangerDark,
 },
+  headerGradientFill: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
+  sheet: { flex: 1, marginTop: -theme.layout.sheetOverlap, borderTopLeftRadius: theme.layout.sheetRadius, borderTopRightRadius: theme.layout.sheetRadius, overflow: 'hidden', backgroundColor: theme.colors.background },
 });
 
 
@@ -2938,9 +2942,9 @@ export const personalHomeStyles = StyleSheet.create({
     borderWidth: 2,
     borderColor: theme.colors.lime,
   },
-  avatarInitial: { color: theme.colors.white, fontSize: theme.fontSize.heading, fontWeight: theme.fontWeight.bold },
-  helloText: { fontSize: theme.fontSize.subtitle, fontWeight: theme.fontWeight.bold, color: theme.colors.white, letterSpacing: -0.3, lineHeight: 26 },
-  userNameText: { fontSize: theme.fontSize.title, fontWeight: theme.fontWeight.semibold, color: theme.colors.alpha.white[82], marginTop: theme.space[1] },
+  avatarInitial: { color: theme.colors.white, fontSize: theme.fontSize.heading, fontFamily: theme.fontFamily.bold },
+  helloText: { fontSize: theme.fontSize.subtitle, fontFamily: theme.fontFamily.bold, color: theme.colors.white, letterSpacing: -0.3, lineHeight: 26 },
+  userNameText: { fontSize: theme.fontSize.title, fontFamily: theme.fontFamily.semibold, color: theme.colors.alpha.white[82], marginTop: theme.space[1] },
   
   roleBadgeContainer: {
     backgroundColor: theme.colors.alpha.white[12],
@@ -2954,7 +2958,7 @@ export const personalHomeStyles = StyleSheet.create({
   roleBadgeText: {
     color: theme.colors.white,
     fontSize: theme.fontSize.tiny,
-    fontWeight: theme.fontWeight.bold,
+    fontFamily: theme.fontFamily.bold,
     textTransform: 'capitalize',
     letterSpacing: 0.5,
   },
@@ -2965,19 +2969,19 @@ export const personalHomeStyles = StyleSheet.create({
     width: 22, height: 22, borderRadius: 11,
     backgroundColor: theme.colors.lime, justifyContent: 'center', alignItems: 'center',
   },
-  balanceLabel: { fontSize: theme.fontSize.small, color: theme.colors.white, fontWeight: theme.fontWeight.bold, letterSpacing: 1.2, textTransform: 'uppercase' },
+  balanceLabel: { fontSize: theme.fontSize.small, color: theme.colors.white, fontFamily: theme.fontFamily.bold, letterSpacing: 1.2, textTransform: 'uppercase' },
   pillTrackOuter: { width: '100%', padding: theme.space[4], borderRadius: theme.radius.jumbo, backgroundColor: theme.colors.alpha.white[8] },
   pillTrack: { width: '100%', height: 46, borderRadius: 26, backgroundColor: theme.colors.alpha.white[15], overflow: 'hidden' },
   pillFill: { height: '100%', borderRadius: 26, backgroundColor: theme.colors.aqua },
   balanceAmountRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: theme.space[8], marginTop: theme.space[16] },
-  pillAmountText: { fontSize: theme.fontSize.hero, fontWeight: theme.fontWeight.extrabold, color: theme.colors.white, letterSpacing: -0.6 },
-  pillAmountDivider: { fontSize: theme.fontSize.headingLg, color: theme.colors.alpha.white[30], fontWeight: theme.fontWeight.light },
-  pillAmountTotal: { fontSize: theme.fontSize.bodyLg, fontWeight: theme.fontWeight.semibold, color: theme.colors.alpha.white[65] },
+  pillAmountText: { fontSize: theme.fontSize.hero, fontFamily: theme.fontFamily.extrabold, color: theme.colors.white, letterSpacing: -0.6 },
+  pillAmountDivider: { fontSize: theme.fontSize.headingLg, color: theme.colors.alpha.white[30], fontFamily: theme.fontFamily.light },
+  pillAmountTotal: { fontSize: theme.fontSize.bodyLg, fontFamily: theme.fontFamily.semibold, color: theme.colors.alpha.white[65] },
 
   sectionBlock: { paddingHorizontal: theme.space[24], marginTop: theme.space[20] },
   sectionHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: theme.space[16] },
-  sectionTitle: { fontSize: 17, fontWeight: theme.fontWeight.bold, color: theme.colors.oliveDeep, letterSpacing: -0.3 },
-  seeAllText: { fontSize: theme.fontSize.caption, color: theme.colors.brand, fontWeight: theme.fontWeight.bold },
+  sectionTitle: { fontSize: 17, fontFamily: theme.fontFamily.bold, color: theme.colors.oliveDeep, letterSpacing: -0.3 },
+  seeAllText: { fontSize: theme.fontSize.caption, color: theme.colors.brand, fontFamily: theme.fontFamily.bold },
 
   dateStripContainer: {
     gap: theme.space[8],
@@ -3007,13 +3011,13 @@ export const personalHomeStyles = StyleSheet.create({
   },
   dateDayName: {
     fontSize: theme.fontSize.micro,
-    fontWeight: theme.fontWeight.bold,
+    fontFamily: theme.fontFamily.bold,
     color: theme.colors.textMuted,
     marginBottom: theme.space[2],
   },
   dateDayNumber: {
     fontSize: theme.fontSize.title,
-    fontWeight: theme.fontWeight.extrabold,
+    fontFamily: theme.fontFamily.extrabold,
     color: theme.colors.oliveDeep,
   },
   dateTextToday: {
@@ -3072,13 +3076,13 @@ export const personalHomeStyles = StyleSheet.create({
   },
   statsLabel: {
     fontSize: theme.fontSize.tiny,
-    fontWeight: theme.fontWeight.semibold,
+    fontFamily: theme.fontFamily.semibold,
     color: theme.colors.textMuted,
     marginBottom: theme.space[2],
   },
   statsAmount: {
     fontSize: theme.fontSize.title,
-    fontWeight: theme.fontWeight.extrabold,
+    fontFamily: theme.fontFamily.extrabold,
     color: theme.colors.oliveDeep,
     letterSpacing: -0.5,
   },
@@ -3109,7 +3113,7 @@ export const personalHomeStyles = StyleSheet.create({
   },
   legendCategoryName: {
     fontSize: theme.fontSize.caption,
-    fontWeight: theme.fontWeight.semibold,
+    fontFamily: theme.fontFamily.semibold,
     color: theme.colors.oliveDeep,
   },
   legendRight: {
@@ -3119,24 +3123,24 @@ export const personalHomeStyles = StyleSheet.create({
   },
   legendAmount: {
     fontSize: theme.fontSize.caption,
-    fontWeight: theme.fontWeight.bold,
+    fontFamily: theme.fontFamily.bold,
     color: theme.colors.black,
   },
   legendPercentage: {
     fontSize: theme.fontSize.tiny,
-    fontWeight: theme.fontWeight.semibold,
+    fontFamily: theme.fontFamily.semibold,
     color: theme.colors.textMuted,
   },
   emptyLegendText: {
     textAlign: 'center',
-    fontSize: theme.fontSize.caption,
+    fontFamily: theme.fontFamily.regular, fontSize: theme.fontSize.caption,
     color: theme.colors.textMuted,
     paddingVertical: theme.space[10],
   },
   lineGraphSubtitle: {
     fontSize: theme.fontSize.small,
     color: theme.colors.textMuted,
-    fontWeight: theme.fontWeight.semibold,
+    fontFamily: theme.fontFamily.semibold,
     marginBottom: theme.space[12],
     alignSelf: 'flex-start',
   },
@@ -3203,13 +3207,13 @@ modalContainer2: {
   },
   modalTitle: {
     fontSize: theme.fontSize.title,
-    fontWeight: theme.fontWeight.bold,
+    fontFamily: theme.fontFamily.bold,
     color: theme.colors.oliveDeep,
   },
   modalSubtitle: {
     fontSize: theme.fontSize.small,
     color: theme.colors.textMuted,
-    fontWeight: theme.fontWeight.semibold,
+    fontFamily: theme.fontFamily.semibold,
     marginTop: theme.space[2],
   },
   modalCloseButton: {
@@ -3238,11 +3242,11 @@ modalContainer2: {
   },
   reminderTitleHome: {
     fontSize: theme.fontSize.body,
-    fontWeight: theme.fontWeight.bold,
+    fontFamily: theme.fontFamily.bold,
     color: theme.colors.text,
   },
   reminderSubHome: {
-    fontSize: theme.fontSize.tiny,
+    fontFamily: theme.fontFamily.regular, fontSize: theme.fontSize.tiny,
     color: theme.colors.textSecondary,
     marginTop: theme.space[2],
   },
@@ -3253,7 +3257,7 @@ modalContainer2: {
   },
   dueBadgeTextHome: {
     fontSize: theme.fontSize.tiny,
-    fontWeight: theme.fontWeight.bold,
+    fontFamily: theme.fontFamily.bold,
   },
 
   calendarBadgeHome: {
@@ -3281,7 +3285,7 @@ modalContainer2: {
   },
   inputLabel: {
     fontSize: theme.fontSize.caption,
-    fontWeight: theme.fontWeight.bold,
+    fontFamily: theme.fontFamily.bold,
     color: theme.colors.oliveDeep,
   },
   textInput: {
@@ -3291,7 +3295,7 @@ modalContainer2: {
     borderRadius: theme.radius.md,
     paddingHorizontal: theme.space[16],
     paddingVertical: theme.space[12],
-    fontSize: theme.fontSize.body,
+    fontFamily: theme.fontFamily.regular, fontSize: theme.fontSize.body,
     color: theme.colors.black,
   },
   categoryScroll: {
@@ -3309,7 +3313,7 @@ modalContainer2: {
   },
   categoryChipText: {
     fontSize: theme.fontSize.small,
-    fontWeight: theme.fontWeight.semibold,
+    fontFamily: theme.fontFamily.semibold,
     color: theme.colors.oliveDeep,
   },
   submitButton: {
@@ -3322,7 +3326,7 @@ modalContainer2: {
   submitButtonText: {
     color: theme.colors.white,
     fontSize: theme.fontSize.bodyLg,
-    fontWeight: theme.fontWeight.bold,
+    fontFamily: theme.fontFamily.bold,
   },
   emptyStateContainer: {
     alignItems: 'center',
@@ -3332,12 +3336,12 @@ modalContainer2: {
   },
   emptyStateTitle: {
     fontSize: theme.fontSize.subtitle,
-    fontWeight: theme.fontWeight.bold,
+    fontFamily: theme.fontFamily.bold,
     color: theme.colors.oliveDeep,
     marginTop: theme.space[4],
   },
   emptyStateText: {
-    fontSize: theme.fontSize.caption,
+    fontFamily: theme.fontFamily.regular, fontSize: theme.fontSize.caption,
     color: theme.colors.textMuted,
     textAlign: 'center',
   },
@@ -3356,7 +3360,7 @@ modalContainer2: {
 inlineErrorText: {
   color: theme.colors.danger,
   fontSize: theme.fontSize.caption,
-  fontWeight: theme.fontWeight.medium,
+  fontFamily: theme.fontFamily.medium,
   flex: 1,
 },
 inlineSuccessContainer: {
@@ -3374,7 +3378,7 @@ inlineSuccessContainer: {
 inlineSuccessText: {
   color: theme.colors.olive,
   fontSize: theme.fontSize.caption,
-  fontWeight: theme.fontWeight.medium,
+  fontFamily: theme.fontFamily.medium,
   flex: 1,
 },
 balanceAmountLeft: {
@@ -3402,7 +3406,7 @@ seeMoreDateBox: {
 },
 seeMoreLabel: {
   fontSize: theme.fontSize.small,
-  fontWeight: theme.fontWeight.semibold,
+  fontFamily: theme.fontFamily.semibold,
   color: theme.colors.brand,
 },
 
@@ -3429,7 +3433,7 @@ calendarLegendDot: {
 },
 calendarLegendText: {
   fontSize: theme.fontSize.small,
-  fontWeight: theme.fontWeight.semibold,
+  fontFamily: theme.fontFamily.semibold,
   color: theme.colors.textMuted,
 },
 
@@ -3449,7 +3453,7 @@ export const incomeStyles = StyleSheet.create({
     paddingBottom: theme.space[20],
   },
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  headerTitle: { fontSize: 17, fontWeight: theme.fontWeight.bold, color: theme.colors.white, letterSpacing: 0.2 },
+  headerTitle: { fontSize: 17, fontFamily: theme.fontFamily.bold, color: theme.colors.white, letterSpacing: 0.2 },
   iconCircleButton: {
     width: 38,
     height: 38,
@@ -3472,14 +3476,14 @@ export const incomeStyles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: theme.space[16],
   },
-  sectionTitle: { fontSize: theme.fontSize.subtitle, fontWeight: theme.fontWeight.bold, color: theme.colors.brand },
+  sectionTitle: { fontSize: theme.fontSize.subtitle, fontFamily: theme.fontFamily.bold, color: theme.colors.brand },
   countBadge: {
     backgroundColor: theme.colors.tealWash,
     paddingHorizontal: theme.space[10],
     paddingVertical: theme.space[4],
     borderRadius: theme.radius.xl,
   },
-  countBadgeText: { fontSize: theme.fontSize.tiny, fontWeight: theme.fontWeight.bold, color: theme.colors.brand },
+  countBadgeText: { fontSize: theme.fontSize.tiny, fontFamily: theme.fontFamily.bold, color: theme.colors.brand },
   emptyContainer: {
     paddingVertical: 48,
     alignItems: 'center',
@@ -3500,8 +3504,8 @@ export const incomeStyles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: theme.space[12],
   },
-  emptyTitle: { fontSize: theme.fontSize.bodyLg, fontWeight: theme.fontWeight.bold, color: theme.colors.textStrong, marginBottom: theme.space[4] },
-  emptyText: { fontSize: theme.fontSize.small, color: theme.colors.textMuted, fontWeight: theme.fontWeight.medium, textAlign: 'center', paddingHorizontal: theme.space[32] },
+  emptyTitle: { fontSize: theme.fontSize.bodyLg, fontFamily: theme.fontFamily.bold, color: theme.colors.textStrong, marginBottom: theme.space[4] },
+  emptyText: { fontSize: theme.fontSize.small, color: theme.colors.textMuted, fontFamily: theme.fontFamily.medium, textAlign: 'center', paddingHorizontal: theme.space[32] },
   incomeCard: {
     backgroundColor: theme.colors.white,
     padding: theme.space[16],
@@ -3539,7 +3543,7 @@ export const incomeStyles = StyleSheet.create({
   },
   sourceText: {
     fontSize: theme.fontSize.bodyLg,
-    fontWeight: theme.fontWeight.bold,
+    fontFamily: theme.fontFamily.bold,
     color: theme.colors.textStrong,
   },
   amountContainer: {
@@ -3548,7 +3552,7 @@ export const incomeStyles = StyleSheet.create({
   },
   amountText: {
     fontSize: theme.fontSize.subtitle,
-    fontWeight: theme.fontWeight.extrabold,
+    fontFamily: theme.fontFamily.extrabold,
     color: theme.colors.brand,
   },
   cardDivider: {
@@ -3570,7 +3574,7 @@ export const incomeStyles = StyleSheet.create({
   },
   dateText: {
     fontSize: theme.fontSize.tiny,
-    fontWeight: theme.fontWeight.medium,
+    fontFamily: theme.fontFamily.medium,
     color: theme.colors.textMuted,
   },
   actionButtonsRow: {
@@ -3601,16 +3605,16 @@ export const incomeStyles = StyleSheet.create({
   modalContainer: { backgroundColor: theme.colors.white, width: '100%', padding: theme.space[24], borderRadius: theme.radius.xxl, shadowColor: theme.colors.brand, shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.1, shadowRadius: 20, elevation: 5 },
   calendarModalContainer: { backgroundColor: theme.colors.white, width: '90%', maxWidth: 380, padding: theme.space[20], borderRadius: theme.radius.xxl, shadowColor: theme.colors.brand, shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.1, shadowRadius: 20, elevation: 5 },
   modalHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: theme.space[16] },
-  modalTitle: { fontSize: 17, fontWeight: theme.fontWeight.bold, color: theme.colors.textStrong },
+  modalTitle: { fontSize: 17, fontFamily: theme.fontFamily.bold, color: theme.colors.textStrong },
   modalCloseBtn: { width: 30, height: 30, borderRadius: theme.radius.sm, backgroundColor: theme.colors.surfaceAlt, justifyContent: 'center', alignItems: 'center' },
-  inputLabel: { fontSize: theme.fontSize.small, color: theme.colors.textSecondary, fontWeight: theme.fontWeight.semibold, marginBottom: theme.space[6], marginTop: theme.space[4] },
+  inputLabel: { fontSize: theme.fontSize.small, color: theme.colors.textSecondary, fontFamily: theme.fontFamily.semibold, marginBottom: theme.space[6], marginTop: theme.space[4] },
   modalInput: {
     borderWidth: 1,
     borderColor: theme.colors.borderStrong,
     padding: theme.space[12],
     borderRadius: theme.radius.md,
     fontSize: theme.fontSize.body,
-    fontWeight: theme.fontWeight.medium,
+    fontFamily: theme.fontFamily.medium,
     marginBottom: theme.space[4],
     backgroundColor: theme.colors.background,
     color: theme.colors.textStrong,
@@ -3640,7 +3644,7 @@ export const incomeStyles = StyleSheet.create({
   },
   chipText: {
     fontSize: theme.fontSize.small,
-    fontWeight: theme.fontWeight.semibold,
+    fontFamily: theme.fontFamily.semibold,
     color: theme.colors.textSecondary,
   },
   chipTextSelected: {
@@ -3659,30 +3663,30 @@ export const incomeStyles = StyleSheet.create({
   },
   previewDateText: {
     fontSize: theme.fontSize.small,
-    fontWeight: theme.fontWeight.semibold,
+    fontFamily: theme.fontFamily.semibold,
     color: theme.colors.brand,
   },
   modalButtonsRow: { flexDirection: 'row', justifyContent: 'flex-end', gap: theme.space[10], marginTop: theme.space[12] },
   modalButton: { paddingVertical: theme.space[12], paddingHorizontal: theme.space[16], borderRadius: theme.radius.md, flex: 1, alignItems: 'center' },
   cancelBtn: { backgroundColor: theme.colors.surfaceAlt, borderWidth: 1, borderColor: theme.colors.border },
-  cancelBtnText: { color: theme.colors.textSecondary, fontWeight: theme.fontWeight.semibold, fontSize: theme.fontSize.caption },
+  cancelBtnText: { color: theme.colors.textSecondary, fontFamily: theme.fontFamily.semibold, fontSize: theme.fontSize.caption },
   confirmBtn: { backgroundColor: theme.colors.brand },
-  confirmBtnText: { color: theme.colors.white, fontWeight: theme.fontWeight.semibold, fontSize: theme.fontSize.caption },
+  confirmBtnText: { color: theme.colors.white, fontFamily: theme.fontFamily.semibold, fontSize: theme.fontSize.caption },
 
   calendarMonthHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: theme.space[14] },
-  calendarMonthTitle: { fontSize: theme.fontSize.bodyLg, fontWeight: theme.fontWeight.bold, color: theme.colors.textStrong },
+  calendarMonthTitle: { fontSize: theme.fontSize.bodyLg, fontFamily: theme.fontFamily.bold, color: theme.colors.textStrong },
   calendarNavRow: { flexDirection: 'row', gap: theme.space[8] },
   calendarNavBtn: { width: 32, height: 32, borderRadius: theme.radius.tight, backgroundColor: theme.colors.surfaceAlt, justifyContent: 'center', alignItems: 'center' },
   calendarDaysOfWeek: { flexDirection: 'row', justifyContent: 'space-around', marginBottom: theme.space[8] },
-  calendarDayOfWeekText: { fontSize: theme.fontSize.tiny, fontWeight: theme.fontWeight.semibold, color: theme.colors.textMuted, width: '14.28%', textAlign: 'center' },
+  calendarDayOfWeekText: { fontSize: theme.fontSize.tiny, fontFamily: theme.fontFamily.semibold, color: theme.colors.textMuted, width: '14.28%', textAlign: 'center' },
   calendarGrid: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: theme.space[16] },
   calendarDayCell: { width: '14.28%', aspectRatio: 1, justifyContent: 'center', alignItems: 'center', marginVertical: theme.space[2] },
   calendarDayCellDisabled: { opacity: 0.3 },
   calendarCellInRange: { backgroundColor: theme.colors.cyanGlow },
   calendarCellEndpoint: { backgroundColor: theme.colors.cyanNeon, borderRadius: theme.radius.xl },
-  calendarDayText: { fontSize: theme.fontSize.caption, fontWeight: theme.fontWeight.semibold, color: theme.colors.slate700 },
+  calendarDayText: { fontSize: theme.fontSize.caption, fontFamily: theme.fontFamily.semibold, color: theme.colors.slate700 },
   calendarDayTextDisabled: { color: theme.colors.textSubtle },
-  calendarDayTextSelected: { color: theme.colors.textStrong, fontWeight: theme.fontWeight.bold },
+  calendarDayTextSelected: { color: theme.colors.textStrong, fontFamily: theme.fontFamily.bold },
 
   toggleRow: {
     flexDirection: 'row',
@@ -3700,7 +3704,7 @@ export const incomeStyles = StyleSheet.create({
     marginRight: theme.space[10],
   },
   toggleSubtext: {
-    fontSize: theme.fontSize.small,
+    fontFamily: theme.fontFamily.regular, fontSize: theme.fontSize.small,
     color: theme.colors.textMuted,
   },
   allocationRow: {
@@ -3730,7 +3734,7 @@ export const incomeStyles = StyleSheet.create({
   },
   bannerText: {
     fontSize: theme.fontSize.small,
-    fontWeight: theme.fontWeight.semibold,
+    fontFamily: theme.fontFamily.semibold,
     flex: 1,
   },
   bannerTextError: {
