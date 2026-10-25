@@ -1,12 +1,12 @@
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-
 
 export default function VerifyEmailScreen() {
   const router = useRouter();
 
   return (
-    <View style={styles.container}>
+    <LinearGradient colors={['#EAF9E7', '#FFFFFF']} style={styles.container}>
       <View style={styles.innerContainer}>
         <View style={styles.iconPlaceholder}>
           <Text style={styles.iconText}>✉️</Text>
@@ -25,34 +25,39 @@ export default function VerifyEmailScreen() {
           <Text style={styles.secondaryButtonText}>Resend Verification Email</Text>
         </TouchableOpacity>
       </View>
-    </View>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F7F9F8' },
-  innerContainer: { flex: 1, padding: 24, justifyContent: 'center', alignItems: 'center' },
+  container: { flex: 1 },
+  innerContainer: { flex: 1, padding: 28, justifyContent: 'center', alignItems: 'center' },
   iconPlaceholder: {
     width: 96,
     height: 96,
     borderRadius: 48,
-    backgroundColor: '#F0F9F8',
+    backgroundColor: '#FFFFFF',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
   },
   iconText: { fontSize: 40 },
-  title: { fontSize: 26, fontWeight: 'bold', color: '#1B3623', marginBottom: 12 },
-  subtitle: { fontSize: 16, color: '#586A61', textAlign: 'center', marginBottom: 32, lineHeight: 24 },
+  title: { fontSize: 28, fontWeight: '700', color: '#013237', marginBottom: 12 },
+  subtitle: { fontSize: 14, color: '#4CA771', textAlign: 'center', marginBottom: 32, lineHeight: 22 },
   primaryButton: {
-    backgroundColor: '#1B3623',
-    borderRadius: 12,
-    padding: 16,
+    backgroundColor: '#013237',
+    borderRadius: 30,
+    height: 56,
     width: '100%',
     alignItems: 'center',
-    marginBottom: 16,
+    justifyContent: 'center',
+    marginBottom: 12,
   },
-  buttonText: { color: '#FFFFFF', fontSize: 16, fontWeight: 'bold' },
+  buttonText: { color: '#FFFFFF', fontSize: 16, fontWeight: '600' },
   secondaryButton: { padding: 12 },
-  secondaryButtonText: { color: '#89B443', fontWeight: 'bold', fontSize: 15 },
+  secondaryButtonText: { color: '#4CA771', fontWeight: '600', fontSize: 15 },
 });

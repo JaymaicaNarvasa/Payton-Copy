@@ -77,21 +77,23 @@ export default function SponsorTabsLayout() {
         }}
       />
 
-      {/* Analytics / Insights Tab */}
+      {/* Allowances Tab */}
       <Tabs.Screen
         name="allowances"
         options={{
-          title: "Analytics",
+          title: "Allowances",
           tabBarIcon: ({ color, focused }: any) => (
             <TabIcon
               color={color}
               focused={focused}
-              activeIcon="wallet"
-              inactiveIcon="wallet-outline"
+              activeIcon="stats-chart"
+              inactiveIcon="stats-chart-outline"
             />
           ),
         }}
       />
+
+      
 
       {/* Profile Tab */}
       <Tabs.Screen
@@ -125,7 +127,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
     borderTopWidth: 1,
     borderTopColor: "#F0F0F0",
-    elevation: 0,
+    elevation: 50,
     shadowOpacity: 0,
   },
 

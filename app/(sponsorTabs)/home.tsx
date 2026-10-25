@@ -61,7 +61,7 @@ interface SelectedSpender {
 
 type Msg = { type: 'error' | 'success'; text: string } | null;
 type PeriodKey = 'today' | 'week' | 'nextWeek' | 'month' | 'nextMonth';
-type TxFilter = 'all' | 'add' | 'deduct';
+type TxFilter = 'all' | 'today' | 'week' | 'month' | 'year';
 type IconName = keyof typeof Ionicons.glyphMap;
 
 type AllowanceErrors = {
@@ -112,8 +112,10 @@ const PERIODS: { key: PeriodKey; label: string }[] = [
 
 const TX_FILTERS: { key: TxFilter; label: string }[] = [
   { key: 'all', label: 'All' },
-  { key: 'add', label: 'Added' },
-  { key: 'deduct', label: 'Deducted' },
+  { key: 'today', label: 'Today' },
+  { key: 'week', label: 'This Week' },
+  { key: 'month', label: 'This Month' },
+  { key: 'year', label: 'This Year' },
 ];
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -126,7 +128,7 @@ const toCents = (value: string) => {
 };
 
 /* ---------- Helpers ---------- */
-const formatPeso = (n: number, fixed = false) =>
+const formatPeso = (n: number, fixed = true) =>
   `₱${n.toLocaleString('en-US', {
     minimumFractionDigits: fixed ? 2 : 0,
     maximumFractionDigits: 2,
@@ -678,24 +680,35 @@ export default function HomeScreen() {
   }, []);
 
   /* ---------- Derived ---------- */
-  const monthStats = useMemo(() => {
-    const now = new Date();
+  // All-time totals across every wallet transaction
+  const walletTotals = useMemo(() => {
     let added = 0;
     let sent = 0;
     walletTransactions.forEach((t) => {
-      const d = new Date(t.created_at);
-      if (d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()) {
-        if (t.type === 'add') added += Number(t.amount);
-        else sent += Number(t.amount);
-      }
+      if (t.type === 'add') added += Number(t.amount);
+      else sent += Number(t.amount);
     });
     return { added, sent };
   }, [walletTransactions]);
 
-  const filteredTransactions = useMemo(
-    () => (txFilter === 'all' ? walletTransactions : walletTransactions.filter((t) => t.type === txFilter)),
-    [walletTransactions, txFilter],
-  );
+  const filteredTransactions = useMemo(() => {
+    if (txFilter === 'all') return walletTransactions;
+
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    let start: Date;
+    if (txFilter === 'today') {
+      start = startOfToday;
+    } else if (txFilter === 'week') {
+      // Week runs Sunday–Saturday, matching the calendar periods elsewhere
+      start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay());
+    } else if (txFilter === 'month') {
+      start = new Date(now.getFullYear(), now.getMonth(), 1);
+    } else {
+      start = new Date(now.getFullYear(), 0, 1);
+    }
+    return walletTransactions.filter((t) => new Date(t.created_at) >= start);
+  }, [walletTransactions, txFilter]);
 
   /* ---------- Close / reset handlers ---------- */
   const closeWalletModal = () => {
@@ -1284,8 +1297,10 @@ export default function HomeScreen() {
 
   const emptyTxCopy: Record<TxFilter, string> = {
     all: 'No transaction records yet.',
-    add: 'No added funds yet.',
-    deduct: 'No deductions yet.',
+    today: 'No transactions today.',
+    week: 'No transactions this week.',
+    month: 'No transactions this month.',
+    year: 'No transactions this year.',
   };
 
   return (
@@ -1387,7 +1402,7 @@ export default function HomeScreen() {
                     <Text style={styles.statLabel}>Added</Text>
                   </View>
                   <Text style={styles.statValue}>
-                    {balanceHidden ? '••••' : formatPeso(monthStats.added)}
+                    {balanceHidden ? '••••' : formatPeso(walletTotals.added, false)}
                   </Text>
                 </View>
                 <View style={styles.statDivider} />
@@ -1397,7 +1412,7 @@ export default function HomeScreen() {
                     <Text style={styles.statLabel}>Sent</Text>
                   </View>
                   <Text style={styles.statValue}>
-                    {balanceHidden ? '••••' : formatPeso(monthStats.sent)}
+                    {balanceHidden ? '••••' : formatPeso(walletTotals.sent, false)}
                   </Text>
                 </View>
                 <View style={styles.statDivider} />
@@ -1409,7 +1424,7 @@ export default function HomeScreen() {
                   <Text style={styles.statValue}>{connectedSpenders.length}</Text>
                 </View>
               </View>
-              <Text style={styles.statCaption}>Added and sent figures are for this month</Text>
+              
             </LinearGradient>
 
             {/* QUICK ACTIONS */}
@@ -1472,9 +1487,7 @@ export default function HomeScreen() {
                 <Text style={styles.spenderName}>Add</Text>
               </TouchableOpacity>
             </ScrollView>
-            {connectedSpenders.length > 0 && (
-              <Text style={styles.listHint}>Press and hold a spender to disconnect them.</Text>
-            )}
+            
 
             {/* TRANSACTIONS */}
             <View style={[styles.sectionHeader, { marginTop: 24 }]}>
@@ -1494,7 +1507,11 @@ export default function HomeScreen() {
                     activeOpacity={0.8}
                     onPress={() => setTxFilter(f.key)}
                   >
-                    <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>
+                    <Text
+                      style={[styles.filterChipText, active && styles.filterChipTextActive]}
+                      numberOfLines={1}
+                      adjustsFontSizeToFit
+                    >
                       {f.label}
                     </Text>
                   </TouchableOpacity>
@@ -2298,7 +2315,7 @@ const styles = StyleSheet.create({
     padding: 4,
     marginBottom: 14,
   },
-  filterChip: { flex: 1, paddingVertical: 8, borderRadius: 11, alignItems: 'center' },
+  filterChip: { flex: 1, paddingVertical: 8, paddingHorizontal: 2, borderRadius: 11, alignItems: 'center' },
   filterChipActive: {
     backgroundColor: COLORS.white,
     shadowColor: '#000',
@@ -2307,7 +2324,7 @@ const styles = StyleSheet.create({
     shadowRadius: 3,
     elevation: 2,
   },
-  filterChipText: { fontSize: 12, fontWeight: '600', color: COLORS.textSubtle },
+  filterChipText: { fontSize: 11, fontWeight: '600', color: COLORS.textSubtle },
   filterChipTextActive: { color: COLORS.primary, fontWeight: '700' },
   transactionsListContainer: { gap: 10 },
   txCardItem: {

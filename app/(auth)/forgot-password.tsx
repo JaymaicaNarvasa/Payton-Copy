@@ -1,4 +1,5 @@
 import { Feather } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import * as Linking from 'expo-linking';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
@@ -51,7 +52,7 @@ export default function ForgotPasswordScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <LinearGradient colors={['#EAF9E7', '#FFFFFF']} style={styles.container}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1 }}
@@ -59,13 +60,12 @@ export default function ForgotPasswordScreen() {
         <ScrollView contentContainerStyle={styles.scrollContainer} keyboardShouldPersistTaps="handled">
           
           <TouchableOpacity onPress={() => router.push('/login')} style={styles.backButton}>
-            <Feather name="arrow-left" size={24} color="#085334" />
+            <Feather name="arrow-left" size={24} color="#013237" />
           </TouchableOpacity>
 
-          {/* Large Icon / Graphic Header */}
           <View style={styles.iconContainer}>
             <View style={styles.iconBackground}>
-              <Feather name="key" size={48} color="#085334" />
+              <Feather name="key" size={44} color="#013237" />
             </View>
           </View>
 
@@ -78,11 +78,11 @@ export default function ForgotPasswordScreen() {
 
           <View style={styles.form}>
             <View style={[styles.inputWrapper, errorMessage ? styles.inputWrapperError : null]}>
-              <Feather name="mail" color="#085334" size={20} style={styles.inputIcon} />
+              <Feather name="mail" color="#4CA771" size={20} style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
                 placeholder="Email Address"
-                placeholderTextColor="#A0AEC0"
+                placeholderTextColor="#7A8A85"
                 value={email}
                 onChangeText={(text) => {
                   setEmail(text);
@@ -123,14 +123,13 @@ export default function ForgotPasswordScreen() {
 
         </ScrollView>
       </KeyboardAvoidingView>
-    </View>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
   container: { 
     flex: 1,
-    backgroundColor: '#FFFFFF',
   },
   scrollContainer: { 
     flexGrow: 1, 
@@ -149,24 +148,28 @@ const styles = StyleSheet.create({
     width: 96,
     height: 96,
     borderRadius: 48,
-    backgroundColor: '#e6f5ef',
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
   },
   headerContainer: { 
-    marginBottom: 30,
+    marginBottom: 28,
     alignItems: 'center',
   },
   title: { 
     fontSize: 28, 
-    fontWeight: 'bold', 
-    color: '#000000', 
-    marginBottom: 10, 
+    fontWeight: '700', 
+    color: '#013237', 
+    marginBottom: 8, 
     textAlign: 'center',
   },
   subtitle: { 
     fontSize: 14, 
-    color: '#0e9b59',
+    color: '#4CA771',
     textAlign: 'center',
     lineHeight: 20,
   },
@@ -176,12 +179,10 @@ const styles = StyleSheet.create({
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#e6f5ef',
+    backgroundColor: '#FFFFFF',
     borderRadius: 30, 
     paddingHorizontal: 20,
-    height: 58,
-    borderWidth: 1,
-    borderColor: 'transparent',
+    height: 56,
   },
   inputWrapperError: {
     borderWidth: 1.5,
@@ -193,7 +194,7 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     fontSize: 15,
-    color: '#1A202C',
+    color: '#013237',
     height: '100%',
   },
   errorText: {
@@ -205,22 +206,22 @@ const styles = StyleSheet.create({
   },
   successContainer: {
     marginTop: 15,
-    padding: 16,
-    backgroundColor: '#e6f5ef',
-    borderRadius: 16,
+    padding: 18,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
     alignItems: 'center',
   },
   successText: {
-    color: '#085334',
+    color: '#013237',
     fontSize: 14,
     textAlign: 'center',
     marginBottom: 12,
     lineHeight: 20,
   },
   backLinkButton: {
-    paddingVertical: 6,
-    paddingHorizontal: 16,
-    backgroundColor: '#204d3a',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    backgroundColor: '#013237',
     borderRadius: 20,
   },
   backLinkText: {
@@ -229,7 +230,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   primaryButton: {
-    backgroundColor: '#204d3a',
+    backgroundColor: '#013237',
     borderRadius: 30,
     height: 56,
     alignItems: 'center',

@@ -1,6 +1,5 @@
 // app/monitoring.tsx
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -41,6 +40,26 @@ interface ExpenseItem {
 }
 
 type ExpenseFilter = 'all' | 'today' | 'week' | 'month' | 'year';
+type MonitoringTab = 'all' | 'categories';
+
+interface CategoryGroup {
+  key: string;
+  name: string;
+  icon: string;
+  total: number;
+  count: number;
+}
+
+type CategoryGridItem = CategoryGroup | { key: string; placeholder: true };
+
+const TABS: { key: MonitoringTab; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
+  { key: 'all', label: 'All Expenses', icon: 'list-outline' },
+  { key: 'categories', label: 'Categories', icon: 'grid-outline' },
+];
+
+const UNCATEGORIZED_KEY = '__uncategorized__';
+const getCategoryKey = (exp: ExpenseItem) =>
+  exp.category_id || exp.categories?.name || UNCATEGORIZED_KEY;
 
 const FILTERS: { key: ExpenseFilter; label: string; caption: string }[] = [
   { key: 'all', label: 'All', caption: 'All time' },
@@ -110,7 +129,44 @@ const formatDateTime = (dateStr: string) => {
   }
 };
 
+const isInPeriod = (dateStr: string, filter: ExpenseFilter) => {
+  const start = getFilterStart(filter);
+  return !start || new Date(dateStr) >= start;
+};
+
 /* ---------- Reusable UI ---------- */
+function FilterChips({
+  value,
+  onChange,
+}: {
+  value: ExpenseFilter;
+  onChange: (f: ExpenseFilter) => void;
+}) {
+  return (
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      style={styles.filterScroll}
+      contentContainerStyle={styles.filterRow}
+      keyboardShouldPersistTaps="handled"
+    >
+      {FILTERS.map((f) => {
+        const active = value === f.key;
+        return (
+          <TouchableOpacity
+            key={f.key}
+            style={[styles.filterChip, active && styles.filterChipActive]}
+            activeOpacity={0.8}
+            onPress={() => onChange(f.key)}
+          >
+            <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>{f.label}</Text>
+          </TouchableOpacity>
+        );
+      })}
+    </ScrollView>
+  );
+}
+
 function Avatar({ uri, size = 42 }: { uri?: string | null; size?: number }) {
   const [failed, setFailed] = useState(false);
 
@@ -196,7 +252,7 @@ function Skeleton({
 function MonitoringSkeleton() {
   return (
     <View style={styles.listContent}>
-      <Skeleton width="100%" height={190} radius={26} />
+      <Skeleton width="100%" height={46} radius={16} />
       <View style={{ flexDirection: 'row', gap: 8, marginTop: 20 }}>
         {[64, 84, 96, 100, 96].map((w, i) => (
           <Skeleton key={i} width={w} height={38} radius={19} />
@@ -230,7 +286,11 @@ export default function MonitoringScreen() {
   const [spenderAvatar, setSpenderAvatar] = useState<string | null>(null);
   const [expenses, setExpenses] = useState<ExpenseItem[]>([]);
 
-  const [filter, setFilter] = useState<ExpenseFilter>('all');
+  const [activeTab, setActiveTab] = useState<MonitoringTab>('all');
+  // Each tab keeps its own period filter
+  const [allFilter, setAllFilter] = useState<ExpenseFilter>('all');
+  const [categoryFilter, setCategoryFilter] = useState<ExpenseFilter>('all');
+  const [selectedCategory, setSelectedCategory] = useState<CategoryGroup | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedImageUri, setSelectedImageUri] = useState<string | null>(null);
 
@@ -288,129 +348,186 @@ export default function MonitoringScreen() {
   }, [spenderId]);
 
   /* ---------- Derived ---------- */
-  const filteredExpenses = useMemo(() => {
-    const start = getFilterStart(filter);
+  const matchesSearch = useCallback((exp: ExpenseItem, query: string) => {
+    if (!query) return true;
+    return (
+      exp.description?.toLowerCase().includes(query) ||
+      exp.categories?.name?.toLowerCase().includes(query)
+    );
+  }, []);
+
+  // Tab 1: all expenses
+  const allTabExpenses = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
+    return expenses.filter((exp) => isInPeriod(exp.spent_at, allFilter) && matchesSearch(exp, query));
+  }, [expenses, allFilter, searchQuery, matchesSearch]);
 
-    return expenses.filter((exp) => {
-      if (start && new Date(exp.spent_at) < start) return false;
-      if (!query) return true;
-      return (
-        exp.description?.toLowerCase().includes(query) ||
-        exp.categories?.name?.toLowerCase().includes(query)
-      );
+  // Tab 2: category cards (respect the category tab's period filter)
+  const categoryGroups = useMemo<CategoryGroup[]>(() => {
+    const map = new Map<string, CategoryGroup>();
+    expenses.forEach((exp) => {
+      if (!isInPeriod(exp.spent_at, categoryFilter)) return;
+      const key = getCategoryKey(exp);
+      const existing = map.get(key);
+      if (existing) {
+        existing.total += Number(exp.amount);
+        existing.count += 1;
+      } else {
+        map.set(key, {
+          key,
+          name: exp.categories?.name || 'Uncategorized',
+          icon: exp.categories?.icon || 'pricetag-outline',
+          total: Number(exp.amount),
+          count: 1,
+        });
+      }
     });
-  }, [expenses, filter, searchQuery]);
+    return Array.from(map.values()).sort((a, b) => b.total - a.total);
+  }, [expenses, categoryFilter]);
 
-  const summary = useMemo(() => {
-    const amounts = filteredExpenses.map((e) => Number(e.amount));
-    const total = amounts.reduce((s, n) => s + n, 0);
-    return {
-      total,
-      count: amounts.length,
-      highest: amounts.length ? Math.max(...amounts) : 0,
-      average: amounts.length ? total / amounts.length : 0,
-    };
-  }, [filteredExpenses]);
+  const categoryGridData = useMemo<CategoryGridItem[]>(
+    () =>
+      categoryGroups.length % 2 === 1
+        ? [...categoryGroups, { key: '__placeholder__', placeholder: true }]
+        : categoryGroups,
+    [categoryGroups],
+  );
 
-  const filterCaption = FILTERS.find((f) => f.key === filter)?.caption ?? 'All time';
+  // Tab 2 drill-down: expenses for the tapped category
+  const categoryExpenses = useMemo(() => {
+    if (!selectedCategory) return [];
+    const query = searchQuery.trim().toLowerCase();
+    return expenses.filter(
+      (exp) =>
+        getCategoryKey(exp) === selectedCategory.key &&
+        isInPeriod(exp.spent_at, categoryFilter) &&
+        matchesSearch(exp, query),
+    );
+  }, [expenses, selectedCategory, categoryFilter, searchQuery, matchesSearch]);
+
+  const categoryDetailTotal = useMemo(
+    () => categoryExpenses.reduce((sum, e) => sum + Number(e.amount), 0),
+    [categoryExpenses],
+  );
+
+  const categoryCaption = FILTERS.find((f) => f.key === categoryFilter)?.caption ?? 'All time';
   const showSkeleton = loading && !refreshing;
+  const inCategoryDetail = activeTab === 'categories' && !!selectedCategory;
+
+  const handleTabPress = (tab: MonitoringTab) => {
+    setSearchQuery('');
+    setSelectedCategory(null);
+    setActiveTab(tab);
+  };
+
+  const openCategory = (category: CategoryGroup) => {
+    setSearchQuery('');
+    setSelectedCategory(category);
+  };
+
+  const closeCategory = () => {
+    setSearchQuery('');
+    setSelectedCategory(null);
+  };
 
   /* ---------- Render ---------- */
-  const renderListHeader = () => (
-    <View>
-      <LinearGradient
-        colors={['#4FA87A', '#1E6244', '#013237']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.heroCard}
-      >
-        <View style={styles.cardCircleLarge} />
-        <View style={styles.cardCircleSmall} />
-
-        <View style={styles.heroLabelRow}>
-          <View style={styles.heroLabelLeft}>
-            <View style={styles.heroIconChip}>
-              <Ionicons name="receipt-outline" size={14} color={COLORS.white} />
-            </View>
-            <Text style={styles.heroLabel}>Total Spent</Text>
-          </View>
-          <View style={styles.captionPill}>
-            <Text style={styles.captionPillText}>{filterCaption}</Text>
-          </View>
-        </View>
-
-        <Text style={styles.heroAmount}>{formatPeso(summary.total)}</Text>
-
-        <View style={styles.heroStatsRow}>
-          <View style={styles.heroStat}>
-            <View style={styles.statLabelRow}>
-              <Ionicons name="list" size={13} color="rgba(255,255,255,0.85)" />
-              <Text style={styles.statLabel}>Entries</Text>
-            </View>
-            <Text style={styles.statValue}>{summary.count}</Text>
-          </View>
-          <View style={styles.statDivider} />
-          <View style={styles.heroStat}>
-            <View style={styles.statLabelRow}>
-              <Ionicons name="trending-up" size={13} color="#FCA5A5" />
-              <Text style={styles.statLabel}>Highest</Text>
-            </View>
-            <Text style={styles.statValue}>{formatPeso(summary.highest, false)}</Text>
-          </View>
-          <View style={styles.statDivider} />
-          <View style={styles.heroStat}>
-            <View style={styles.statLabelRow}>
-              <Ionicons name="analytics" size={13} color={COLORS.accentGreen} />
-              <Text style={styles.statLabel}>Average</Text>
-            </View>
-            <Text style={styles.statValue}>{formatPeso(summary.average, false)}</Text>
-          </View>
-        </View>
-      </LinearGradient>
-
-      {/* Filters */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.filterRow}
-      >
-        {FILTERS.map((f) => {
-          const active = filter === f.key;
-          return (
-            <TouchableOpacity
-              key={f.key}
-              style={[styles.filterChip, active && styles.filterChipActive]}
-              activeOpacity={0.8}
-              onPress={() => setFilter(f.key)}
-            >
-              <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>{f.label}</Text>
-            </TouchableOpacity>
-          );
-        })}
-      </ScrollView>
-
-      {/* Search */}
-      {expenses.length > 0 && (
-        <View style={styles.searchContainer}>
-          <Ionicons name="search-outline" size={18} color={COLORS.textMuted} />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search by description or category"
-            placeholderTextColor={COLORS.textMuted}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            autoCorrect={false}
-          />
-          {searchQuery.length > 0 && (
-            <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Ionicons name="close-circle" size={18} color={COLORS.textMuted} />
-            </TouchableOpacity>
-          )}
-        </View>
-      )}
+  const renderTabs = () => (
+    <View style={styles.tabBar}>
+      {TABS.map((tab) => {
+        const active = activeTab === tab.key;
+        return (
+          <TouchableOpacity
+            key={tab.key}
+            style={[styles.tabButton, active && styles.tabButtonActive]}
+            activeOpacity={0.85}
+            onPress={() => handleTabPress(tab.key)}
+          >
+            <Ionicons
+              name={tab.icon}
+              size={16}
+              color={active ? COLORS.white : COLORS.textSubtle}
+            />
+            <Text style={[styles.tabText, active && styles.tabTextActive]}>{tab.label}</Text>
+          </TouchableOpacity>
+        );
+      })}
     </View>
   );
+
+  const renderSearch = () =>
+    expenses.length > 0 ? (
+      <View style={styles.searchContainer}>
+        <Ionicons name="search-outline" size={18} color={COLORS.textMuted} />
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Search by description or category"
+          placeholderTextColor={COLORS.textMuted}
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          autoCorrect={false}
+        />
+        {searchQuery.length > 0 && (
+          <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <Ionicons name="close-circle" size={18} color={COLORS.textMuted} />
+          </TouchableOpacity>
+        )}
+      </View>
+    ) : null;
+
+  const renderCategoryDetailHeader = () => (
+    <View>
+      <View style={styles.detailHeader}>
+        <TouchableOpacity
+          style={styles.detailBack}
+          onPress={closeCategory}
+          activeOpacity={0.7}
+          hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+        >
+          <Ionicons name="chevron-back" size={18} color={COLORS.textPrimary} />
+        </TouchableOpacity>
+        <View style={styles.categoryIconBox}>
+          <Ionicons
+            name={(selectedCategory?.icon as any) || 'pricetag-outline'}
+            size={19}
+            color={COLORS.primaryMid}
+          />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.detailTitle} numberOfLines={1}>{selectedCategory?.name}</Text>
+          <Text style={styles.detailSubtitle}>
+            {categoryExpenses.length} {categoryExpenses.length === 1 ? 'entry' : 'entries'} • {categoryCaption}
+          </Text>
+        </View>
+        <Text style={styles.detailTotal}>{formatPeso(categoryDetailTotal)}</Text>
+      </View>
+      {renderSearch()}
+    </View>
+  );
+
+  const renderCategoryCard = ({ item }: { item: CategoryGridItem }) => {
+    if ('placeholder' in item) return <View style={styles.categoryCardSpacer} />;
+    return (
+      <TouchableOpacity
+        style={styles.categoryCard}
+        activeOpacity={0.8}
+        onPress={() => openCategory(item)}
+      >
+        <View style={styles.categoryCardTop}>
+          <View style={styles.categoryIconBox}>
+            <Ionicons name={(item.icon as any) || 'pricetag-outline'} size={19} color={COLORS.primaryMid} />
+          </View>
+          <Ionicons name="chevron-forward" size={16} color={COLORS.textMuted} />
+        </View>
+        <Text style={styles.categoryName} numberOfLines={1}>{item.name}</Text>
+        <Text style={styles.categoryTotal} numberOfLines={1} adjustsFontSizeToFit>
+          {formatPeso(item.total)}
+        </Text>
+        <Text style={styles.categoryCount}>
+          {item.count} {item.count === 1 ? 'entry' : 'entries'}
+        </Text>
+      </TouchableOpacity>
+    );
+  };
 
   const renderExpense = ({ item: exp }: { item: ExpenseItem }) => (
     <View style={styles.expenseCard}>
@@ -445,6 +562,15 @@ export default function MonitoringScreen() {
     </View>
   );
 
+  const refreshControl = (
+    <RefreshControl
+      refreshing={refreshing}
+      onRefresh={onRefresh}
+      colors={[COLORS.primary]}
+      tintColor={COLORS.primary}
+    />
+  );
+
   return (
     <View style={styles.container}>
       <StatusBar style="dark" />
@@ -477,43 +603,81 @@ export default function MonitoringScreen() {
         {showSkeleton ? (
           <MonitoringSkeleton />
         ) : (
-          <FlatList
-            data={filteredExpenses}
-            keyExtractor={(item) => item.id}
-            renderItem={renderExpense}
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-            contentContainerStyle={styles.listContent}
-            ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
-            refreshControl={
-              <RefreshControl
-                refreshing={refreshing}
-                onRefresh={onRefresh}
-                colors={[COLORS.primary]}
-                tintColor={COLORS.primary}
+          <>
+            {/* Tabs + period filter (fixed above the list) */}
+            <View style={styles.controls}>
+              {renderTabs()}
+              <FilterChips
+                value={activeTab === 'all' ? allFilter : categoryFilter}
+                onChange={activeTab === 'all' ? setAllFilter : setCategoryFilter}
               />
-            }
-            ListHeaderComponent={renderListHeader()}
-            ListEmptyComponent={
-              <View style={styles.emptyState}>
-                <View style={styles.emptyIcon}>
-                  <Ionicons
-                    name={expenses.length === 0 ? 'receipt-outline' : 'search-outline'}
-                    size={22}
-                    color={COLORS.textMuted}
-                  />
-                </View>
-                <Text style={styles.emptyTitle}>
-                  {expenses.length === 0 ? 'No expenses logged yet' : 'No expenses found'}
-                </Text>
-                <Text style={styles.emptySubtitle}>
-                  {expenses.length === 0
-                    ? 'Expenses logged by this spender will appear here.'
-                    : 'Try a different time period or search.'}
-                </Text>
-              </View>
-            }
-          />
+            </View>
+
+            {activeTab === 'categories' && !selectedCategory ? (
+              <FlatList
+                key="category-grid"
+                data={categoryGridData}
+                keyExtractor={(item) => item.key}
+                renderItem={renderCategoryCard}
+                numColumns={2}
+                columnWrapperStyle={styles.categoryRow}
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={styles.listContent}
+                refreshControl={refreshControl}
+                ListEmptyComponent={
+                  <View style={styles.emptyState}>
+                    <View style={styles.emptyIcon}>
+                      <Ionicons
+                        name={expenses.length === 0 ? 'receipt-outline' : 'grid-outline'}
+                        size={22}
+                        color={COLORS.textMuted}
+                      />
+                    </View>
+                    <Text style={styles.emptyTitle}>
+                      {expenses.length === 0 ? 'No expenses logged yet' : 'No categories found'}
+                    </Text>
+                    <Text style={styles.emptySubtitle}>
+                      {expenses.length === 0
+                        ? 'Expenses logged by this spender will appear here.'
+                        : 'No expenses in this time period. Try a different filter.'}
+                    </Text>
+                  </View>
+                }
+              />
+            ) : (
+              <FlatList
+                key="expense-list"
+                data={inCategoryDetail ? categoryExpenses : allTabExpenses}
+                keyExtractor={(item) => item.id}
+                renderItem={renderExpense}
+                showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+                contentContainerStyle={styles.listContent}
+                ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
+                refreshControl={refreshControl}
+                ListHeaderComponent={inCategoryDetail ? renderCategoryDetailHeader() : renderSearch()}
+                ListEmptyComponent={
+                  <View style={styles.emptyState}>
+                    <View style={styles.emptyIcon}>
+                      <Ionicons
+                        name={expenses.length === 0 ? 'receipt-outline' : 'search-outline'}
+                        size={22}
+                        color={COLORS.textMuted}
+                      />
+                    </View>
+                    <Text style={styles.emptyTitle}>
+                      {expenses.length === 0 ? 'No expenses logged yet' : 'No expenses found'}
+                    </Text>
+                    <Text style={styles.emptySubtitle}>
+                      {expenses.length === 0
+                        ? 'Expenses logged by this spender will appear here.'
+                        : 'Try a different time period or search.'}
+                    </Text>
+                  </View>
+                }
+              />
+            )}
+          </>
         )}
       </View>
 
@@ -574,76 +738,32 @@ const styles = StyleSheet.create({
   bodyContent: { flex: 1 },
   listContent: { paddingHorizontal: 20, paddingBottom: 40 },
 
-  /* Hero card */
-  heroCard: {
-    borderRadius: 26,
-    padding: 22,
-    overflow: 'hidden',
-    shadowColor: '#0F3D2E',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.22,
-    shadowRadius: 16,
-    elevation: 8,
+  /* Controls (tabs + filters) */
+  controls: { paddingHorizontal: 20 },
+  tabBar: {
+    flexDirection: 'row',
+    backgroundColor: COLORS.white,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    padding: 4,
   },
-  cardCircleLarge: {
-    position: 'absolute',
-    width: 220,
-    height: 220,
-    borderRadius: 110,
-    backgroundColor: 'rgba(255,255,255,0.07)',
-    top: -80,
-    right: -60,
-  },
-  cardCircleSmall: {
-    position: 'absolute',
-    width: 140,
-    height: 140,
-    borderRadius: 70,
-    backgroundColor: 'rgba(193,240,56,0.08)',
-    bottom: -50,
-    left: -30,
-  },
-  heroLabelRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  heroLabelLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  heroIconChip: {
-    width: 26,
-    height: 26,
-    borderRadius: 9,
-    backgroundColor: 'rgba(255,255,255,0.18)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  heroLabel: { color: 'rgba(255,255,255,0.88)', fontSize: 14, fontWeight: '600', letterSpacing: 0.2 },
-  captionPill: {
-    backgroundColor: 'rgba(255,255,255,0.16)',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 10,
-  },
-  captionPillText: { fontSize: 11, fontWeight: '700', color: COLORS.white },
-  heroAmount: {
-    color: COLORS.white,
-    fontSize: 38,
-    fontWeight: '800',
-    letterSpacing: -0.8,
-    marginTop: 14,
-    marginBottom: 18,
-  },
-  heroStatsRow: {
+  tabButton: {
+    flex: 1,
+    height: 40,
+    borderRadius: 12,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.18)',
-    borderRadius: 16,
-    paddingVertical: 12,
+    justifyContent: 'center',
+    gap: 6,
   },
-  heroStat: { flex: 1, alignItems: 'center', gap: 4 },
-  statLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  statLabel: { fontSize: 11, color: 'rgba(255,255,255,0.75)', fontWeight: '500' },
-  statValue: { fontSize: 14, fontWeight: '700', color: COLORS.white },
-  statDivider: { width: 1, height: 28, backgroundColor: 'rgba(255,255,255,0.18)' },
+  tabButtonActive: { backgroundColor: COLORS.primary },
+  tabText: { fontSize: 13, fontWeight: '600', color: COLORS.textSubtle },
+  tabTextActive: { color: COLORS.white, fontWeight: '700' },
 
   /* Filters */
-  filterRow: { gap: 8, paddingVertical: 20, paddingRight: 8 },
+  filterScroll: { flexGrow: 0 },
+  filterRow: { gap: 8, paddingTop: 16, paddingBottom: 16, paddingRight: 8 },
   filterChip: {
     paddingHorizontal: 16,
     height: 38,
@@ -657,6 +777,65 @@ const styles = StyleSheet.create({
   filterChipActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
   filterChipText: { fontSize: 12, fontWeight: '600', color: COLORS.textSubtle },
   filterChipTextActive: { color: COLORS.white, fontWeight: '700' },
+
+  /* Category cards */
+  categoryRow: { gap: 12, marginBottom: 12 },
+  categoryCard: {
+    flex: 1,
+    backgroundColor: COLORS.card,
+    borderRadius: 20,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  categoryCardSpacer: { flex: 1 },
+  categoryCardTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 14,
+  },
+  categoryIconBox: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    backgroundColor: COLORS.primarySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  categoryName: { fontSize: 13, fontWeight: '600', color: COLORS.textSubtle },
+  categoryTotal: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: COLORS.textPrimary,
+    letterSpacing: -0.4,
+    marginTop: 4,
+  },
+  categoryCount: { fontSize: 11, color: COLORS.textMuted, marginTop: 4 },
+
+  /* Category detail */
+  detailHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: COLORS.card,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    padding: 12,
+    marginBottom: 12,
+  },
+  detailBack: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: COLORS.bg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  detailTitle: { fontSize: 15, fontWeight: '800', color: COLORS.textPrimary },
+  detailSubtitle: { fontSize: 11, color: COLORS.textMuted, marginTop: 2 },
+  detailTotal: { fontSize: 15, fontWeight: '800', color: COLORS.danger },
 
   /* Search */
   searchContainer: {

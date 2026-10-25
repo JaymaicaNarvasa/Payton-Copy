@@ -1,4 +1,5 @@
 import { Feather } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
@@ -13,7 +14,7 @@ import {
   View,
 } from 'react-native';
 
-import { supabase } from '../../lib/supabase'; // Adjust this path to match your project structure
+import { supabase } from '../../lib/supabase';
 
 export default function ResetPasswordScreen() {
   const router = useRouter();
@@ -22,14 +23,12 @@ export default function ResetPasswordScreen() {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  // Inline validation and message states
   const [passwordError, setPasswordError] = useState('');
   const [confirmError, setConfirmError] = useState('');
   const [generalError, setGeneralError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
 
   const handleUpdatePassword = async () => {
-    // Clear previous error/success states
     setPasswordError('');
     setConfirmError('');
     setGeneralError('');
@@ -57,8 +56,6 @@ export default function ResetPasswordScreen() {
 
     setLoading(true);
 
-    // Because the user clicked the email link, Supabase has already 
-    // initialized a session behind the scenes. We just update the current user.
     const { data: updateData, error } = await supabase.auth.updateUser({
       password: password,
     });
@@ -68,7 +65,6 @@ export default function ResetPasswordScreen() {
     if (error) {
       setGeneralError(error.message);
     } else {
-      // Log the successful password update action matching your logs table schema
       const userId = updateData?.user?.id;
       if (userId) {
         await supabase.from('logs').insert({
@@ -82,26 +78,24 @@ export default function ResetPasswordScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <LinearGradient colors={['#EAF9E7', '#FFFFFF']} style={styles.container}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1 }}
       >
         <ScrollView contentContainerStyle={styles.scrollContainer} keyboardShouldPersistTaps="handled">
           
-          {/* Back Button */}
           <TouchableOpacity 
             style={styles.backButton} 
             onPress={() => router.replace('/login')}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            <Feather name="arrow-left" size={24} color="#085334" />
+            <Feather name="arrow-left" size={24} color="#013237" />
           </TouchableOpacity>
 
-          {/* Large Icon / Graphic Header */}
           <View style={styles.iconContainer}>
             <View style={styles.iconBackground}>
-              <Feather name="lock" size={48} color="#085334" />
+              <Feather name="lock" size={44} color="#013237" />
             </View>
           </View>
 
@@ -111,12 +105,10 @@ export default function ResetPasswordScreen() {
           </View>
 
           <View style={styles.form}>
-            {/* General API Error Message */}
             {generalError ? (
               <Text style={styles.generalErrorText}>{generalError}</Text>
             ) : null}
 
-            {/* Success Message Card */}
             {successMessage ? (
               <View style={styles.successContainer}>
                 <Text style={styles.successText}>{successMessage}</Text>
@@ -126,13 +118,12 @@ export default function ResetPasswordScreen() {
               </View>
             ) : (
               <>
-                {/* New Password Input */}
                 <View style={[styles.inputWrapper, passwordError ? styles.inputWrapperError : null]}>
-                  <Feather name="lock" color="#085334" size={20} style={styles.inputIcon} />
+                  <Feather name="lock" color="#4CA771" size={20} style={styles.inputIcon} />
                   <TextInput
                     style={styles.input}
                     placeholder="New Password"
-                    placeholderTextColor="#A0AEC0"
+                    placeholderTextColor="#7A8A85"
                     value={password}
                     onChangeText={(text) => {
                       setPassword(text);
@@ -143,18 +134,17 @@ export default function ResetPasswordScreen() {
                     editable={!loading}
                   />
                   <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeIcon}>
-                    <Feather name={showPassword ? 'eye-off' : 'eye'} color="#718096" size={20} />
+                    <Feather name={showPassword ? 'eye-off' : 'eye'} color="#4CA771" size={20} />
                   </TouchableOpacity>
                 </View>
                 {passwordError ? <Text style={styles.errorText}>{passwordError}</Text> : null}
 
-                {/* Confirm Password Input */}
                 <View style={[styles.inputWrapper, confirmError ? styles.inputWrapperError : null]}>
-                  <Feather name="lock" color="#085334" size={20} style={styles.inputIcon} />
+                  <Feather name="lock" color="#4CA771" size={20} style={styles.inputIcon} />
                   <TextInput
                     style={styles.input}
                     placeholder="Confirm New Password"
-                    placeholderTextColor="#A0AEC0"
+                    placeholderTextColor="#7A8A85"
                     value={confirmPassword}
                     onChangeText={(text) => {
                       setConfirmPassword(text);
@@ -165,7 +155,7 @@ export default function ResetPasswordScreen() {
                     editable={!loading}
                   />
                   <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeIcon}>
-                    <Feather name={showPassword ? 'eye-off' : 'eye'} color="#718096" size={20} />
+                    <Feather name={showPassword ? 'eye-off' : 'eye'} color="#4CA771" size={20} />
                   </TouchableOpacity>
                 </View>
                 {confirmError ? <Text style={styles.errorText}>{confirmError}</Text> : null}
@@ -183,14 +173,13 @@ export default function ResetPasswordScreen() {
 
         </ScrollView>
       </KeyboardAvoidingView>
-    </View>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
   container: { 
     flex: 1, 
-    backgroundColor: '#FFFFFF',
   },
   scrollContainer: { 
     flexGrow: 1, 
@@ -210,24 +199,28 @@ const styles = StyleSheet.create({
     width: 96,
     height: 96,
     borderRadius: 48,
-    backgroundColor: '#e6f5ef',
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
   },
   headerContainer: { 
-    marginBottom: 30,
+    marginBottom: 28,
     alignItems: 'center',
   },
   title: { 
     fontSize: 28, 
-    fontWeight: 'bold', 
-    color: '#000000', 
-    marginBottom: 10, 
+    fontWeight: '700', 
+    color: '#013237', 
+    marginBottom: 8, 
     textAlign: 'center',
   },
   subtitle: { 
     fontSize: 14, 
-    color: '#0e9b59', 
+    color: '#4CA771', 
     textAlign: 'center',
     lineHeight: 20, 
   },
@@ -237,12 +230,10 @@ const styles = StyleSheet.create({
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#e6f5ef',
+    backgroundColor: '#FFFFFF',
     borderRadius: 30,
     paddingHorizontal: 20,
-    height: 58,
-    borderWidth: 1,
-    borderColor: 'transparent',
+    height: 56,
     marginTop: 10,
   },
   inputWrapperError: {
@@ -255,7 +246,7 @@ const styles = StyleSheet.create({
   input: { 
     flex: 1, 
     fontSize: 15, 
-    color: '#1A202C', 
+    color: '#013237', 
     height: '100%', 
   },
   eyeIcon: { 
@@ -263,8 +254,8 @@ const styles = StyleSheet.create({
   },
   errorText: {
     color: '#E53E3E',
-    fontSize: 13,
-    marginTop: 6,
+    fontSize: 12,
+    marginTop: 4,
     marginLeft: 20,
   },
   generalErrorText: {
@@ -276,12 +267,12 @@ const styles = StyleSheet.create({
   successContainer: {
     marginTop: 15,
     padding: 20,
-    backgroundColor: '#e6f5ef',
-    borderRadius: 16,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
     alignItems: 'center',
   },
   successText: {
-    color: '#085334',
+    color: '#013237',
     fontSize: 15,
     textAlign: 'center',
     marginBottom: 16,
@@ -291,7 +282,7 @@ const styles = StyleSheet.create({
   backLinkButton: {
     paddingVertical: 10,
     paddingHorizontal: 20,
-    backgroundColor: '#204d3a',
+    backgroundColor: '#013237',
     borderRadius: 20,
   },
   backLinkText: {
@@ -300,12 +291,12 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   primaryButton: {
-    backgroundColor: '#204d3a',
+    backgroundColor: '#013237',
     borderRadius: 30,
     height: 56,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 25,
+    marginTop: 24,
   },
   buttonText: { 
     color: '#FFFFFF', 

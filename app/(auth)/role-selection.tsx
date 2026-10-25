@@ -1,4 +1,5 @@
 import { Feather } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Animated, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -9,11 +10,11 @@ type Role = 'Personal' | 'Spender' | 'Sponsor';
 
 export default function RoleSelectionScreen() {
   const router = useRouter();
-  const [selectedRole, setSelectedRole] = useState<Role | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
   
-  // Animation refs
-  const buttonOpacity = useRef(new Animated.Value(0.5)).current;
+  const [selectedRole, setSelectedRole] = useState<Role | null>('Personal');
+  const [isLoading, setIsLoading] = useState(false);
+
+  const buttonOpacity = useRef(new Animated.Value(1)).current;
   const scaleValue = useRef(new Animated.Value(1)).current;
 
   const personalRoles: { type: Role; description: string; icon: any }[] = [
@@ -27,11 +28,9 @@ export default function RoleSelectionScreen() {
 
   const handleSelect = (role: Role) => {
     setSelectedRole(role);
-    
-    // Animate button visibility
+
     Animated.timing(buttonOpacity, { toValue: 1, duration: 400, useNativeDriver: true }).start();
-    
-    // Scale effect for the card
+
     Animated.sequence([
       Animated.timing(scaleValue, { toValue: 0.97, duration: 100, useNativeDriver: true }),
       Animated.timing(scaleValue, { toValue: 1, duration: 100, useNativeDriver: true }),
@@ -79,29 +78,28 @@ export default function RoleSelectionScreen() {
           onPress={() => handleSelect(role.type)}
         >
           <View style={[styles.iconBox, isSelected && styles.selectedIconBox]}>
-            <Feather name={role.icon} size={24} color={isSelected ? '#166534' : '#64748B'} />
+            <Feather name={role.icon} size={22} color={isSelected ? '#013237' : '#4CA771'} />
           </View>
           <View style={styles.textContainer}>
-            <Text style={[styles.roleName, isSelected && { color: '#166534' }]}>{role.type}</Text>
+            <Text style={[styles.roleName, isSelected && { color: '#013237' }]}>{role.type}</Text>
             <Text style={styles.roleDesc}>{role.description}</Text>
           </View>
-          {isSelected && <Feather name="check-circle" size={20} color="#166534" style={{ marginLeft: 8 }} />}
+          {isSelected && <Feather name="check-circle" size={20} color="#4CA771" style={{ marginLeft: 8 }} />}
         </TouchableOpacity>
       </Animated.View>
     );
   };
 
   return (
-    <View style={styles.container}>
+    <LinearGradient colors={['#EAF9E7', '#FFFFFF']} style={styles.container}>
       <View style={styles.innerContainer}>
-        {/* Header with absolute back button and truly centered text */}
         <View style={styles.header}>
           <TouchableOpacity 
             style={styles.backButton} 
             onPress={() => router.replace('/(auth)/login')}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            <Feather name="arrow-left" size={20} color="#0F172A" />
+            <Feather name="arrow-left" size={20} color="#013237" />
           </TouchableOpacity>
           <View style={styles.headerTextContainer}>
             <Text style={styles.title}>Account Setup</Text>
@@ -109,7 +107,6 @@ export default function RoleSelectionScreen() {
           </View>
         </View>
 
-        {/* Separated Sections */}
         <View style={styles.sectionsContainer}>
           <View style={styles.sectionGroup}>
             <Text style={styles.sectionLabel}>Individual</Text>
@@ -126,7 +123,6 @@ export default function RoleSelectionScreen() {
           </View>
         </View>
 
-        {/* Footer actions and note */}
         <View style={styles.footerContainer}>
           <Text style={styles.noteText}>
             Note: A Spender role must be linked to a Sponsor role.
@@ -147,21 +143,21 @@ export default function RoleSelectionScreen() {
           </Animated.View>
         </View>
       </View>
-    </View>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F8FAFC' },
+  container: { flex: 1 },
   innerContainer: { flex: 1, padding: 24, justifyContent: 'center' },
   header: { 
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 20, 
-    position: 'relative', // Allows absolute positioning of the back button
+    position: 'relative',
   },
   backButton: {
-    position: 'absolute', // Pulls the button out of the flow so it doesn't push the title
+    position: 'absolute',
     left: 0,
     top: 0,
     width: 38,
@@ -170,60 +166,57 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    shadowColor: '#0f172a',
+    zIndex: 10,
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 4,
-    zIndex: 10,
   },
   headerTextContainer: {
     width: '100%',
     alignItems: 'center',
-    paddingHorizontal: 40, // Keeps text from overlapping the absolute back button on smaller screens
+    paddingHorizontal: 40,
   },
   title: { 
     fontSize: 26, 
-    fontWeight: '900', 
-    color: '#0F172A', 
+    fontWeight: '700', 
+    color: '#013237', 
     marginBottom: 4, 
     textAlign: 'center', 
   },
   subtitle: { 
     fontSize: 14, 
-    color: '#64748B', 
+    color: '#4CA771', 
     lineHeight: 18, 
     textAlign: 'center', 
   },
   sectionsContainer: { gap: 16, marginBottom: 20 },
   sectionGroup: { gap: 6 },
-  sectionLabel: { fontSize: 11, fontWeight: '700', color: '#94A3B8', textTransform: 'uppercase', letterSpacing: 1, marginLeft: 4 },
+  sectionLabel: { fontSize: 11, fontWeight: '700', color: '#4CA771', textTransform: 'uppercase', letterSpacing: 1, marginLeft: 4 },
   roleList: { gap: 10 },
   roleCard: {
     flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF',
-    padding: 16, borderRadius: 22, borderWidth: 2, borderColor: '#E2E8F0',
-    shadowColor: '#1e293b', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.05, shadowRadius: 10, 
+    padding: 16, borderRadius: 20, borderWidth: 1.5, borderColor: 'transparent',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 6,
   },
   selectedCard: { 
-    borderColor: '#166534', backgroundColor: '#FFFFFF',
-    shadowColor: '#166534', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.15, shadowRadius: 15,
+    borderColor: '#4CA771', backgroundColor: '#FFFFFF',
+    shadowColor: '#4CA771', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 10,
   },
-  iconBox: { width: 48, height: 48, borderRadius: 24, backgroundColor: '#F1F5F9', justifyContent: 'center', alignItems: 'center', marginRight: 14 },
-  selectedIconBox: { backgroundColor: '#DCFCE7' },
+  iconBox: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#EAF9E7', justifyContent: 'center', alignItems: 'center', marginRight: 14 },
+  selectedIconBox: { backgroundColor: '#C0E6BA' },
   textContainer: { flex: 1 },
-  roleName: { fontSize: 16, fontWeight: '800', color: '#0F172A', marginBottom: 2 },
-  roleDesc: { fontSize: 12, color: '#64748B', lineHeight: 16, paddingRight: 8 },
+  roleName: { fontSize: 16, fontWeight: '700', color: '#013237', marginBottom: 2 },
+  roleDesc: { fontSize: 12, color: '#013237', lineHeight: 16, paddingRight: 8 },
   footerContainer: { gap: 12 },
   noteText: { 
     fontSize: 12, 
-    color: '#64748B', 
+    color: '#4CA771', 
     textAlign: 'center', 
     fontStyle: 'italic',
   },
   primaryButton: { 
-    backgroundColor: '#166534', height: 56, borderRadius: 28, justifyContent: 'center', alignItems: 'center',
-    shadowColor: '#166534', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.3, shadowRadius: 10, 
+    backgroundColor: '#013237', height: 56, borderRadius: 28, justifyContent: 'center', alignItems: 'center',
   },
-  buttonText: { color: '#FFFFFF', fontSize: 16, fontWeight: '800' },
+  buttonText: { color: '#FFFFFF', fontSize: 16, fontWeight: '600' },
 });
