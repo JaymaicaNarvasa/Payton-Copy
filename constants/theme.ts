@@ -156,7 +156,7 @@ export const colors = {
     white: {6: 'rgba(255, 255, 255, 0.06)', 8: 'rgba(255, 255, 255, 0.08)', 10: 'rgba(255, 255, 255, 0.1)', 12: 'rgba(255, 255, 255, 0.12)', 15: 'rgba(255, 255, 255, 0.15)', 20: 'rgba(255, 255, 255, 0.2)', 30: 'rgba(255, 255, 255, 0.3)', 60: 'rgba(255, 255, 255, 0.6)', 65: 'rgba(255, 255, 255, 0.65)', 82: 'rgba(255, 255, 255, 0.82)'},
     black: {50: 'rgba(0, 0, 0, 0.5)', 55: 'rgba(0, 0, 0, 0.55)', 90: 'rgba(0, 0, 0, 0.9)', 5: 'rgba(0, 0, 0, 0.05)'},
     overlay: {50: 'rgba(9, 20, 19, 0.5)'},
-    brand: {10: 'rgba(31, 79, 89, 0.1)'},
+    brand: {10: 'rgba(31, 79, 89, 0.1)', 55: 'rgba(31, 79, 89, 0.55)'},
     danger: {8: 'rgba(220, 38, 38, 0.08)'},
     dangerBright: {15: 'rgba(239, 68, 68, 0.15)'},
     olive: {10: 'rgba(126, 160, 14, 0.1)', 15: 'rgba(126, 160, 14, 0.15)', 30: 'rgba(126, 160, 14, 0.3)'},
@@ -195,17 +195,11 @@ export const chart = {
   lightCards: [colors.brandWashAlt, colors.oliveWash, colors.limeWash],
 } as const;
 
-/** Gradients (Figma: linear, 0% #75C093 100% -> 100% #013237 at 80% opacity). Change start/end to rotate it. */
-export const gradient = {
-  hero: {
-    stops: [
-      { offset: 0, color: colors.gradientStart, opacity: 1 },
-      { offset: 1, color: colors.gradientEnd, opacity: 0.8 },
-    ],
-    start: { x: 0, y: 0 },
-    end: { x: 0, y: 1 },
-  },
+/** Layout constants shared by all screens */
+export const layout = {
+  /** bottom padding so scroll content clears the floating tab bar */
+  tabBarClearance: 110,
 } as const;
 
-export const theme = { colors, space, radius, fontSize, fontWeight, shadow, chart, gradient } as const;
+export const theme = { colors, space, radius, fontSize, fontWeight, shadow, chart, layout } as const;
 export default theme;

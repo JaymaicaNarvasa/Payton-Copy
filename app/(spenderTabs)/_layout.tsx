@@ -1,6 +1,7 @@
 import { theme } from '@/constants/theme';
 import { tabLayoutStyles as styles } from '@/constants/ui.styles';
 import { Ionicons } from "@expo/vector-icons";
+import { BlurTargetView } from "expo-blur";
 import { Tabs, usePathname, useRouter } from "expo-router";
 import type { ComponentProps } from "react";
 import { useEffect, useRef, useState } from "react";
@@ -15,6 +16,7 @@ import {
   withSpring,
   withTiming,
 } from "react-native-reanimated";
+import { GlassTabBar, type GlassTabItem } from "../../components/GlassTabBarBackground";
 import { PaytonAlertProvider } from "../../components/PaytonAlert";
 
 type TabIconName = ComponentProps<typeof Ionicons>["name"];
@@ -27,6 +29,14 @@ type TabIconProps = {
 };
 
 // Imong mga messages (Ang pinaka-una kay mao ang mugawas sa 1st open)
+const TAB_ITEMS: GlassTabItem[] = [
+  { name: "home", title: "Home", icon: "home-outline", iconActive: "home" },
+  { name: "transaction", title: "Transactions", icon: "wallet-outline", iconActive: "wallet" },
+  { name: "scan", title: "Scan", icon: "scan-outline", iconActive: "scan", center: true },
+  { name: "split", title: "Split", icon: "people-outline", iconActive: "people" },
+  { name: "insight", title: "Coach", icon: "chatbox-ellipses-outline", iconActive: "chatbox-ellipses" },
+];
+
 const PAYTON_MESSAGES = [
   "Hello there, I'm Payton how can I assist with you today?",
   "Having trouble with your finance? I'm here to help.",
@@ -55,6 +65,7 @@ function TabIcon({
 export default function SpenderLayout() {
   const router = useRouter();
   const pathname = usePathname();
+  const blurTargetRef = useRef<View | null>(null);
 
   const isScanScreen = pathname === "/scan" || pathname.includes("scan");
   const isInsightScreen = pathname === "/insight" || pathname.includes("insight");
@@ -120,6 +131,8 @@ export default function SpenderLayout() {
 
   return (
     <PaytonAlertProvider>
+      <View style={styles.layoutRoot}>
+      <BlurTargetView ref={blurTargetRef} style={styles.layoutBlurTarget}>
       <Tabs
         screenOptions={{
           headerShown: false,
@@ -141,10 +154,7 @@ export default function SpenderLayout() {
             );
           },
 
-          tabBarStyle: [
-            styles.tabBar,
-            shouldHideAiButton ? { display: "none" as const } : null,
-          ],
+          tabBarStyle: { display: "none" as const },
         }}
       >
         <Tabs.Screen
@@ -232,6 +242,11 @@ export default function SpenderLayout() {
         {/* Hidden routes */}
         <Tabs.Screen name="profile" options={{ href: null }} />
       </Tabs>
+      </BlurTargetView>
+      {!shouldHideAiButton && (
+        <GlassTabBar group="(spenderTabs)" items={TAB_ITEMS} blurTarget={blurTargetRef} />
+      )}
+      </View>
     </PaytonAlertProvider>
   );
 }
