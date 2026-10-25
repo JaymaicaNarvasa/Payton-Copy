@@ -1,0 +1,36 @@
+/* Small additions for Roles, Monitoring, Feedback and Settings. Existing ref-* styles are reused. */
+.mod-pill-neutral, .mod-pill-warn, .mod-pill-muted { padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; white-space: nowrap; }
+.mod-pill-neutral { background: #f1f5f9; color: #475569; }
+.mod-pill-warn { background: #fffbeb; color: #b45309; }
+.mod-pill-muted { background: #f1f5f9; color: #94a3b8; }
+.mod-note { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; font-size: 13px; color: #475569; }
+.mod-note.warn { background: #fffbeb; border-color: #fde68a; color: #92400e; }
+.mod-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px; }
+.mod-metric { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 14px 16px; }
+.mod-metric-value { font-size: 22px; font-weight: 800; color: #0f172a; font-variant-numeric: tabular-nums; }
+.mod-metric-label { font-size: 12px; color: #64748b; margin-top: 2px; }
+.mod-check { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 14px 16px; display: grid; gap: 6px; }
+.mod-check-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-weight: 600; font-size: 13px; }
+.mod-check-detail { font-size: 12px; color: #64748b; }
+.mod-ok { background: #ecfdf5; color: #059669; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+.mod-fail { background: #fee2e2; color: #dc2626; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+.mod-list { margin: 0; padding-left: 18px; display: grid; gap: 8px; font-size: 13px; color: #475569; }
+.mod-list strong { color: #0f172a; }
+.mod-stack { display: grid; gap: 16px; }
+.mod-form { display: grid; gap: 12px; max-width: 440px; }
+.mod-form label { font-size: 13px; font-weight: 600; color: #334155; display: grid; gap: 6px; }
+.mod-textarea { min-height: 90px; resize: vertical; font: inherit; }
+.mod-btn { background: #10b981; color: #fff; border: 0; border-radius: 10px; padding: 9px 16px; font-weight: 600; cursor: pointer; justify-self: start; }
+.mod-btn:hover:not(:disabled) { background: #059669; }
+.mod-btn:disabled { opacity: .55; cursor: not-allowed; }
+.mod-btn-ghost { background: #fff; color: #334155; border: 1px solid #e2e8f0; border-radius: 10px; padding: 9px 16px; font-weight: 600; cursor: pointer; }
+.mod-btn-ghost:hover:not(:disabled) { background: #f8fafc; }
+.mod-btn-ghost:disabled { opacity: .55; cursor: not-allowed; }
+.mod-filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.mod-msg { white-space: pre-wrap; word-break: break-word; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 12px; font-size: 14px; max-height: 220px; overflow: auto; }
+.mod-meta { display: grid; grid-template-columns: 110px 1fr; gap: 4px 12px; font-size: 13px; margin-bottom: 12px; }
+.mod-meta dt { color: #64748b; }
+.mod-meta dd { margin: 0; word-break: break-word; }
+.mod-row-click { cursor: pointer; }
+.mod-row-click:hover td { background: #f8fafc; }
+.mod-scroll { overflow-x: auto; }
