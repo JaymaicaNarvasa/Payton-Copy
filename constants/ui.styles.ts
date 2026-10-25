@@ -43,7 +43,7 @@ export const tabLayoutStyles = StyleSheet.create({
   scanLabel: {
     fontSize: 10.5,
     fontFamily: theme.fontFamily.bold,
-    marginTop: -1,
+    marginTop: -20,
     marginBottom: Platform.OS === "ios" ? -2 : 0,
   },
   floatingButton: {
