@@ -2,8 +2,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import React from 'react';
 import { Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { colors } from '../(spenderTabs)/profile'; // Adjust ang import path depende kung asa gikan ang imong colors
 
 export default function TermsScreen() {
   const router = useRouter();
@@ -65,7 +65,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingTop: Platform.OS === 'android' ? 44 : 20,
     paddingBottom: 20,
-    backgroundColor: colors.headerDark,
+    backgroundColor: '#0F766E',
     borderBottomLeftRadius: 32,
     borderBottomRightRadius: 32,
   },

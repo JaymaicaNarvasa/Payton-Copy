@@ -2,7 +2,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Platform,
@@ -14,8 +14,9 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
-import { colors } from '../(spenderTabs)/profile'; // Adjust import path if needed
-import { supabase } from '../../lib/supabase'; // Adjust import path to your supabase client
+import { supabase } from '../../lib/supabase';
+
+const colors = { headerDark: '#173D45' };
 
 interface LogItem {
   id: string;

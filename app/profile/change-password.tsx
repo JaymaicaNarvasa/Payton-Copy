@@ -2,7 +2,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useState } from 'react';
+import React, { useState } from 'react';
 import {
   ActivityIndicator,
   Platform,
@@ -13,8 +13,9 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
-import { colors } from '../(spenderTabs)/profile';
 import { supabase } from '../../lib/supabase';
+
+const colors = { headerDark: '#173D45' };
 
 type MessageType = 'error' | 'success' | null;
 

@@ -3,10 +3,11 @@ import { File, Paths } from 'expo-file-system';
 import { useRouter } from 'expo-router';
 import * as Sharing from 'expo-sharing';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { colors } from '../(spenderTabs)/profile';
 import { supabase } from '../../lib/supabase';
+
+const colors = { headerDark: '#173D45' };
 
 export default function ExportScreen() {
   const router = useRouter();

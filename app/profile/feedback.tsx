@@ -2,7 +2,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useRef, useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -15,7 +15,8 @@ import {
   View,
 } from 'react-native';
 import { supabase } from '../../lib/supabase';
-import { colors } from '../(spenderTabs)/profile';
+
+const colors = { headerDark: '#173D45', primary: '#173D45' };
 
 const CATEGORIES = [
   { value: 'bug', label: 'Bug or problem' },

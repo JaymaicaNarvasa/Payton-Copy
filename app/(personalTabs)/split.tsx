@@ -1,3 +1,5 @@
+import { theme } from '@/constants/theme';
+import { splitStyles as styles } from '@/constants/ui.styles';
 import { supabase } from '@/lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
 import emailjs from 'emailjs-com';
@@ -7,9 +9,9 @@ import * as ImagePicker from 'expo-image-picker';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Image,
   Modal,
+  Platform,
   RefreshControl,
   ScrollView,
   Text,
@@ -17,7 +19,9 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
-import { colors, styles } from '../../constants/split.style';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { GradientBackground } from '../../components/GradientBackground';
+import { useAlert } from '../../components/PaytonAlert';
 
 type Friend = {
   id: string;
@@ -56,6 +60,7 @@ type ActiveSplit = {
 };
 
 export default function SplitScreen() {
+  const insets = useSafeAreaInsets();
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [refreshing, setRefreshing] = useState<boolean>(false);
@@ -100,8 +105,9 @@ export default function SplitScreen() {
   const [settleModalMessage, setSettleModalMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
   const [settleActionMessage, setSettleActionMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
 
-  const showAlert = (title: string, message: string) => {
-    Alert.alert(title, message, [{ text: 'OK' }]);
+  const { showAlert: openAlert } = useAlert();
+  const showAlert = (title: string, message: string, type: 'success' | 'error' | 'warning' | 'info' = 'warning') => {
+    openAlert({ type, title, message, buttons: [{ text: 'OK' }] });
   };
 
   useEffect(() => {
@@ -517,46 +523,46 @@ const handleCreateSplitDirectly = async () => {
   setLoading(true);
 
   try {
-    // 1. Fetch the user's most recent active income dynamically (including its amount)
-    let activeIncomeId = null;
-    const { data: latestIncome, error: incomeFetchErr } = await supabase
-      .from('income')
+    // 1. Fetch the user's most recent active allowance dynamically (including its amount)
+    let activeAllowanceId = null;
+    const { data: latestAllowance, error: allowFetchErr } = await supabase
+      .from('allowances')
       .select('id, amount')
-      .eq('user_id', user.id)
+      .eq('spender_id', user.id)
       .eq('is_archived', false) // ensure it's not archived
       .order('received_at', { ascending: false })
       .limit(1)
       .maybeSingle();
 
-    if (incomeFetchErr) throw incomeFetchErr;
+    if (allowFetchErr) throw allowFetchErr;
 
-    // Validation: Ensure an active income exists
-    if (!latestIncome) {
+    // Validation: Ensure an active allowance exists
+    if (!latestAllowance) {
       setSplitFormMessage({ 
-        text: 'No active income found. Please create an income before splitting expenses.', 
+        text: 'No active allowance found. Please create an allowance before splitting expenses.', 
         type: 'error' 
       });
       setLoading(false);
       return;
     }
 
-    activeIncomeId = latestIncome.id;
+    activeAllowanceId = latestAllowance.id;
 
-    // 1b. Fetch all expenses linked to this active income to calculate total spent
-    const { data: incomeExpenses, error: expFetchErr } = await supabase
+    // 1b. Fetch all expenses linked to this active allowance to calculate total spent
+    const { data: allowanceExpenses, error: expFetchErr } = await supabase
       .from('expenses')
       .select('amount')
-      .eq('income_id', activeIncomeId);
+      .eq('allowance_id', activeAllowanceId);
 
     if (expFetchErr) throw expFetchErr;
 
-    const totalExpenses = (incomeExpenses || []).reduce((sum, exp) => sum + (exp.amount || 0), 0);
-    const remainingBalance = latestIncome.amount - totalExpenses;
+    const totalExpenses = (allowanceExpenses || []).reduce((sum, exp) => sum + (exp.amount || 0), 0);
+    const remainingBalance = latestAllowance.amount - totalExpenses;
 
     // Validation: Ensure split amount does not exceed remaining balance
     if (numericAmount > remainingBalance) {
       setSplitFormMessage({ 
-        text: `Split amount (${numericAmount}) exceeds your remaining income balance (${remainingBalance.toFixed(2)}).`, 
+        text: `Split amount (${numericAmount}) exceeds your remaining allowance balance (${remainingBalance.toFixed(2)}).`, 
         type: 'error' 
       });
       setLoading(false);
@@ -593,14 +599,14 @@ const handleCreateSplitDirectly = async () => {
     const { error: friendsErr } = await supabase.from('split_friends').insert(friendInserts);
     if (friendsErr) throw friendsErr;
 
-    // 3. Insert into general expenses table using category_id, fetched income_id, and spent_at
+    // 3. Insert into general expenses table using category_id, fetched allowance_id, and spent_at
     const { error: expenseErr } = await supabase.from('expenses').insert([
       {
         user_id: user.id,
         amount: numericAmount,
         description: description.trim(),
         category_id: selectedCategoryId,
-        income_id: activeIncomeId,
+        allowance_id: activeAllowanceId,
         spent_at: new Date().toISOString(),
       },
     ]);
@@ -667,20 +673,20 @@ const handleConfirmSettlePayment = async () => {
   setLoading(true);
 
   try {
-    // 1. Validate that an active income exists FIRST before changing any data
-    const { data: latestIncome, error: incomeFetchErr } = await supabase
-      .from('income')
+    // 1. Validate that an active allowance exists FIRST before changing any data
+    const { data: latestAllowance, error: allowFetchErr } = await supabase
+      .from('allowances')
       .select('id, amount')
-      .eq('user_id', user.id)
+      .eq('spender_id', user.id)
       .eq('is_archived', false)
       .order('received_at', { ascending: false })
       .limit(1)
       .maybeSingle();
 
-    if (incomeFetchErr) throw incomeFetchErr;
+    if (allowFetchErr) throw allowFetchErr;
     
-    if (!latestIncome) {
-      throw new Error('No active income found. Please create an active income before settling payments.');
+    if (!latestAllowance) {
+      throw new Error('No active allowance found. Please create an active allowance before settling payments.');
     }
 
     const friendName = selectedFriendToSettle.friends?.full_name || 'Friend';
@@ -700,18 +706,18 @@ const handleConfirmSettlePayment = async () => {
 
     if (updateFriendErr) throw updateFriendErr;
 
-    // 3. Add the received payment to the active income found earlier
-    const currentIncomeAmount = parseFloat(latestIncome.amount) || 0;
-    const updatedIncomeAmount = currentIncomeAmount + paidVal;
+    // 3. Add the received payment to the active allowance found earlier
+    const currentAllowanceAmount = parseFloat(latestAllowance.amount) || 0;
+    const updatedAllowanceAmount = currentAllowanceAmount + paidVal;
 
-    const { error: incomeUpdateErr } = await supabase
-      .from('income')
-      .update({ amount: updatedIncomeAmount })
-      .eq('id', latestIncome.id);
+    const { error: allowUpdateErr } = await supabase
+      .from('allowances')
+      .update({ amount: updatedAllowanceAmount })
+      .eq('id', latestAllowance.id);
 
-    if (incomeUpdateErr) {
-      console.error('Failed to update income amount:', incomeUpdateErr.message);
-      throw incomeUpdateErr;
+    if (allowUpdateErr) {
+      console.error('Failed to update allowance amount:', allowUpdateErr.message);
+      throw allowUpdateErr;
     }
 
     // 4. Log the successful settlement payment action matching your logs table schema
@@ -720,7 +726,7 @@ const handleConfirmSettlePayment = async () => {
       details: `settled split payment of ₱${paidVal.toFixed(2)} from "${friendName}".`,
     });
 
-    let successMessage = `Successfully received ₱${paidVal.toFixed(2)} from ${friendName} (added to your active income). ${
+    let successMessage = `Successfully received ₱${paidVal.toFixed(2)} from ${friendName} (added to your active allowance). ${
       isFullyPaid ? 'Fully settled!' : `Remaining balance: ₱${newOwed.toFixed(2)}`
     }`;
 
@@ -871,34 +877,44 @@ const handleConfirmSettlePayment = async () => {
   return (
     <View style={styles.container}>
       {/* HEADER */}
-      <View style={styles.modernHeader}>
+      <View
+        style={[
+          styles.modernHeader,
+          { paddingTop: Platform.OS === 'android' ? insets.top + 12 : insets.top + 8 },
+        ]}
+      >
+        <View style={styles.headerGradientFill}>
+          <GradientBackground />
+        </View>
         <View style={styles.headerLeft}>
-          <Ionicons name="people-circle-outline" size={28} color="#FFFFFF" />
+          <Ionicons name="people-circle-outline" size={24} color={theme.colors.white} />
           <Text style={styles.modernHeaderTitle}>Split Expenses</Text>
         </View>
         <TouchableOpacity
           style={styles.quickFormTrigger}
           onPress={() => setFormVisible(true)}
+          activeOpacity={0.8}
         >
-          <Ionicons name="add" size={18} color="#FFFFFF" />
+          <Ionicons name="add" size={18} color={theme.colors.white} />
           <Text style={styles.quickFormTriggerText}>New Split</Text>
         </TouchableOpacity>
       </View>
 
       {loading && !refreshing ? (
         <View style={styles.emptyContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
+          <ActivityIndicator size="large" color={theme.colors.accent} />
         </View>
       ) : (
         <ScrollView
+          style={styles.sheet}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
               onRefresh={onRefresh}
-              colors={[colors.primary]}
-              tintColor={colors.primary}
+              colors={[theme.colors.accent]}
+              tintColor={theme.colors.accent}
             />
           }
         > 
@@ -910,13 +926,13 @@ const handleConfirmSettlePayment = async () => {
               <View style={[
                 styles.inlineMessageContainer, 
                 deleteMessage.type === 'error' ? styles.errorBanner : styles.successBanner,
-                { marginBottom: 12 }
+                { marginBottom: theme.space[12] }
               ]}>
                 <Ionicons 
                   name={deleteMessage.type === 'error' ? "alert-circle-outline" : "checkmark-circle-outline"} 
                   size={18} 
-                  color={deleteMessage.type === 'error' ? '#D32F2F' : '#2E7D32'} 
-                  style={{ marginRight: 6 }}
+                  color={deleteMessage.type === 'error' ? theme.colors.danger : theme.colors.success} 
+                  style={{ marginRight: theme.space[6] }}
                 />
                 <Text style={[
                   styles.inlineMessageText, 
@@ -932,13 +948,13 @@ const handleConfirmSettlePayment = async () => {
               <View style={[
                 styles.inlineMessageContainer, 
                 splitDeleteMessage.type === 'error' ? styles.errorBanner : styles.successBanner,
-                { marginBottom: 12 }
+                { marginBottom: theme.space[12] }
               ]}>
                 <Ionicons 
                   name={splitDeleteMessage.type === 'error' ? "alert-circle-outline" : "checkmark-circle-outline"} 
                   size={18} 
-                  color={splitDeleteMessage.type === 'error' ? '#D32F2F' : '#2E7D32'} 
-                  style={{ marginRight: 6 }}
+                  color={splitDeleteMessage.type === 'error' ? theme.colors.danger : theme.colors.success} 
+                  style={{ marginRight: theme.space[6] }}
                 />
                 <Text style={[
                   styles.inlineMessageText, 
@@ -954,13 +970,13 @@ const handleConfirmSettlePayment = async () => {
               <View style={[
                 styles.inlineMessageContainer, 
                 reminderMessage.type === 'error' ? styles.errorBanner : styles.successBanner,
-                { marginBottom: 12 }
+                { marginBottom: theme.space[12] }
               ]}>
                 <Ionicons 
                   name={reminderMessage.type === 'error' ? "alert-circle-outline" : "checkmark-circle-outline"} 
                   size={18} 
-                  color={reminderMessage.type === 'error' ? '#D32F2F' : '#2E7D32'} 
-                  style={{ marginRight: 6 }}
+                  color={reminderMessage.type === 'error' ? theme.colors.danger : theme.colors.success} 
+                  style={{ marginRight: theme.space[6] }}
                 />
                 <Text style={[
                   styles.inlineMessageText, 
@@ -976,13 +992,13 @@ const handleConfirmSettlePayment = async () => {
               <View style={[
                 styles.inlineMessageContainer, 
                 settleActionMessage.type === 'error' ? styles.errorBanner : styles.successBanner,
-                { marginBottom: 12 }
+                { marginBottom: theme.space[12] }
               ]}>
                 <Ionicons 
                   name={settleActionMessage.type === 'error' ? "alert-circle-outline" : "checkmark-circle-outline"} 
                   size={18} 
-                  color={settleActionMessage.type === 'error' ? '#D32F2F' : '#2E7D32'} 
-                  style={{ marginRight: 6 }}
+                  color={settleActionMessage.type === 'error' ? theme.colors.danger : theme.colors.success} 
+                  style={{ marginRight: theme.space[6] }}
                 />
                 <Text style={[
                   styles.inlineMessageText, 
@@ -1000,7 +1016,7 @@ const handleConfirmSettlePayment = async () => {
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontalFriendsScroll}>
               <TouchableOpacity style={styles.avatarContainer} onPress={() => setAddFriendModalVisible(true)}>
                 <View style={styles.addCircle}>
-                  <Ionicons name="add" size={24} color={colors.textFaint} />
+                  <Ionicons name="add" size={24} color={theme.colors.textSubtle} />
                 </View>
                 <Text style={styles.avatarName}>Add Friend</Text>
               </TouchableOpacity>
@@ -1036,7 +1052,7 @@ const handleConfirmSettlePayment = async () => {
 
           {(activeSplits?.length || 0) === 0 ? (
             <View style={styles.emptyContainer}>
-              <Ionicons name="receipt-outline" size={48} color="#CBD5E1" />
+              <Ionicons name="receipt-outline" size={48} color={theme.colors.borderStrong} />
               <Text style={styles.emptyText}>No splits recorded yet.</Text>
             </View>
           ) : (
@@ -1053,7 +1069,7 @@ const handleConfirmSettlePayment = async () => {
                   {/* TOP ROW: Description, Date & Total Amount */}
                   <View style={styles.historyTop}>
                     <View style={styles.categoryIconContainer}>
-                      <Ionicons name={categoryIcon} size={22} color={colors.primary} />
+                      <Ionicons name={categoryIcon} size={22} color={theme.colors.accent} />
                     </View>
 
                     <View style={{ flex: 1 }}>
@@ -1069,8 +1085,8 @@ const handleConfirmSettlePayment = async () => {
                       </Text>
                     </View>
 
-                    <View style={{ alignItems: 'flex-end', justifyContent: 'center', marginRight: 10 }}>
-                      <Text style={{ fontSize: 11, color: '#64748B' }}>Total Amount</Text>
+                    <View style={{ alignItems: 'flex-end', justifyContent: 'center', marginRight: theme.space[10] }}>
+                      <Text style={{ fontFamily: theme.fontFamily.regular, fontSize: theme.fontSize.tiny, color: theme.colors.textMuted }}>Total Amount</Text>
                       <Text style={styles.settleCardTotalValue}>₱{totalAmount.toFixed(2)}</Text>
                     </View>
 
@@ -1080,16 +1096,16 @@ const handleConfirmSettlePayment = async () => {
       style={styles.actionIconButton}
       onPress={() => setSplitToDelete(item)} // <--- Triggers confirmation modal
     >
-      <Ionicons name="trash-outline" size={18} color={'#ff5252'} />
+      <Ionicons name="trash-outline" size={18} color={theme.colors.dangerBright} />
     </TouchableOpacity>
   </View>
 </View>
                   </View>
 
-                  <View style={{ height: 1, backgroundColor: '#f1f1f1', marginTop: 10, marginBottom: 7 }} />
+                  <View style={{ height: 1, backgroundColor: theme.colors.surfaceAlt, marginTop: theme.space[10], marginBottom: 7 }} />
 
                   {/* DIRECTLY DISPLAYED DETAILS */}
-                  <View style={{ marginTop: 1 }}>
+                  <View style={{ marginTop: theme.space[1] }}>
                     {/* Owner Row (Me) */}
                     <View style={styles.settleMemberRowCard}>
                       <View style={styles.settleLeftCol}>
@@ -1152,7 +1168,7 @@ const handleConfirmSettlePayment = async () => {
                           <View style={styles.settleRightCol}>
                             {isPaid ? (
                               <View style={styles.settlePaidPill}>
-                                <Ionicons name="checkmark-circle" size={14} color={colors.positive} />
+                                <Ionicons name="checkmark-circle" size={14} color={theme.colors.success} />
                                 <Text style={styles.settlePaidPillText}>Paid</Text>
                               </View>
                             ) : (
@@ -1177,7 +1193,7 @@ const handleConfirmSettlePayment = async () => {
                                   myProfile?.full_name     
                                 )}
                               >
-                                <Ionicons name="notifications-outline" size={20} color={colors.textMuted} />
+                                <Ionicons name="notifications-outline" size={20} color={theme.colors.textMuted} />
                               </TouchableOpacity>
                             ) : null}
                           </View>
@@ -1210,24 +1226,24 @@ const handleConfirmSettlePayment = async () => {
                   setSplitFormMessage(null); // Clear message on close
                 }}
               >
-                <Ionicons name="close" size={23} color={colors.headerDarker} />
+                <Ionicons name="close" size={23} color={theme.colors.brandDark} />
               </TouchableOpacity>
             </View>
 
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 24 }}>
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: theme.space[24] }}>
               
               {/* --- INLINE MESSAGE BANNER --- */}
         {splitFormMessage && (
           <View style={[
             styles.inlineMessageContainer, 
             splitFormMessage.type === 'error' ? styles.errorBanner : styles.successBanner,
-            { marginBottom: 16 }
+            { marginBottom: theme.space[16] }
           ]}>
             <Ionicons 
               name={splitFormMessage.type === 'error' ? "alert-circle-outline" : "checkmark-circle-outline"} 
               size={18} 
-              color={splitFormMessage.type === 'error' ? '#D32F2F' : '#2E7D32'} 
-              style={{ marginRight: 6 }}
+              color={splitFormMessage.type === 'error' ? theme.colors.danger : theme.colors.success} 
+              style={{ marginRight: theme.space[6] }}
             />
             <Text style={[
               styles.inlineMessageText, 
@@ -1243,7 +1259,7 @@ const handleConfirmSettlePayment = async () => {
               <TextInput
                 style={styles.largeAmountInput}
                 placeholder="0.00"
-                placeholderTextColor={colors.textFaint}
+                placeholderTextColor={theme.colors.textSubtle}
                 keyboardType="numeric"
                 value={amount}
                 onChangeText={setAmount}
@@ -1254,7 +1270,7 @@ const handleConfirmSettlePayment = async () => {
               <TextInput
                 style={styles.input}
                 placeholder="e.g. Dinner with Friends"
-                placeholderTextColor={colors.textFaint}
+                placeholderTextColor={theme.colors.textSubtle}
                 value={description}
                 onChangeText={setDescription}
               />
@@ -1264,7 +1280,7 @@ const handleConfirmSettlePayment = async () => {
               <ScrollView 
                 horizontal 
                 showsHorizontalScrollIndicator={false} 
-                contentContainerStyle={{ gap: 8, marginBottom: 16 }}
+                contentContainerStyle={{ gap: theme.space[8], marginBottom: theme.space[16] }}
               >
                 {(categories || []).map((cat) => {
                   const isSelected = selectedCategoryId === cat.id;
@@ -1274,7 +1290,7 @@ const handleConfirmSettlePayment = async () => {
                       style={[
                         styles.checkChip, 
                         isSelected && styles.checkChipSelected,
-                        { paddingHorizontal: 16, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', gap: 6 }
+                        { paddingHorizontal: theme.space[16], paddingVertical: theme.space[8], flexDirection: 'row', alignItems: 'center', gap: theme.space[6] }
                       ]}
                       onPress={() => setSelectedCategoryId(cat.id)}
                     >
@@ -1323,7 +1339,7 @@ const handleConfirmSettlePayment = async () => {
                         <Ionicons
                           name={isSelected ? 'checkmark-circle' : 'ellipse-outline'}
                           size={16}
-                          color={isSelected ? colors.primary : colors.textMuted}
+                          color={isSelected ? theme.colors.accent : theme.colors.textMuted}
                         />
                         <Text style={[styles.checkChipText, isSelected && styles.checkChipTextSelected]}>
                           {f.full_name}
@@ -1345,7 +1361,7 @@ const handleConfirmSettlePayment = async () => {
                         <TextInput
                           style={styles.customInput}
                           placeholder="0.00"
-                          placeholderTextColor={colors.textFaint}
+                          placeholderTextColor={theme.colors.textSubtle}
                           keyboardType="numeric"
                           value={customShares[fId] || ''}
                           onChangeText={(val) => handleCustomShareChange(fId, val)}
@@ -1358,9 +1374,9 @@ const handleConfirmSettlePayment = async () => {
 
               {amount !== '' && (selectedFriends?.length || 0) > 0 && (
                 <View style={styles.previewBanner}>
-                  <Ionicons name="information-circle-outline" size={20} color={colors.positive} />
+                  <Ionicons name="information-circle-outline" size={20} color={theme.colors.success} />
                   <Text style={styles.previewText}>
-                    Your Personal Share: <Text style={{ fontWeight: '800' }}>₱{calculateOwnerShare()}</Text>
+                    Your Personal Share: <Text style={{ fontFamily: theme.fontFamily.extrabold }}>₱{calculateOwnerShare()}</Text>
                   </Text>
                 </View>
               )}
@@ -1374,14 +1390,14 @@ const handleConfirmSettlePayment = async () => {
                 disabled={loading}
               >
                 {loading ? (
-                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: theme.space[8] }}>
+                    <ActivityIndicator size="small" color={theme.colors.white} />
                     <Text style={styles.submitBtnText}>Saving...</Text>
                   </View>
                 ) : (
-                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: theme.space[8] }}>
                     <Text style={styles.submitBtnText}>Confirm & Save Split</Text>
-                    <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
+                    <Ionicons name="arrow-forward" size={18} color={theme.colors.white} />
                   </View>
                 )}
               </TouchableOpacity>
@@ -1393,50 +1409,50 @@ const handleConfirmSettlePayment = async () => {
 {/* --- MODERN SPLIT DELETE CONFIRMATION MODAL --- */}
 <Modal visible={!!splitToDelete} animationType="fade" transparent>
   <View style={styles.modalOverlayCenter}>
-    <View style={[styles.alertModalContainer, { width: '85%', maxWidth: 360, alignItems: 'center', paddingVertical: 24 }]}>
+    <View style={[styles.alertModalContainer, { width: '85%', maxWidth: 360, alignItems: 'center', paddingVertical: theme.space[24] }]}>
       
       {/* Warning Icon Badge */}
       <View style={{ 
         width: 56, 
         height: 56, 
-        borderRadius: 28, 
-        backgroundColor: '#FFEBEE', 
+        borderRadius: theme.radius.xxxl, 
+        backgroundColor: theme.colors.dangerBg, 
         justifyContent: 'center', 
         alignItems: 'center', 
-        marginBottom: 16 
+        marginBottom: theme.space[16] 
       }}>
-        <Ionicons name="warning-outline" size={28} color="#D32F2F" />
+        <Ionicons name="warning-outline" size={28} color={theme.colors.danger} />
       </View>
 
       {/* Title & Description */}
-      <Text style={[styles.modalTitle, { textAlign: 'center', marginBottom: 8 }]}>
+      <Text style={[styles.modalTitle, { textAlign: 'center', marginBottom: theme.space[8] }]}>
         Delete Split Expense?
       </Text>
-      <Text style={{ textAlign: 'center', color: colors.textMuted || '#666', fontSize: 14, marginBottom: 24, paddingHorizontal: 10 }}>
-        Are you sure you want to delete <Text style={{ fontWeight: '600', color: colors.textDark || '#333' }}>"{splitToDelete?.description}"</Text>? This action cannot be undone.
+      <Text style={{ textAlign: 'center', color: theme.colors.textMuted || theme.colors.textSecondary, fontFamily: theme.fontFamily.regular, fontSize: theme.fontSize.body, marginBottom: theme.space[24], paddingHorizontal: theme.space[10] }}>
+        Are you sure you want to delete <Text style={{ fontFamily: theme.fontFamily.semibold, color: theme.colors.textStrong || theme.colors.text }}>"{splitToDelete?.description}"</Text>? This action cannot be undone.
       </Text>
 
       {/* Action Buttons */}
-      <View style={{ flexDirection: 'row', gap: 12, width: '100%' }}>
+      <View style={{ flexDirection: 'row', gap: theme.space[12], width: '100%' }}>
         <TouchableOpacity 
           style={{ 
             flex: 1, 
-            paddingVertical: 12, 
-            borderRadius: 8, 
-            backgroundColor: '#F5F5F5', 
+            paddingVertical: theme.space[12], 
+            borderRadius: theme.radius.sm, 
+            backgroundColor: theme.colors.surfaceGray, 
             alignItems: 'center' 
           }}
           onPress={() => setSplitToDelete(null)}
         >
-          <Text style={{ fontWeight: '600', color: '#333' }}>Cancel</Text>
+          <Text style={{ fontFamily: theme.fontFamily.semibold, color: theme.colors.text }}>Cancel</Text>
         </TouchableOpacity>
 
         <TouchableOpacity 
           style={{ 
             flex: 1, 
-            paddingVertical: 12, 
-            borderRadius: 8, 
-            backgroundColor: '#D32F2F', 
+            paddingVertical: theme.space[12], 
+            borderRadius: theme.radius.sm, 
+            backgroundColor: theme.colors.danger, 
             alignItems: 'center' 
           }}
           onPress={async () => {
@@ -1445,7 +1461,7 @@ const handleConfirmSettlePayment = async () => {
             await handleDeleteSplit(idToDelete); // Call your existing delete handler
           }}
         >
-          <Text style={{ fontWeight: '600', color: '#FFF' }}>Delete</Text>
+          <Text style={{ fontFamily: theme.fontFamily.semibold, color: theme.colors.white }}>Delete</Text>
         </TouchableOpacity>
       </View>
 
@@ -1472,7 +1488,7 @@ const handleConfirmSettlePayment = async () => {
             setFormMessage(null); // Clear message on close
           }}
         >
-          <Ionicons name="close" size={18} color={colors.textMuted} />
+          <Ionicons name="close" size={18} color={theme.colors.textMuted} />
         </TouchableOpacity>
       </View>
 
@@ -1485,8 +1501,8 @@ const handleConfirmSettlePayment = async () => {
           <Ionicons 
             name={formMessage.type === 'error' ? "alert-circle-outline" : "checkmark-circle-outline"} 
             size={18} 
-            color={formMessage.type === 'error' ? '#D32F2F' : '#2E7D32'} 
-            style={{ marginRight: 6 }}
+            color={formMessage.type === 'error' ? theme.colors.danger : theme.colors.success} 
+            style={{ marginRight: theme.space[6] }}
           />
           <Text style={[
             styles.inlineMessageText, 
@@ -1498,35 +1514,35 @@ const handleConfirmSettlePayment = async () => {
       )}
 
       <TextInput
-        style={[styles.input, { marginTop: 12 }]}
+        style={[styles.input, { marginTop: theme.space[12] }]}
         placeholder="Friend's Full Name"
-        placeholderTextColor={colors.textFaint}
+        placeholderTextColor={theme.colors.textSubtle}
         value={newFriendName}
         onChangeText={setNewFriendName}
       />
 
       <TextInput
-        style={[styles.input, { marginTop: 12 }]}
+        style={[styles.input, { marginTop: theme.space[12] }]}
         placeholder="Friend's Email"
-        placeholderTextColor={colors.textFaint}
+        placeholderTextColor={theme.colors.textSubtle}
         value={newFriendEmail}
         onChangeText={setNewFriendEmail}
       />
 
-      <View style={{ alignItems: 'center', marginVertical: 10 }}>
+      <View style={{ alignItems: 'center', marginVertical: theme.space[10] }}>
         <Image
           source={
             friendImageUri
               ? { uri: friendImageUri }
               : require('../../assets/images/default.png')
           }
-          style={{ width: 80, height: 80, borderRadius: 40, marginBottom: 10 }}
+          style={{ width: 80, height: 80, borderRadius: 40, marginBottom: theme.space[10] }}
         />
-        <View style={{ flexDirection: 'row', gap: 10 }}>
-          <TouchableOpacity onPress={() => pickImage(false)} style={{ padding: 6, backgroundColor: '#eee', borderRadius: 5 }}>
+        <View style={{ flexDirection: 'row', gap: theme.space[10] }}>
+          <TouchableOpacity onPress={() => pickImage(false)} style={{ padding: theme.space[6], backgroundColor: theme.colors.border, borderRadius: 5 }}>
             <Text>Pick from Gallery</Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => pickImage(true)} style={{ padding: 6, backgroundColor: '#eee', borderRadius: 5 }}>
+          <TouchableOpacity onPress={() => pickImage(true)} style={{ padding: theme.space[6], backgroundColor: theme.colors.border, borderRadius: 5 }}>
             <Text>Take Photo</Text>
           </TouchableOpacity>
         </View>
@@ -1558,7 +1574,7 @@ const handleConfirmSettlePayment = async () => {
             setSelectedFriend(null);
           }}
         >
-          <Ionicons name="close" size={18} color={colors.textMuted} />
+          <Ionicons name="close" size={18} color={theme.colors.textMuted} />
         </TouchableOpacity>
       </View>
 
@@ -1572,7 +1588,7 @@ const handleConfirmSettlePayment = async () => {
                   ? { uri: selectedFriend.avatar_url }
                   : require('../../assets/images/default.png')
               }
-              style={{ width: 50, height: 50, borderRadius: 25, marginRight: 12 }}
+              style={{ width: 50, height: 50, borderRadius: 25, marginRight: theme.space[12] }}
             />
             <View style={{ flex: 1 }}>
               <Text style={styles.manageFriendName}>{selectedFriend.full_name}</Text>
@@ -1592,7 +1608,7 @@ const handleConfirmSettlePayment = async () => {
               openEditModal(friendToEdit);
             }}
           >
-            <Ionicons name="pencil-outline" size={20} color={colors.textDark || '#333'} style={{ marginRight: 10 }} />
+            <Ionicons name="pencil-outline" size={20} color={theme.colors.textStrong || theme.colors.text} style={{ marginRight: theme.space[10] }} />
             <Text style={styles.actionOptionText}>Edit Friend Details</Text>
           </TouchableOpacity>
 
@@ -1605,7 +1621,7 @@ const handleConfirmSettlePayment = async () => {
               confirmDeleteFriend(friendId); // <--- Triggers modern confirmation modal instead
             }}
           >
-            <Ionicons name="trash-outline" size={20} color="#D32F2F" style={{ marginRight: 10 }} />
+            <Ionicons name="trash-outline" size={20} color={theme.colors.danger} style={{ marginRight: theme.space[10] }} />
             <Text style={[styles.actionOptionText, styles.deleteOptionText]}>Delete Friend</Text>
           </TouchableOpacity>
         </View>
@@ -1617,50 +1633,50 @@ const handleConfirmSettlePayment = async () => {
 {/* --- MODERN DELETE CONFIRMATION MODAL --- */}
 <Modal visible={!!friendToDelete} animationType="fade" transparent>
   <View style={styles.modalOverlayCenter}>
-    <View style={[styles.alertModalContainer, { width: '85%', maxWidth: 360, alignItems: 'center', paddingVertical: 24 }]}>
+    <View style={[styles.alertModalContainer, { width: '85%', maxWidth: 360, alignItems: 'center', paddingVertical: theme.space[24] }]}>
       
       {/* Warning Icon Badge */}
       <View style={{ 
         width: 56, 
         height: 56, 
-        borderRadius: 28, 
-        backgroundColor: '#FFEBEE', 
+        borderRadius: theme.radius.xxxl, 
+        backgroundColor: theme.colors.dangerBg, 
         justifyContent: 'center', 
         alignItems: 'center', 
-        marginBottom: 16 
+        marginBottom: theme.space[16] 
       }}>
-        <Ionicons name="warning-outline" size={28} color="#D32F2F" />
+        <Ionicons name="warning-outline" size={28} color={theme.colors.danger} />
       </View>
 
       {/* Title & Description */}
-      <Text style={[styles.modalTitle, { textAlign: 'center', marginBottom: 8 }]}>
+      <Text style={[styles.modalTitle, { textAlign: 'center', marginBottom: theme.space[8] }]}>
         Delete Friend?
       </Text>
-      <Text style={{ textAlign: 'center', color: colors.textMuted || '#666', fontSize: 14, marginBottom: 24, paddingHorizontal: 10 }}>
-        Are you sure you want to delete <Text style={{ fontWeight: '600', color: colors.textDark || '#333' }}>{friendToDelete?.full_name}</Text>? This action cannot be undone.
+      <Text style={{ textAlign: 'center', color: theme.colors.textMuted || theme.colors.textSecondary, fontFamily: theme.fontFamily.regular, fontSize: theme.fontSize.body, marginBottom: theme.space[24], paddingHorizontal: theme.space[10] }}>
+        Are you sure you want to delete <Text style={{ fontFamily: theme.fontFamily.semibold, color: theme.colors.textStrong || theme.colors.text }}>{friendToDelete?.full_name}</Text>? This action cannot be undone.
       </Text>
 
       {/* Action Buttons */}
-      <View style={{ flexDirection: 'row', gap: 12, width: '100%' }}>
+      <View style={{ flexDirection: 'row', gap: theme.space[12], width: '100%' }}>
         <TouchableOpacity 
           style={{ 
             flex: 1, 
-            paddingVertical: 12, 
-            borderRadius: 8, 
-            backgroundColor: '#F5F5F5', 
+            paddingVertical: theme.space[12], 
+            borderRadius: theme.radius.sm, 
+            backgroundColor: theme.colors.surfaceGray, 
             alignItems: 'center' 
           }}
           onPress={() => setFriendToDelete(null)}
         >
-          <Text style={{ fontWeight: '600', color: '#333' }}>Cancel</Text>
+          <Text style={{ fontFamily: theme.fontFamily.semibold, color: theme.colors.text }}>Cancel</Text>
         </TouchableOpacity>
 
         <TouchableOpacity 
   style={{ 
     flex: 1, 
-    paddingVertical: 12, 
-    borderRadius: 8, 
-    backgroundColor: '#D32F2F', 
+    paddingVertical: theme.space[12], 
+    borderRadius: theme.radius.sm, 
+    backgroundColor: theme.colors.danger, 
     alignItems: 'center' 
   }}
   onPress={async () => {
@@ -1704,7 +1720,7 @@ const handleConfirmSettlePayment = async () => {
     }
   }}
 >
-  <Text style={{ fontWeight: '600', color: '#FFF' }}>Delete</Text>
+  <Text style={{ fontFamily: theme.fontFamily.semibold, color: theme.colors.white }}>Delete</Text>
 </TouchableOpacity>
       </View>
 
@@ -1719,7 +1735,7 @@ const handleConfirmSettlePayment = async () => {
       <View style={styles.paymentModalHeader}>
         <View style={styles.paymentModalTitleRow}>
           <View style={styles.paymentIconContainer}>
-            <Ionicons name="cash-outline" size={20} color={colors.primary} />
+            <Ionicons name="cash-outline" size={20} color={theme.colors.accent} />
           </View>
           <Text style={styles.paymentModalMainTitle}>Record Payment</Text>
         </View>
@@ -1730,14 +1746,14 @@ const handleConfirmSettlePayment = async () => {
             setSettleModalMessage(null);
           }}
         >
-          <Ionicons name="close" size={18} color={colors.textMuted} />
+          <Ionicons name="close" size={18} color={theme.colors.textMuted} />
         </TouchableOpacity>
       </View>
 
       {/* --- INLINE ERROR MESSAGE INSIDE MODAL --- */}
       {settleModalMessage && (
-        <View style={[styles.inlineMessageContainer, styles.errorBanner, { marginBottom: 12 }]}>
-          <Ionicons name="alert-circle-outline" size={16} color="#D32F2F" style={{ marginRight: 6 }} />
+        <View style={[styles.inlineMessageContainer, styles.errorBanner, { marginBottom: theme.space[12] }]}>
+          <Ionicons name="alert-circle-outline" size={16} color={theme.colors.danger} style={{ marginRight: theme.space[6] }} />
           <Text style={[styles.inlineMessageText, styles.errorText]}>{settleModalMessage.text}</Text>
         </View>
       )}
@@ -1758,11 +1774,11 @@ const handleConfirmSettlePayment = async () => {
         </View>
       </View>
 
-      <Text style={[styles.label, { marginBottom: 6 }]}>Amount Received (₱)</Text>
+      <Text style={[styles.label, { marginBottom: theme.space[6] }]}>Amount Received (₱)</Text>
       <TextInput
         style={styles.paymentInput}
         placeholder="0.00"
-        placeholderTextColor={colors.textFaint}
+        placeholderTextColor={theme.colors.textSubtle}
         keyboardType="numeric"
         value={paymentInputAmount}
         onChangeText={(text) => {
@@ -1776,7 +1792,7 @@ const handleConfirmSettlePayment = async () => {
         style={styles.paymentSubmitBtn}
         onPress={handleConfirmSettlePayment}
       >
-        <Ionicons name="checkmark-circle-outline" size={18} color="#FFFFFF" />
+        <Ionicons name="checkmark-circle-outline" size={18} color={theme.colors.white} />
         <Text style={styles.paymentSubmitBtnText}>Confirm Settlement</Text>
       </TouchableOpacity>
 

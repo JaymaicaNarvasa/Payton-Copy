@@ -1,9 +1,11 @@
+import { theme } from '@/constants/theme';
+import { archiveStyles as styles } from '@/constants/ui.styles';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, Image, Modal, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { colors } from '../(spenderTabs)/profile';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, FlatList, Image, Modal, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { GradientBackground } from '../../components/GradientBackground';
 import { supabase } from '../../lib/supabase';
 
 export default function ArchiveScreen() {
@@ -317,13 +319,13 @@ export default function ArchiveScreen() {
   const getAlertStyles = (type: string) => {
     switch (type) {
       case 'success':
-        return { bg: '#ecfdf5', border: '#10b981', text: '#065f46', icon: 'checkmark-circle-outline' };
+        return { bg: theme.colors.emerald50, border: theme.colors.emerald, text: theme.colors.emerald800, icon: 'checkmark-circle-outline' };
       case 'error':
-        return { bg: '#fef2f2', border: '#ef4444', text: '#991b1b', icon: 'alert-circle-outline' };
+        return { bg: theme.colors.dangerBg, border: theme.colors.dangerBright, text: theme.colors.dangerDeep, icon: 'alert-circle-outline' };
       case 'warning':
-        return { bg: '#fffbeb', border: '#f59e0b', text: '#92400e', icon: 'warning-outline' };
+        return { bg: theme.colors.warningWash, border: theme.colors.amber, text: theme.colors.warningDeep, icon: 'warning-outline' };
       default:
-        return { bg: '#f0fdf4', border: '#3b82f6', text: '#1e40af', icon: 'information-circle-outline' };
+        return { bg: theme.colors.greenBg, border: theme.colors.info, text: theme.colors.blueDeep, icon: 'information-circle-outline' };
     }
   };
 
@@ -334,24 +336,29 @@ export default function ArchiveScreen() {
       <StatusBar style="light" />
       
       <View style={styles.modernHeader}>
+        <View style={styles.headerGradientFill}>
+          <GradientBackground />
+        </View>
         <TouchableOpacity 
           onPress={selectedItem ? handleBackToArchiveList : () => router.back()} 
           style={styles.backBtnTouchable}
         >
-          <Ionicons name="arrow-back" size={20} color="#ffffff" />
+          <Ionicons name="arrow-back" size={20} color={theme.colors.white} />
         </TouchableOpacity>
         <Text style={styles.headerTitleCentered} numberOfLines={1}>
           {selectedItem ? (selectedItem.allowance_name || selectedItem.source_name) : 'Archive Data'}
         </Text>
-        <View style={{ width: 20 }} />
+        <View style={styles.headerSpacer} />
       </View>
+
+      <View style={styles.sheet}>
 
       {/* Modern Inline Alert Banner */}
       {alertBanner.visible && (
         <View style={[styles.inlineAlertContainer, { backgroundColor: currentAlertStyle.bg, borderColor: currentAlertStyle.border }]}>
-          <Ionicons name={currentAlertStyle.icon as any} size={18} color={currentAlertStyle.border} style={{ marginRight: 8 }} />
+          <Ionicons name={currentAlertStyle.icon as any} size={18} color={currentAlertStyle.border} style={{ marginRight: theme.space[8] }} />
           <Text style={[styles.inlineAlertText, { color: currentAlertStyle.text }]}>{alertBanner.message}</Text>
-          <TouchableOpacity onPress={() => setAlertBanner((prev) => ({ ...prev, visible: false }))} style={{ marginLeft: 'auto', padding: 2 }}>
+          <TouchableOpacity onPress={() => setAlertBanner((prev) => ({ ...prev, visible: false }))} style={{ marginLeft: 'auto', padding: theme.space[2] }}>
             <Ionicons name="close" size={16} color={currentAlertStyle.text} />
           </TouchableOpacity>
         </View>
@@ -359,7 +366,7 @@ export default function ArchiveScreen() {
 
       {loading ? (
         <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color="#173D45" />
+          <ActivityIndicator size="large" color={theme.colors.brandDark} />
         </View>
       ) : selectedItem ? (
         <View style={styles.detailContainer}>
@@ -371,7 +378,7 @@ export default function ArchiveScreen() {
                 <Text style={styles.cardAmount}>₱{totalAmount.toLocaleString()}</Text>
               </View>
               <View style={styles.validityBadge}>
-                <Ionicons name="calendar-outline" size={12} color="#64748b" style={{ marginRight: 4 }} />
+                <Ionicons name="calendar-outline" size={12} color={theme.colors.textMuted} style={{ marginRight: theme.space[4] }} />
                 <Text style={styles.cardDates}>
                   {formatDateRange(selectedItem.start_date, selectedItem.end_date)}
                 </Text>
@@ -381,12 +388,12 @@ export default function ArchiveScreen() {
             <View style={styles.metricsGrid}>
               <View style={styles.metricBox}>
                 <Text style={styles.metricTitle}>Total Spent</Text>
-                <Text style={[styles.metricValue, { color: '#ef4444' }]}>₱{totalSpent.toLocaleString()}</Text>
+                <Text style={[styles.metricValue, { color: theme.colors.dangerBright }]}>₱{totalSpent.toLocaleString()}</Text>
               </View>
               <View style={styles.metricDivider} />
               <View style={styles.metricBox}>
                 <Text style={styles.metricTitle}>Remaining</Text>
-                <Text style={[styles.metricValue, { color: isOverBudget ? '#ef4444' : '#10b981' }]}>
+                <Text style={[styles.metricValue, { color: isOverBudget ? theme.colors.dangerBright : theme.colors.emerald }]}>
                   ₱{totalRemaining.toLocaleString()}
                 </Text>
               </View>
@@ -403,7 +410,7 @@ export default function ArchiveScreen() {
                     styles.progressBarFill, 
                     { 
                       width: `${remainingRatio * 100}%`,
-                      backgroundColor: isOverBudget ? '#ef4444' : '#10b981' 
+                      backgroundColor: isOverBudget ? theme.colors.dangerBright : theme.colors.emerald 
                     }
                   ]} 
                 />
@@ -415,32 +422,32 @@ export default function ArchiveScreen() {
           
           {!loadingExpenses && expenses.length > 0 && (
             <View style={styles.searchContainer}>
-              <Ionicons name="search" size={16} color="#94a3b8" style={styles.searchIcon} />
+              <Ionicons name="search" size={16} color={theme.colors.textSubtle} style={styles.searchIcon} />
               <TextInput
                 style={styles.searchInput}
                 placeholder="Search description or category..."
-                placeholderTextColor="#94a3b8"
+                placeholderTextColor={theme.colors.textSubtle}
                 value={searchQuery}
                 onChangeText={setSearchQuery}
               />
               {searchQuery.length > 0 && (
                 <TouchableOpacity onPress={() => setSearchQuery('')}>
-                  <Ionicons name="close-circle" size={16} color="#94a3b8" />
+                  <Ionicons name="close-circle" size={16} color={theme.colors.textSubtle} />
                 </TouchableOpacity>
               )}
             </View>
           )}
 
           {loadingExpenses ? (
-            <ActivityIndicator size="small" color="#173D45" style={{ marginTop: 20 }} />
+            <ActivityIndicator size="small" color={theme.colors.brandDark} style={{ marginTop: theme.space[20] }} />
           ) : expenses.length === 0 ? (
             <View style={styles.emptyExpenses}>
-              <Ionicons name="receipt-outline" size={32} color="#cbd5e1" style={{ marginBottom: 8 }} />
+              <Ionicons name="receipt-outline" size={32} color={theme.colors.borderStrong} style={{ marginBottom: theme.space[8] }} />
               <Text style={styles.subTitle}>No expenses recorded under this record.</Text>
             </View>
           ) : filteredExpenses.length === 0 ? (
             <View style={styles.emptyExpenses}>
-              <Ionicons name="search-outline" size={32} color="#cbd5e1" style={{ marginBottom: 8 }} />
+              <Ionicons name="search-outline" size={32} color={theme.colors.borderStrong} style={{ marginBottom: theme.space[8] }} />
               <Text style={styles.subTitle}>No matching expenses found.</Text>
             </View>
           ) : (
@@ -451,15 +458,15 @@ export default function ArchiveScreen() {
               renderItem={({ item }) => {
                 const category = item.categories;
                 const iconName = (category?.icon || 'pricetag-outline') as any;
-                const iconBgColor = category?.color || '#e2e8f0';
+                const iconBgColor = category?.color || theme.colors.border;
 
                 return (
                   <View style={styles.expenseItem}>
                     <View style={[styles.expenseIconContainer, { backgroundColor: iconBgColor }]}>
-                      <Ionicons name={iconName} size={16} color="#173D45" />
+                      <Ionicons name={iconName} size={16} color={theme.colors.brandDark} />
                     </View>
 
-                    <View style={{ flex: 1, marginRight: 12 }}>
+                    <View style={{ flex: 1, marginRight: theme.space[12] }}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap' }}>
                         <Text style={styles.expenseDesc}>{item.description || 'No Description'}</Text>
                         {item.photo_url ? (
@@ -467,7 +474,7 @@ export default function ArchiveScreen() {
                             onPress={() => setSelectedPhoto(item.photo_url)} 
                             style={styles.photoIconButton}
                           >
-                            <Ionicons name="image-outline" size={14} color="#0f766e" />
+                            <Ionicons name="image-outline" size={14} color={theme.colors.tealDeep} />
                           </TouchableOpacity>
                         ) : null}
                       </View>
@@ -477,14 +484,14 @@ export default function ArchiveScreen() {
                   </View>
                 );
               }}
-              contentContainerStyle={{ paddingBottom: 30 }}
+              contentContainerStyle={{ paddingBottom: theme.space[30] }}
             />
           )}
         </View>
       ) : inactiveItems.length === 0 ? (
         <View style={styles.centerContainer}>
           <View style={styles.iconCircle}>
-            <Ionicons name="archive-outline" size={40} color="#173D45" />
+            <Ionicons name="archive-outline" size={40} color={theme.colors.brandDark} />
           </View>
           <Text style={styles.mainTitle}>Archive Empty</Text>
           <Text style={styles.subTitle}>You have no inactive records at this moment.</Text>
@@ -498,32 +505,32 @@ export default function ArchiveScreen() {
           renderItem={({ item }) => (
             <View style={styles.archiveCard}>
               <TouchableOpacity style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }} onPress={() => handleSelectItem(item)}>
-                <View style={{ flex: 1, marginRight: 12 }}>
+                <View style={{ flex: 1, marginRight: theme.space[12] }}>
                   <Text style={styles.itemTitle}>{item.allowance_name || item.source_name}</Text>
                   <View style={styles.itemSubtitleRow}>
-                    <Ionicons name="time-outline" size={12} color="#64748B" style={{ marginRight: 4 }} />
+                    <Ionicons name="time-outline" size={12} color={theme.colors.textMuted} style={{ marginRight: theme.space[4] }} />
                     <Text style={styles.itemSubtitle}>
                       {formatDateRange(item.start_date, item.end_date)}
                     </Text>
                   </View>
                 </View>
-                <View style={{ alignItems: 'flex-end', marginRight: 8 }}>
+                <View style={{ alignItems: 'flex-end', marginRight: theme.space[8] }}>
                   <Text style={styles.itemAmount}>₱{Number(item.amount).toLocaleString()}</Text>
                   <View style={styles.chevronRow}>
                     <Text style={styles.viewDetailsText}>View</Text>
-                    <Ionicons name="chevron-forward" size={14} color="#0f766e" />
+                    <Ionicons name="chevron-forward" size={14} color={theme.colors.tealDeep} />
                   </View>
                 </View>
               </TouchableOpacity>
 
               {/* Action Buttons Row */}
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.space[6] }}>
                 {userRole !== 'Spender' && (
                   <TouchableOpacity 
                     style={styles.unarchiveBtn} 
                     onPress={() => confirmUnarchiveItem(item)}
                   >
-                    <Ionicons name="arrow-undo-outline" size={16} color="#0f766e" />
+                    <Ionicons name="arrow-undo-outline" size={16} color={theme.colors.tealDeep} />
                   </TouchableOpacity>
                 )}
 
@@ -532,7 +539,7 @@ export default function ArchiveScreen() {
                     style={styles.deleteBtn} 
                     onPress={() => confirmDeleteItem(item)}
                   >
-                    <Ionicons name="trash-outline" size={16} color="#ef4444" />
+                    <Ionicons name="trash-outline" size={16} color={theme.colors.dangerBright} />
                   </TouchableOpacity>
                 )}
               </View>
@@ -547,12 +554,12 @@ export default function ArchiveScreen() {
           <View style={styles.dialogContainer}>
             <View style={[
               styles.dialogIconContainer, 
-              { backgroundColor: dialogConfig.type === 'delete' ? '#fef2f2' : '#e6f4f1' }
+              { backgroundColor: dialogConfig.type === 'delete' ? theme.colors.dangerBg : theme.colors.tealPale }
             ]}>
               <Ionicons 
                 name={dialogConfig.type === 'delete' ? 'trash-outline' : 'arrow-undo-outline'} 
                 size={24} 
-                color={dialogConfig.type === 'delete' ? '#ef4444' : '#0f766e'} 
+                color={dialogConfig.type === 'delete' ? theme.colors.dangerBright : theme.colors.tealDeep} 
               />
             </View>
 
@@ -566,7 +573,7 @@ export default function ArchiveScreen() {
               <TouchableOpacity 
                 style={[
                   styles.dialogConfirmButton, 
-                  { backgroundColor: dialogConfig.type === 'delete' ? '#ef4444' : '#0f766e' }
+                  { backgroundColor: dialogConfig.type === 'delete' ? theme.colors.dangerBright : theme.colors.tealDeep }
                 ]} 
                 onPress={handleExecuteDialogAction}
               >
@@ -586,7 +593,7 @@ export default function ArchiveScreen() {
             style={styles.closeButtonContainer} 
             onPress={() => setSelectedPhoto(null)}
           >
-            <Ionicons name="close" size={24} color="#ffffff" />
+            <Ionicons name="close" size={24} color={theme.colors.white} />
           </TouchableOpacity>
           {selectedPhoto && (
             <Image 
@@ -597,419 +604,7 @@ export default function ArchiveScreen() {
           )}
         </View>
       </Modal>
+      </View>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { 
-    flex: 1, 
-    backgroundColor: '#f8fafc',
-  },
-  modernHeader: { 
-    flexDirection: 'row', 
-    justifyContent: 'space-between', 
-    alignItems: 'center', 
-    paddingHorizontal: 24,
-    paddingTop: Platform.OS === 'android' ? 44 : 20,
-    paddingBottom: 20,
-    backgroundColor: colors.headerDark,
-    borderBottomLeftRadius: 32,
-    borderBottomRightRadius: 32,
-  },
-  inlineAlertContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginHorizontal: 20,
-    marginTop: 16,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-  },
-  inlineAlertText: {
-    fontSize: 13,
-    fontWeight: '600',
-    flex: 1,
-  },
-  backBtnTouchable: { 
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    justifyContent: 'center',
-    alignItems: 'center'
-  },
-  headerTitleCentered: { 
-    flex: 1, 
-    textAlign: 'center', 
-    fontSize: 17, 
-    fontWeight: '700', 
-    color: '#ffffff', 
-    marginHorizontal: 12,
-  },
-  centerContainer: { 
-    flex: 1, 
-    justifyContent: 'center', 
-    alignItems: 'center', 
-    paddingHorizontal: 40 
-  },
-  iconCircle: { 
-    width: 80, 
-    height: 80, 
-    borderRadius: 24, 
-    backgroundColor: '#EBF6F5', 
-    justifyContent: 'center', 
-    alignItems: 'center', 
-    marginBottom: 20 
-  },
-  mainTitle: { 
-    fontSize: 18, 
-    fontWeight: '700', 
-    color: '#1E293B', 
-    marginBottom: 8 
-  },
-  subTitle: { 
-    fontSize: 14, 
-    color: '#64748B', 
-    textAlign: 'center', 
-    lineHeight: 22 
-  },
-  listContainer: {
-    padding: 20,
-  },
-  archiveCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    borderWidth: 3,
-    borderColor: '#f1f5f9',
-  },
-  unarchiveBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
-    backgroundColor: '#e6f4f1',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#ccebe6',
-  },
-  deleteBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
-    backgroundColor: '#fef2f2',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#fee2e2',
-  },
-  itemTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#1E293B',
-    marginBottom: 4,
-  },
-  itemSubtitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  itemSubtitle: {
-    fontSize: 11,
-    color: '#64748B',
-  },
-  itemAmount: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#0f766e',
-    marginBottom: 4,
-  },
-  chevronRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  viewDetailsText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#0f766e',
-    marginRight: 2,
-  },
-  detailContainer: {
-    flex: 1,
-    padding: 20,
-  },
-  cardDetail: {
-    backgroundColor: '#ffffff',
-    borderRadius: 20,
-    padding: 20,
-    marginBottom: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 1,
-    borderWidth: 1,
-    borderColor: '#f1f5f9',
-  },
-  cardTopRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 16,
-  },
-  cardLabel: {
-    fontSize: 12,
-    color: '#64748b',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 4,
-  },
-  cardAmount: {
-    fontSize: 26,
-    fontWeight: '800',
-    color: '#1e293b',
-  },
-  validityBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f8fafc',
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
-    maxWidth: '55%',
-  },
-  cardDates: {
-    fontSize: 10,
-    color: '#475569',
-    fontWeight: '500',
-    flexShrink: 1,
-  },
-  metricsGrid: {
-    flexDirection: 'row',
-    backgroundColor: '#f8fafc',
-    borderRadius: 12,
-    paddingVertical: 12,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#f1f5f9',
-  },
-  metricBox: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  metricDivider: {
-    width: 1,
-    backgroundColor: '#e2e8f0',
-  },
-  metricTitle: {
-    fontSize: 11,
-    color: '#64748b',
-    marginBottom: 2,
-    fontWeight: '500',
-  },
-  metricValue: {
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  progressSection: {
-    marginTop: 4,
-  },
-  progressHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 6,
-  },
-  progressLabel: {
-    fontSize: 12,
-    color: '#64748b',
-    fontWeight: '500',
-  },
-  progressPercent: {
-    fontSize: 12,
-    color: '#1e293b',
-    fontWeight: '700',
-  },
-  progressBarBackground: {
-    height: 8,
-    backgroundColor: '#f1f5f9',
-    borderRadius: 4,
-    overflow: 'hidden',
-  },
-  progressBarFill: {
-    height: '100%',
-    borderRadius: 4,
-  },
-  sectionHeader: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#1E293B',
-    marginBottom: 12,
-  },
-  searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#ffffff',
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: Platform.OS === 'ios' ? 10 : 4,
-    marginBottom: 12,
-  },
-  searchIcon: {
-    marginRight: 8,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 14,
-    color: '#1e293b',
-  },
-  emptyExpenses: {
-    marginTop: 40,
-    alignItems: 'center',
-  },
-  expenseItem: {
-    backgroundColor: '#ffffff',
-    borderRadius: 14,
-    padding: 16,
-    marginBottom: 10,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#f1f5f9',
-  },
-  expenseIconContainer: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  expenseDesc: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1E293B',
-    marginBottom: 2,
-    marginRight: 6,
-  },
-  photoIconButton: {
-    padding: 4,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#e6f4f1',
-    borderRadius: 6,
-    marginBottom: 2,
-  },
-  expenseDate: {
-    fontSize: 11,
-    color: '#94a3b8',
-  },
-  expenseAmount: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#ef4444',
-  },
-  // Custom Dialog Modal Styles (Reserved strictly for confirmations)
-  dialogOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-  },
-  dialogContainer: {
-    width: '100%',
-    maxWidth: 340,
-    backgroundColor: '#ffffff',
-    borderRadius: 24,
-    padding: 24,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.1,
-    shadowRadius: 20,
-    elevation: 5,
-  },
-  dialogIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  dialogTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#1e293b',
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  dialogMessage: {
-    fontSize: 14,
-    color: '#64748b',
-    textAlign: 'center',
-    lineHeight: 20,
-    marginBottom: 24,
-  },
-  dialogButtonRow: {
-    flexDirection: 'row',
-    gap: 12,
-    width: '100%',
-  },
-  dialogCancelButton: {
-    flex: 1,
-    backgroundColor: '#f1f5f9',
-    borderRadius: 12,
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  dialogCancelText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#64748b',
-  },
-  dialogConfirmButton: {
-    flex: 1,
-    borderRadius: 12,
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  dialogConfirmText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#ffffff',
-  },
-  modalBackground: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.9)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  closeButtonContainer: {
-    position: 'absolute',
-    top: 50,
-    right: 25,
-    zIndex: 10,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    borderRadius: 20,
-    padding: 8,
-  },
-  fullscreenImage: {
-    width: '90%',
-    height: '80%',
-  },
-});
