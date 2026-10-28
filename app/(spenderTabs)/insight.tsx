@@ -17,7 +17,6 @@ import { getAiModel } from '../../services/aiClient';
 
 import { theme } from '@/constants/theme';
 import { insightStyles as styles } from '@/constants/ui.styles';
-import React from 'react';
 import { GradientBackground } from '../../components/GradientBackground';
 import { supabase } from '../../lib/supabase';
 

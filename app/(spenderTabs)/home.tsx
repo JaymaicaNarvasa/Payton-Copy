@@ -806,7 +806,7 @@ const handleSettleReminder = async (reminder: ReminderItem) => {
         {/* compact layer (shown after scrolling) */}
         <Animated.View style={[styles.headerCompact, { paddingTop: topInset }, compactLayerStyle]}>
           <View style={styles.compactTopRow}>
-            <TouchableOpacity style={styles.compactUser} onPress={() => router.push('/(spenderTabs)/profile')} activeOpacity={0.8}>
+            <TouchableOpacity style={styles.compactUser} onPress={() => router.push('/profile')} activeOpacity={0.8}>
               {avatarUrl ? (
                 <Image source={{ uri: avatarUrl }} style={styles.compactAvatarImage} />
               ) : (

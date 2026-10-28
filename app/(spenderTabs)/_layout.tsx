@@ -4,7 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { BlurTargetView } from "expo-blur";
 import { Tabs, usePathname, useRouter } from "expo-router";
 import type { ComponentProps } from "react";
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from "react";
 import {
   Pressable,
   View

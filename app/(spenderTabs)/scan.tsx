@@ -6,7 +6,7 @@ import { decode } from 'base64-arraybuffer';
 import { CameraView, FlashMode, useCameraPermissions } from 'expo-camera';
 import { Stack, useLocalSearchParams, usePathname, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Dimensions,

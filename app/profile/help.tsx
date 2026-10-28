@@ -1,8 +1,9 @@
 // app/help.tsx
 import { Ionicons } from '@expo/vector-icons';
+import { getAiModel } from '../../services/aiClient';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import React, { useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -15,9 +16,7 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
-import { getAiModel } from '../../services/aiClient';
-
-const colors = { headerDark: '#173D45' };
+import { colors } from '../(spenderTabs)/profile';
 
 interface Message {
   id: string;
