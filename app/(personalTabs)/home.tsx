@@ -11,36 +11,56 @@ import {
   RefreshControl,
   ScrollView,
   StatusBar,
+  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View
 } from 'react-native';
 import { Calendar } from 'react-native-calendars';
-import Animated, {
-  Extrapolation,
-  interpolate,
-  useAnimatedScrollHandler,
-  useAnimatedStyle,
-  useSharedValue,
-} from 'react-native-reanimated';
-import Svg, {
-  Circle,
-  Defs,
-  G,
-  Line,
-  Path,
-  Polyline,
-  Stop,
-  LinearGradient as SvgLinearGradient,
-  Text as SvgText,
-} from 'react-native-svg';
+import Svg, { Circle, G, Line, Polyline, Text as SvgText } from 'react-native-svg';
 
-import { theme } from '@/constants/theme';
-import { personalHomeStyles as styles } from '@/constants/ui.styles';
-import React from 'react';
-import { GradientBackground } from '../../components/GradientBackground';
 import { supabase } from '../../lib/supabase';
+
+const COLORS = {
+  black: '#000000',
+  headerDark: '#1F4F59',   
+  headerDarker: '#173D45', 
+  deepTeal: '#1F4F59',
+  cyan: '#54C9CC',
+  cyanLight: '#7EDDE0',
+  olive: '#7EA00E',
+  yellowGreen: '#DCD964',
+  darkOlive: '#213502',
+  bg: '#F8FAFC',
+  card: '#FFFFFF',
+  white: '#FFFFFF',
+  textMuted: '#64748B',
+  overlay: 'rgba(9, 20, 19, 0.5)',
+  modalShadow: '#04201C',
+};
+
+const CATEGORY_COLORS = [
+  // Original Colors
+  '#54C9CC', // Cyan
+  '#1F4F59', // Dark Teal
+  '#7EA00E', // Olive Green
+  '#DCD964', // Light Yellow-Green
+  '#213502', // Deep Forest Green
+
+  // New Neighboring Colors
+  '#3AA8AC', // Muted Cyan (closer to Dark Teal / Cyan mix)
+  '#357380', // Medium Teal (between Cyan and Dark Teal)
+  '#9BC915', // Vibrant Olive Green (bright relative to your Olive)
+  '#F4F19C', // Soft Pastel Yellow-Green (lighter shade of Light Yellow-Green)
+  '#3D6105', // Mid Forest Green (softer transition into Deep Forest Green)
+];
+
+const PALETTE_LIGHT_CARDS = [
+  '#E6F0F2',
+  '#F4F8E8',
+  '#FAFAD8',
+];
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -193,7 +213,7 @@ function DueDatesCalendarModal({
       if (due.status === 'pending') {
         marks[due.due_date] = {
           marked: true,
-          dotColor: theme.colors.olive,
+          dotColor: COLORS.olive,
         };
       }
     });
@@ -201,10 +221,10 @@ function DueDatesCalendarModal({
     marks[selectedDate] = {
       ...(marks[selectedDate] || {}),
       selected: true,
-      selectedColor: theme.colors.brand,
-      selectedTextColor: theme.colors.white,
+      selectedColor: COLORS.headerDark,
+      selectedTextColor: COLORS.white,
       // keep the dot visible on the selected (dark) day
-      ...(marks[selectedDate]?.marked ? { dotColor: theme.colors.lime } : {}),
+      ...(marks[selectedDate]?.marked ? { dotColor: COLORS.yellowGreen } : {}),
     };
 
     return marks;
@@ -225,7 +245,7 @@ function DueDatesCalendarModal({
               <Text style={styles.modalSubtitle}>Tap a date to view its reminders</Text>
             </View>
             <TouchableOpacity onPress={onClose} style={styles.modalCloseButton}>
-              <Ionicons name="close" size={20} color={theme.colors.textMuted} />
+              <Ionicons name="close" size={20} color={COLORS.textMuted} />
             </TouchableOpacity>
           </View>
 
@@ -236,18 +256,18 @@ function DueDatesCalendarModal({
               markedDates={markedDates}
               enableSwipeMonths
               theme={{
-                backgroundColor: theme.colors.white,
-                calendarBackground: theme.colors.white,
-                textSectionTitleColor: theme.colors.textMuted,
-                selectedDayBackgroundColor: theme.colors.brand,
-                selectedDayTextColor: theme.colors.white,
-                todayTextColor: theme.colors.aqua,
-                dayTextColor: theme.colors.oliveDeep,
-                textDisabledColor: theme.colors.borderStrong,
-                dotColor: theme.colors.olive,
-                selectedDotColor: theme.colors.lime,
-                arrowColor: theme.colors.brand,
-                monthTextColor: theme.colors.oliveDeep,
+                backgroundColor: COLORS.card,
+                calendarBackground: COLORS.card,
+                textSectionTitleColor: COLORS.textMuted,
+                selectedDayBackgroundColor: COLORS.headerDark,
+                selectedDayTextColor: COLORS.white,
+                todayTextColor: COLORS.cyan,
+                dayTextColor: COLORS.darkOlive,
+                textDisabledColor: '#CBD5E1',
+                dotColor: COLORS.olive,
+                selectedDotColor: COLORS.yellowGreen,
+                arrowColor: COLORS.headerDark,
+                monthTextColor: COLORS.darkOlive,
                 textDayFontWeight: '600',
                 textMonthFontWeight: '700',
                 textDayHeaderFontWeight: '700',
@@ -290,27 +310,6 @@ export default function PersonalHomeScreen() {
   const [selectedDate, setSelectedDate] = useState<string>(todayStr);
   const [modalVisible, setModalVisible] = useState(false);
   const horizontalScrollRef = useRef<ScrollView>(null);
-
-  // ---- collapsing header (driven by scroll) ----
-  const topInset = (Platform.OS === 'android' ? StatusBar.currentHeight || 24 : 50) + theme.space[8];
-  const HEADER_EXPANDED = topInset + theme.layout.headerExpanded;
-  const HEADER_COLLAPSED = topInset + theme.layout.headerCollapsed;
-  const COLLAPSE_RANGE = HEADER_EXPANDED - HEADER_COLLAPSED;
-  const scrollY = useSharedValue(0);
-  const onScroll = useAnimatedScrollHandler((e) => {
-    scrollY.value = e.contentOffset.y;
-  });
-  const headerAnimatedStyle = useAnimatedStyle(() => ({
-    height: interpolate(scrollY.value, [0, COLLAPSE_RANGE], [HEADER_EXPANDED, HEADER_COLLAPSED], Extrapolation.CLAMP),
-  }));
-  const expandedLayerStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(scrollY.value, [0, COLLAPSE_RANGE * 0.55], [1, 0], Extrapolation.CLAMP),
-    pointerEvents: scrollY.value > COLLAPSE_RANGE * 0.5 ? 'none' : 'auto',
-  }));
-  const compactLayerStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(scrollY.value, [COLLAPSE_RANGE * 0.45, COLLAPSE_RANGE], [0, 1], Extrapolation.CLAMP),
-    pointerEvents: scrollY.value < COLLAPSE_RANGE * 0.5 ? 'none' : 'auto',
-  }));
 
   const [addModalVisible, setAddModalVisible] = useState(false);
   const [newTitle, setNewTitle] = useState('');
@@ -450,7 +449,7 @@ export default function PersonalHomeScreen() {
             icon: item.icon,
             total: item.total,
             percentage,
-            color: theme.chart.category[index % theme.chart.category.length],
+            color: CATEGORY_COLORS[index % CATEGORY_COLORS.length],
           };
         });
 
@@ -781,9 +780,9 @@ const handleSettleReminder = async (reminder: ReminderItem) => {
 
   if (loading) {
     return (
-      <View style={[styles.loadingContainer, { backgroundColor: theme.colors.background }]}>
+      <View style={[styles.loadingContainer, { backgroundColor: COLORS.bg }]}>
         <ExpoStatusBar style="light" />
-        <ActivityIndicator size="large" color={theme.colors.brand} />
+        <ActivityIndicator size="large" color={COLORS.deepTeal} />
       </View>
     );
   }
@@ -806,170 +805,94 @@ const handleSettleReminder = async (reminder: ReminderItem) => {
 
   // SVG Donut Chart Calculation variables
   const size = 200;
-  const CHART_BOX = 260; // must match circleContainer width/height in ui.styles.ts
   const strokeWidth = 23;
   const center = size / 2;
   const radius = center - strokeWidth;
   const circumference = 2 * Math.PI * radius;
 
-  // donut segments: arc path + gradient end points for each category
-  const donutSegments = (() => {
-    let acc = 0;
-    return categoryStats.map((stat, index) => {
-      const startAngle = (acc / 100) * 2 * Math.PI - Math.PI / 2;
-      const endAngle = ((acc + stat.percentage) / 100) * 2 * Math.PI - Math.PI / 2;
-      acc += stat.percentage;
-      const pt = (angle: number) => ({ x: center + radius * Math.cos(angle), y: center + radius * Math.sin(angle) });
-      const start = pt(startAngle);
-      const end = pt(endAngle);
-      const full = stat.percentage >= 99.9;
-      return {
-        stat,
-        index,
-        midAngle: (startAngle + endAngle) / 2,
-        full,
-        gradient: theme.chart.categoryGradients[index % theme.chart.categoryGradients.length],
-        gx1: full ? center : start.x,
-        gy1: full ? 0 : start.y,
-        gx2: full ? center : end.x,
-        gy2: full ? size : end.y,
-        path: `M ${start.x} ${start.y} A ${radius} ${radius} 0 ${stat.percentage > 50 ? 1 : 0} 1 ${end.x} ${end.y}`,
-      };
-    });
-  })();
+  let accumulatedPercent = 0;
 
   return (
     <View style={styles.mainContainer}>
       <ExpoStatusBar style="light" />
 
-      {/* HEADER (collapses while scrolling) */}
-      <Animated.View style={[styles.headerBackground, headerAnimatedStyle]}>
-        <View style={styles.headerGradientClip}>
-          <GradientBackground />
+      {/* HEADER */}
+      <View style={styles.headerBackground}>
+        <View style={styles.topRowContainer}>
+          <View style={styles.topRow}>
+            <View style={styles.userProfileGroup}>
+              <TouchableOpacity onPress={() => router.push('/profile')}>
+                <View>
+                  {avatarUrl ? (
+                    <Image source={{ uri: avatarUrl }} style={styles.avatarImage} />
+                  ) : (
+                    <View style={styles.avatarFallback}>
+                      <Text style={styles.avatarInitial}>{personalName.charAt(0).toUpperCase()}</Text>
+                    </View>
+                  )}
+                </View>
+              </TouchableOpacity>
+
+              <View>
+                <Text style={styles.helloText}>Hello,</Text>
+                <Text style={styles.userNameText} numberOfLines={1}>
+                  {personalName}
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.roleBadgeContainer}>
+              <Text style={styles.roleBadgeText} numberOfLines={1}>
+                {personalRole ? personalRole.toUpperCase() : ''}
+              </Text>
+            </View>
+          </View>
         </View>
 
-        {/* expanded layer */}
-        <Animated.View style={[styles.headerExpanded, { paddingTop: topInset }, expandedLayerStyle]}>
-          <View style={styles.topRowContainer}>
-            <View style={styles.topRow}>
-              <View style={styles.userProfileGroup}>
-                <TouchableOpacity onPress={() => router.push('/profile')}>
-                  <View>
-                    {avatarUrl ? (
-                      <Image source={{ uri: avatarUrl }} style={styles.avatarImage} />
-                    ) : (
-                      <View style={styles.avatarFallback}>
-                        <Text style={styles.avatarInitial}>{personalName.charAt(0).toUpperCase()}</Text>
-                      </View>
-                    )}
-                  </View>
-                </TouchableOpacity>
+        <View style={styles.balanceBlock}>
+          <View style={styles.balanceLabelRow}>
+            <View style={styles.balanceLabelIconWrap}>
+              <Ionicons name="wallet-outline" size={13} color={COLORS.deepTeal} />
+            </View>
+            <Text style={styles.balanceLabel}>Total Remaining</Text>
+          </View>
 
-                <View>
-                  <Text style={styles.helloText}>Hello,</Text>
-                  <Text style={styles.userNameText} numberOfLines={1}>
-                    {personalName}
-                  </Text>
-                </View>
-              </View>
-
-              <View style={styles.roleBadgeContainer}>
-                <Text style={styles.roleBadgeText} numberOfLines={1}>
-                  {personalRole || ''}
-                </Text>
-              </View>
+          <View style={styles.pillTrackOuter}>
+            <View style={styles.pillTrack}>
+              <View style={[styles.pillFill, { width: `${remainingPercentage}%` }]} />
             </View>
           </View>
 
-          <View style={styles.balanceBlock}>
-            <View style={styles.balanceLabelRow}>
-              <Text style={styles.balanceLabel}>Remaining Balance</Text>
-            </View>
-
-            <View style={styles.pillTrackOuter}>
-              <View style={styles.pillTrack}>
-                <View style={[styles.pillFill, { width: `${remainingPercentage}%` }]} />
-              </View>
-            </View>
-
-            <View style={styles.balanceAmountRow}>
-              <View style={styles.balanceAmountLeft}>
-                <Text style={styles.pillAmountText}>
-                  ₱{summary ? summary.remaining.toLocaleString('en-US') : '0'}
-                </Text>
-                <Text style={styles.pillAmountDivider}>/</Text>
-                <Text style={styles.pillAmountTotal}>
-                  ₱{summary ? summary.totalIncome.toLocaleString('en-US') : '0'}
-                </Text>
-              </View>
-
-              {/* Edit income */}
-              <TouchableOpacity style={styles.headerIconButton} onPress={() => router.push('/income')} activeOpacity={0.7}>
-                <Ionicons name="create-outline" size={18} color={theme.colors.white} />
-              </TouchableOpacity>
-            </View>
-          </View>
-        </Animated.View>
-
-        {/* compact layer (shown after scrolling) */}
-        <Animated.View style={[styles.headerCompact, { paddingTop: topInset }, compactLayerStyle]}>
-          <View style={styles.compactTopRow}>
-            <TouchableOpacity style={styles.compactUser} onPress={() => router.push('/profile')} activeOpacity={0.8}>
-              {avatarUrl ? (
-                <Image source={{ uri: avatarUrl }} style={styles.compactAvatarImage} />
-              ) : (
-                <View style={styles.compactAvatarFallback}>
-                  <Text style={styles.compactAvatarInitial}>{personalName.charAt(0).toUpperCase()}</Text>
-                </View>
-              )}
-              <Text style={styles.compactName} numberOfLines={1}>
-                {personalName}
+          <View style={styles.balanceAmountRow}>
+            <View style={styles.balanceAmountLeft}>
+              <Text style={styles.pillAmountText}>
+                ₱{summary ? summary.remaining.toLocaleString('en-US') : '0'}
               </Text>
-            </TouchableOpacity>
-
-            <View style={styles.compactActions}>
-              {/* <TouchableOpacity style={styles.headerIconButton} onPress={() => setIsCalendarModalVisible(true)} activeOpacity={0.8}>
-                <Ionicons name="calendar-outline" size={18} color={theme.colors.white} />
-              </TouchableOpacity> */}
-              <TouchableOpacity style={styles.headerIconButton} onPress={() => router.push('/income')} activeOpacity={0.8}>
-                <Ionicons name="create-outline" size={18} color={theme.colors.white} />
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.headerIconButton} onPress={() => setAddModalVisible(true)} activeOpacity={0.8}>
-                <Ionicons name="add" size={20} color={theme.colors.white} />
-              </TouchableOpacity>
+              <Text style={styles.pillAmountDivider}>/</Text>
+              <Text style={styles.pillAmountTotal}>
+                ₱{summary ? summary.totalIncome.toLocaleString('en-US') : '0'}
+              </Text>
             </View>
-          </View>
 
-          <View style={styles.compactTrack}>
-            <View style={[styles.pillFill, { width: `${remainingPercentage}%` }]} />
+            {/* Income Icon Button */}
+            <TouchableOpacity 
+              style={styles.incomeIconButton} 
+              onPress={() => router.push('/income')}
+              activeOpacity={0.7}
+            >
+              {/* Updated to pencil icon */}
+              <Ionicons name="create-outline" size={20} color={COLORS.yellowGreen} />
+            </TouchableOpacity>
           </View>
-
-          <View style={styles.compactAmountRow}>
-            <Text style={styles.compactAmountText}>
-              ₱{summary ? summary.remaining.toLocaleString('en-US') : '0'}
-            </Text>
-            <Text style={styles.compactAmountDivider}>/</Text>
-            <Text style={styles.compactAmountTotal}>
-              ₱{summary ? summary.totalIncome.toLocaleString('en-US') : '0'}
-            </Text>
-          </View>
-        </Animated.View>
-      </Animated.View>
+        </View>
+      </View>
 
       {/* SCROLLABLE CONTENT */}
-      <Animated.ScrollView
+      <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={[styles.scrollContent, { paddingTop: HEADER_EXPANDED + theme.space[8] }]}
-        onScroll={onScroll}
-        scrollEventThrottle={16}
+        contentContainerStyle={styles.scrollContent}
         refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            colors={[theme.colors.olive]}
-            tintColor={theme.colors.olive}
-            progressViewOffset={HEADER_EXPANDED}
-          />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[COLORS.olive]} tintColor={COLORS.olive} />
         }
         showsVerticalScrollIndicator={false}
         bounces
@@ -977,179 +900,156 @@ const handleSettleReminder = async (reminder: ReminderItem) => {
         <View style={styles.sectionBlock}>
           <View style={styles.sectionHeaderRow}>
             <Text style={styles.sectionTitle}>Upcoming Dues</Text>
-            <View style={styles.duesActions}>
-              {/* <TouchableOpacity style={styles.dueIconButton} onPress={() => setIsCalendarModalVisible(true)} activeOpacity={0.8}>
-                <Ionicons name="calendar-outline" size={18} color={theme.colors.mintPillText} />
-              </TouchableOpacity> */}
-              <TouchableOpacity style={styles.addReminderPill} onPress={() => setAddModalVisible(true)} activeOpacity={0.8}>
-                <View style={styles.pillPlusCircle}>
-                  <Ionicons name="add" size={12} color={theme.colors.white} />
-                </View>
-                <Text style={styles.seeAllText}>Set Reminders</Text>
-              </TouchableOpacity>
-            </View>
+            <TouchableOpacity onPress={() => setAddModalVisible(true)}>
+              <Text style={styles.seeAllText}>+ Set Reminders</Text>
+            </TouchableOpacity>
           </View>
 
-          {/* Upcoming due cards */}
-          {(() => {
-            const pendingDues = upcomingDues
-              .filter((due) => due.status === 'pending')
-              .sort((x, y) => x.due_date.localeCompare(y.due_date));
+          {/* Horizontal Date Strip */}
+          <ScrollView 
+  horizontal 
+  showsHorizontalScrollIndicator={false}
+  contentContainerStyle={styles.dateStripContainer}
+  ref={horizontalScrollRef}
+  onLayout={() => centerToday(false)}
+>
+  {dateList.map((item) => {
+    // Render the "See More" Calendar container on the 7th future slot
+    if (item.isSeeMore) {
+      return (
+        <TouchableOpacity
+          key="see-more-calendar"
+          activeOpacity={0.8}
+          onPress={() => setIsCalendarModalVisible(true)}
+          style={[styles.dateBox, styles.seeMoreDateBox]}
+        >
+          {/* You can use react-native-vector-icons or any icon library you prefer */}
+          <Ionicons name="calendar-outline" size={18} color={COLORS.deepTeal} style={{ marginBottom: 4 }} />
+          <Text style={styles.seeMoreLabel}>More</Text>
+        </TouchableOpacity>
+      );
+    }
 
-            if (pendingDues.length === 0) {
-              return (
-                <View style={styles.dueEmpty}>
-                  <Text style={styles.dueEmptyText}>No upcoming dues. Tap “Set Reminders” to add one.</Text>
-                </View>
-              );
-            }
+    const dateString = item.dateString;
+    if (!dateString) return null;
 
-            return (
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.dueStripContainer}
-              >
-                {pendingDues.map((due, index) => {
-                  const [y, m, d] = due.due_date.split('-').map(Number);
-                  const monthShort = new Date(y, m - 1, d).toLocaleString('en-US', { month: 'short' });
-                  const daysInfo = getDaysInfo(due.due_date);
+    const isSelected = selectedDate === dateString;
+    const hasPending = hasPendingOnDate(dateString);
 
-                  return (
-                    <TouchableOpacity
-                      key={due.id}
-                      activeOpacity={0.85}
-                      onPress={() => handleDatePress(due.due_date)}
-                      style={styles.dueCard}
-                    >
-                      <View style={[styles.dueDateBlock, index % 2 === 1 && styles.dueDateBlockAlt]}>
-                        <Text style={styles.dueDay}>{d}</Text>
-                        <Text style={styles.dueMonth}>{monthShort}</Text>
-                      </View>
-                      <View style={styles.dueInfo}>
-                        <Text style={styles.dueTitle} numberOfLines={1}>{due.title}</Text>
-                        <Text style={styles.dueAmount} numberOfLines={1}>
-                          ₱{Number(due.amount).toLocaleString('en-US')}
-                        </Text>
-                        <Text style={[styles.dueMeta, daysInfo.urgent && styles.dueMetaUrgent]} numberOfLines={2}>
-                          Due {monthShort} {d} · {daysInfo.text}
-                        </Text>
-                      </View>
-                      <Ionicons name="chevron-forward" size={14} color={theme.colors.textSubtle} />
-                    </TouchableOpacity>
-                  );
-                })}
-              </ScrollView>
-            );
-          })()}
+    return (
+      <TouchableOpacity
+        key={dateString}
+        activeOpacity={hasPending ? 0.8 : 1}
+        onPress={() => handleDatePress(dateString)}
+        style={[
+          styles.dateBox,
+          item.isToday ? styles.dateBoxToday : (isSelected && styles.dateBoxBorderSelected)
+        ]}
+      >
+        <Text style={[
+          styles.dateDayName, 
+          item.isToday && styles.dateTextToday,
+          !item.isToday && isSelected && styles.dateTextBorderSelected
+        ]}>
+          {item.dayName}
+        </Text>
+        <Text style={[
+          styles.dateDayNumber, 
+          item.isToday && styles.dateTextToday,
+          !item.isToday && isSelected && styles.dateTextBorderSelected
+        ]}>
+          {item.dayNumber}
+        </Text>
+        
+        <View style={styles.dotContainer}>
+          {hasPending && (
+            <View style={[
+              styles.pendingDot, 
+              item.isToday && styles.pendingDotToday,
+              !item.isToday && isSelected && styles.pendingDotBorderSelected
+            ]} />
+          )}
+        </View>
+      </TouchableOpacity>
+    );
+  })}
+</ScrollView>
         </View>
 
         {/* STATISTICS SECTION */}
         <View style={styles.sectionBlock}>
           <View style={styles.sectionHeaderRow}>
-            <Text style={styles.sectionTitle}>Expense per Category</Text>
-            <View style={styles.addReminderPill}>
-              <Text style={styles.seeAllText}>Current</Text>
-            </View>
+            <Text style={styles.sectionTitle}>Expenses per Category</Text>
           </View>
 
           <View style={styles.statsCard}>
             {/* Multi-Segment Donut Chart Display */}
             <View style={styles.circleContainer}>
               <Svg width={size} height={size}>
-                <Defs>
-                  {donutSegments.map((seg) => (
-                    <SvgLinearGradient
-                      key={`donut-grad-${seg.stat.categoryId}`}
-                      id={`donut-${seg.index}`}
-                      gradientUnits="userSpaceOnUse"
-                      x1={seg.gx1}
-                      y1={seg.gy1}
-                      x2={seg.gx2}
-                      y2={seg.gy2}
-                    >
-                      <Stop offset="0" stopColor={seg.gradient.from} />
-                      <Stop offset="1" stopColor={seg.gradient.to} />
-                    </SvgLinearGradient>
-                  ))}
-                </Defs>
-
                 {/* Background Track Circle */}
-                <Circle cx={center} cy={center} r={radius} stroke={theme.colors.surfaceAlt} strokeWidth={strokeWidth} fill="none" />
+                <Circle
+                  cx={center}
+                  cy={center}
+                  r={radius}
+                  stroke="#E2E8F0"
+                  strokeWidth={strokeWidth}
+                  fill="none"
+                />
+                
+                {/* Dynamic Category Segments */}
+                {categoryStats.map((stat) => {
+                  const strokeDashoffset = circumference - (circumference * stat.percentage) / 100;
+                  const currentRotation = (accumulatedPercent / 100) * 360 - 90;
+                  accumulatedPercent += stat.percentage;
 
-                {/* Gradient category segments */}
-                {donutSegments.map((seg) => {
-                  if (seg.stat.percentage < 0.4) return null;
-                  return seg.full ? (
+                  return (
                     <Circle
-                      key={seg.stat.categoryId}
+                      key={stat.categoryId}
                       cx={center}
                       cy={center}
                       r={radius}
-                      stroke={`url(#donut-${seg.index})`}
+                      stroke={stat.color}
                       strokeWidth={strokeWidth}
-                      fill="none"
-                    />
-                  ) : (
-                    <Path
-                      key={seg.stat.categoryId}
-                      d={seg.path}
-                      stroke={`url(#donut-${seg.index})`}
-                      strokeWidth={strokeWidth}
+                      strokeDasharray={circumference}
+                      strokeDashoffset={strokeDashoffset}
                       strokeLinecap="round"
                       fill="none"
+                      rotation={currentRotation}
+                      origin={`${center}, ${center}`}
                     />
                   );
                 })}
               </Svg>
 
-              {/* Icon + percentage labels around the ring */}
-              {donutSegments.map((seg) => {
-                if (seg.stat.percentage < 4) return null;
-                const labelRadius = radius + strokeWidth / 2 + 24;
-                const lx = CHART_BOX / 2 + labelRadius * Math.cos(seg.midAngle);
-                const ly = CHART_BOX / 2 + labelRadius * Math.sin(seg.midAngle);
-                return (
-                  <View key={`lbl-${seg.stat.categoryId}`} style={[styles.donutLabelWrap, { left: lx - 30, top: ly - 9 }]}>
-                    <Ionicons name={(seg.stat.icon || 'pricetag-outline') as any} size={12} color={seg.gradient.to} />
-                    <Text style={styles.donutLabelText}>{Math.round(seg.stat.percentage)}%</Text>
-                  </View>
-                );
-              })}
-
               <View style={styles.innerCircle}>
+                <Text style={styles.statsLabel}>Total Expenses</Text>
                 <Text style={styles.statsAmount}>
                   ₱{overallTotalExpenses.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
                 </Text>
-                <Text style={styles.statsLabel}>Total Expenses</Text>
               </View>
             </View>
 
             {/* Category Breakdown Legend List */}
-            <View style={styles.legendContainer}>
-              {categoryStats
-                .slice()
-                .sort((a, b) => b.total - a.total)
-                .map((stat) => (
-                  <View key={stat.categoryId} style={styles.legendRow}>
-                    <View style={styles.legendLeft}>
-                      <View style={[styles.legendIconCircle, { backgroundColor: stat.color }]}>
-                        <Ionicons name={(stat.icon || 'pricetag-outline') as any} size={18} color={theme.colors.white} />
-                      </View>
-                      <View style={styles.legendTextCol}>
-                        <Text style={styles.legendCategoryName} numberOfLines={1}>{stat.categoryName}</Text>
-                        <Text style={styles.legendSubtitle}>{stat.percentage.toFixed(1)}% of total</Text>
-                      </View>
-                    </View>
-                    <Text style={styles.legendAmountNeg}>
-                      -₱{stat.total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </Text>
-                  </View>
-                ))}
-              {categoryStats.length === 0 && (
-                <Text style={styles.emptyLegendText}>No expense records found.</Text>
-              )}
-            </View>
+<View style={styles.legendContainer}>
+  {categoryStats
+    .slice() // Creates a shallow copy so you don't mutate the original array
+    .sort((a, b) => b.total - a.total) // Sorts from highest to lowest
+    .map((stat) => (
+      <View key={stat.categoryId} style={styles.legendRow}>
+        <View style={styles.legendLeft}>
+          <View style={[styles.legendColorDot, { backgroundColor: stat.color }]} />
+          <Text style={styles.legendCategoryName} numberOfLines={1}>{stat.categoryName}</Text>
+        </View>
+        <View style={styles.legendRight}>
+          <Text style={styles.legendAmount}>₱{stat.total.toLocaleString('en-US')}</Text>
+          <Text style={styles.legendPercentage}>({stat.percentage.toFixed(1)}%)</Text>
+        </View>
+      </View>
+    ))}
+  {categoryStats.length === 0 && (
+    <Text style={styles.emptyLegendText}>No expense records found.</Text>
+  )}
+</View>
           </View>
         </View>
 
@@ -1159,23 +1059,22 @@ const handleSettleReminder = async (reminder: ReminderItem) => {
             <Text style={styles.sectionTitle}>Daily Spending Trend</Text>
           </View>
 
-          <View style={styles.trendCard}>
+          <View style={styles.statsCard}>
             <Text style={styles.lineGraphSubtitle}>Expenses incurred per day (Past 7 Days)</Text>
-
+            
             <View style={styles.graphWrapper}>
               {(() => {
-                const chartWidth = SCREEN_WIDTH - 92;
-                const chartHeight = 190;
-                const paddingLeft = 34;
-                const paddingRight = 14;
-                const paddingTop = 16;
-                const paddingBottom = 34;
+                const chartWidth = SCREEN_WIDTH - 88;
+                const chartHeight = 160;
+                const paddingLeft = 35;
+                const paddingRight = 15;
+                const paddingTop = 20;
+                const paddingBottom = 35;
 
                 const usableWidth = chartWidth - paddingLeft - paddingRight;
                 const usableHeight = chartHeight - paddingTop - paddingBottom;
-                const baseY = paddingTop + usableHeight;
 
-                const maxAmount = Math.max(...dailyTrends.map((d) => d.amount), 100);
+                const maxAmount = Math.max(...dailyTrends.map(d => d.amount), 100);
 
                 const points = dailyTrends.map((item, index) => {
                   const x = paddingLeft + (index / (dailyTrends.length - 1 || 1)) * usableWidth;
@@ -1183,21 +1082,10 @@ const handleSettleReminder = async (reminder: ReminderItem) => {
                   return { x, y, ...item };
                 });
 
-                const polylinePoints = points.map((p) => `${p.x},${p.y}`).join(' ');
-                const areaPath =
-                  points.length > 0
-                    ? `M ${points[0].x} ${baseY} L ${points.map((p) => `${p.x} ${p.y}`).join(' L ')} L ${points[points.length - 1].x} ${baseY} Z`
-                    : '';
+                const polylinePoints = points.map(p => `${p.x},${p.y}`).join(' ');
 
                 return (
                   <Svg width={chartWidth} height={chartHeight}>
-                    <Defs>
-                      <SvgLinearGradient id="trend-area" x1="0" y1="0" x2="0" y2="1">
-                        <Stop offset="0" stopColor={theme.colors.dueGreen} stopOpacity={0.28} />
-                        <Stop offset="1" stopColor={theme.colors.dueGreen} stopOpacity={0} />
-                      </SvgLinearGradient>
-                    </Defs>
-
                     {[0, 0.5, 1].map((ratio, idx) => {
                       const yPos = paddingTop + usableHeight * ratio;
                       const valLabel = Math.round(maxAmount * (1 - ratio));
@@ -1208,16 +1096,15 @@ const handleSettleReminder = async (reminder: ReminderItem) => {
                             y1={yPos}
                             x2={chartWidth - paddingRight}
                             y2={yPos}
-                            stroke={theme.colors.border}
-                            strokeDasharray="3,5"
+                            stroke="#E2E8F0"
+                            strokeDasharray="4,4"
                             strokeWidth="1"
                           />
                           <SvgText
-                            x={paddingLeft - 10}
-                            y={yPos + 3.5}
-                            fontSize="10"
-                            fontFamily={theme.fontFamily.regular}
-                            fill={theme.colors.textSecondary}
+                            x={paddingLeft - 15}
+                            y={yPos + 4}
+                            fontSize="9"
+                            fill={COLORS.textMuted}
                             textAnchor="end"
                           >
                             {valLabel}
@@ -1226,13 +1113,11 @@ const handleSettleReminder = async (reminder: ReminderItem) => {
                       );
                     })}
 
-                    {areaPath ? <Path d={areaPath} fill="url(#trend-area)" /> : null}
-
                     <Polyline
                       points={polylinePoints}
                       fill="none"
-                      stroke={theme.colors.dueGreen}
-                      strokeWidth="2.5"
+                      stroke={COLORS.deepTeal}
+                      strokeWidth="3"
                       strokeLinecap="round"
                       strokeLinejoin="round"
                     />
@@ -1242,17 +1127,16 @@ const handleSettleReminder = async (reminder: ReminderItem) => {
                         <Circle
                           cx={p.x}
                           cy={p.y}
-                          r={5}
-                          fill={theme.colors.white}
-                          stroke={theme.colors.dueGreen}
-                          strokeWidth="2.5"
+                          r={4.5}
+                          fill={COLORS.yellowGreen}
+                          stroke={COLORS.deepTeal}
+                          strokeWidth="2"
                         />
                         <SvgText
                           x={p.x}
-                          y={chartHeight - 8}
-                          fontSize="9.5"
-                          fontFamily={theme.fontFamily.regular}
-                          fill={theme.colors.textSecondary}
+                          y={chartHeight - 6}
+                          fontSize="9"
+                          fill={COLORS.textMuted}
                           textAnchor="middle"
                         >
                           {p.displayDay}
@@ -1265,7 +1149,7 @@ const handleSettleReminder = async (reminder: ReminderItem) => {
             </View>
           </View>
         </View>
-      </Animated.ScrollView>
+      </ScrollView>
 
       {/* MODAL FOR PENDING DUES */}
       <Modal
@@ -1286,11 +1170,11 @@ const handleSettleReminder = async (reminder: ReminderItem) => {
                 {filteredDues.length > 0 && filteredDues.some(d => d.status === 'pending') && (
                   <View style={[
                     styles.dueBadgeHome, 
-                    { backgroundColor: selectedDaysInfo.urgent ? theme.colors.dangerBg : theme.colors.alpha.brand[10] }
+                    { backgroundColor: selectedDaysInfo.urgent ? '#FEF2F2' : 'rgba(31, 79, 89, 0.1)' }
                   ]}>
                     <Text style={[
                       styles.dueBadgeTextHome, 
-                      { color: selectedDaysInfo.urgent ? theme.colors.danger : theme.colors.brand }
+                      { color: selectedDaysInfo.urgent ? '#DC2626' : COLORS.deepTeal }
                     ]}>
                       {selectedDaysInfo.text}
                     </Text>
@@ -1307,20 +1191,20 @@ const handleSettleReminder = async (reminder: ReminderItem) => {
                 }} 
                 style={styles.modalCloseButton}
               >
-                <Ionicons name="close" size={20} color={theme.colors.textMuted} />
+                <Ionicons name="close" size={20} color={COLORS.textMuted} />
               </TouchableOpacity>
             </View>
 
             {errorMessage && (
               <View style={styles.inlineErrorContainer}>
-                <Ionicons name="alert-circle-outline" size={18} color={theme.colors.danger} />
+                <Ionicons name="alert-circle-outline" size={18} color="#DC2626" />
                 <Text style={styles.inlineErrorText}>{errorMessage}</Text>
               </View>
             )}
 
             {successMessage && (
               <View style={styles.inlineSuccessContainer}>
-                <Ionicons name="checkmark-circle-outline" size={18} color={theme.colors.olive} />
+                <Ionicons name="checkmark-circle-outline" size={18} color={COLORS.olive} />
                 <Text style={styles.inlineSuccessText}>{successMessage}</Text>
               </View>
             )}
@@ -1328,7 +1212,7 @@ const handleSettleReminder = async (reminder: ReminderItem) => {
             <ScrollView contentContainerStyle={styles.modalBody} showsVerticalScrollIndicator={false}>
               {filteredDues.length > 0 ? (
                 filteredDues.map((due, index) => {
-                  const cardBgColor = theme.chart.lightCards[index % theme.chart.lightCards.length];
+                  const cardBgColor = PALETTE_LIGHT_CARDS[index % PALETTE_LIGHT_CARDS.length];
                   const categoryIcon = due.categories?.icon || 'pricetag-outline';
                   const isPaid = due.status === 'paid';
 
@@ -1337,12 +1221,12 @@ const handleSettleReminder = async (reminder: ReminderItem) => {
                       key={due.id}
                       style={[styles.reminderCardHome, { backgroundColor: cardBgColor, opacity: isPaid ? 0.75 : 1 }]}
                     >
-                      {/* <View style={styles.calendarBadgeHome}>
-                        <Ionicons name={categoryIcon as any} size={22} color={theme.colors.brand} />
-                      </View> */}
+                      <View style={styles.calendarBadgeHome}>
+                        <Ionicons name={categoryIcon as any} size={22} color={COLORS.deepTeal} />
+                      </View>
 
                       <View style={styles.cardContentHome}>
-                        <Text style={[styles.reminderTitleHome, isPaid && { textDecorationLine: 'line-through', color: theme.colors.textMuted }]}>
+                        <Text style={[styles.reminderTitleHome, isPaid && { textDecorationLine: 'line-through', color: COLORS.textMuted }]}>
                           {due.title}
                         </Text>
                         <Text style={styles.reminderSubHome}>
@@ -1351,19 +1235,19 @@ const handleSettleReminder = async (reminder: ReminderItem) => {
                       </View>
 
                       {/* Conditional Actions or Paid Badge */}
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.space[8] }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                         {isPaid ? (
-                          <View style={{ paddingHorizontal: theme.space[12], paddingVertical: theme.space[6], backgroundColor: theme.colors.alpha.olive[15], borderRadius: theme.radius.sm, marginRight: theme.space[4] }}>
-                            <Text style={{ color: theme.colors.olive, fontFamily: theme.fontFamily.semibold, fontSize: theme.fontSize.caption }}>Paid</Text>
+                          <View style={{ paddingHorizontal: 12, paddingVertical: 6, backgroundColor: 'rgba(126, 160, 14, 0.15)', borderRadius: 8, marginRight: 4 }}>
+                            <Text style={{ color: COLORS.olive, fontWeight: '600', fontSize: 13 }}>Paid</Text>
                           </View>
                         ) : (
                           /* Settle Button (Only shown when not paid) */
                           <TouchableOpacity 
-                            style={[styles.deleteButtonHome, { backgroundColor: theme.colors.alpha.brand[10] }]} 
+                            style={[styles.deleteButtonHome, { backgroundColor: 'rgba(31, 79, 89, 0.1)' }]} 
                             onPress={() => handleSettleReminder(due)}
                             activeOpacity={0.7}
                           >
-                            <Ionicons name="checkmark-outline" size={18} color={theme.colors.brand} />
+                            <Ionicons name="checkmark-outline" size={18} color={COLORS.deepTeal} />
                           </TouchableOpacity>
                         )}
 
@@ -1373,7 +1257,7 @@ const handleSettleReminder = async (reminder: ReminderItem) => {
                           onPress={() => handleDeleteReminder(due.id, due.title)}
                           activeOpacity={0.7}
                         >
-                          <Ionicons name="trash-outline" size={18} color={theme.colors.danger} />
+                          <Ionicons name="trash-outline" size={18} color="#DC2626" />
                         </TouchableOpacity>
                       </View>
                     </View>
@@ -1381,7 +1265,7 @@ const handleSettleReminder = async (reminder: ReminderItem) => {
                 })
               ) : (
                 <View style={styles.emptyStateContainer}>
-                  <Ionicons name="checkmark-circle-outline" size={48} color={theme.colors.brand} />
+                  <Ionicons name="checkmark-circle-outline" size={48} color={COLORS.deepTeal} />
                   <Text style={styles.emptyStateTitle}>All Clear!</Text>
                   <Text style={styles.emptyStateText}>No reminders set for this date.</Text>
                 </View>
@@ -1400,61 +1284,61 @@ const handleSettleReminder = async (reminder: ReminderItem) => {
 >
   {/* Ensure modalOverlay has justifyContent and alignItems set to 'center' */}
   <View style={[styles.modalOverlay, { justifyContent: 'center', alignItems: 'center' }]}>
-    <View style={[styles.modalContainer2, { width: '85%', maxWidth: 340, padding: theme.space[24], alignItems: 'center', alignSelf: 'center' }]}>
+    <View style={[styles.modalContainer2, { width: '85%', maxWidth: 340, padding: 24, alignItems: 'center', alignSelf: 'center' }]}>
       
       {/* Warning Icon with subtle red aura */}
       <View style={{
         width: 48,
         height: 48,
-        borderRadius: theme.radius.xxl,
-        backgroundColor: theme.colors.dangerBg,
+        borderRadius: 24,
+        backgroundColor: '#FEF2F2',
         alignItems: 'center',
         justifyContent: 'center',
-        marginBottom: theme.space[16],
+        marginBottom: 16,
         borderWidth: 8,
-        borderColor: theme.colors.dangerSoft
+        borderColor: '#FEE2E2'
       }}>
-        <Ionicons name="alert-circle-outline" size={24} color={theme.colors.danger} />
+        <Ionicons name="alert-circle-outline" size={24} color="#DC2626" />
       </View>
 
       {/* Title */}
-      <Text style={{ fontSize: theme.fontSize.title, fontFamily: theme.fontFamily.bold, color: theme.colors.gray900, marginBottom: theme.space[8], textAlign: 'center' }}>
+      <Text style={{ fontSize: 18, fontWeight: '700', color: '#111827', marginBottom: 8, textAlign: 'center' }}>
         Delete Reminder
       </Text>
 
       {/* Subtitle / Description */}
-      <Text style={{ fontFamily: theme.fontFamily.regular, fontSize: theme.fontSize.body, color: theme.colors.textGray, textAlign: 'center', marginBottom: theme.space[24], lineHeight: 20 }}>
+      <Text style={{ fontSize: 14, color: '#6B7280', textAlign: 'center', marginBottom: 24, lineHeight: 20 }}>
         Are you sure you want to delete "{reminderToDelete?.title}"?{'\n'}This action cannot be undone.
       </Text>
 
       {/* Action Buttons */}
-      <View style={{ flexDirection: 'row', gap: theme.space[12], width: '100%' }}>
+      <View style={{ flexDirection: 'row', gap: 12, width: '100%' }}>
         <TouchableOpacity
           style={{
             flex: 1,
-            backgroundColor: theme.colors.surfaceGray,
-            paddingVertical: theme.space[12],
-            borderRadius: theme.radius.md,
+            backgroundColor: '#F3F4F6',
+            paddingVertical: 12,
+            borderRadius: 12,
             alignItems: 'center',
           }}
           onPress={() => setDeleteModalVisible(false)}
           disabled={isDeleting}
         >
-          <Text style={{ color: theme.colors.gray700, fontFamily: theme.fontFamily.semibold, fontSize: theme.fontSize.bodyLg }}>Cancel</Text>
+          <Text style={{ color: '#374151', fontWeight: '600', fontSize: 15 }}>Cancel</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
           style={{
             flex: 1,
-            backgroundColor: theme.colors.danger,
-            paddingVertical: theme.space[12],
-            borderRadius: theme.radius.md,
+            backgroundColor: '#DC2626',
+            paddingVertical: 12,
+            borderRadius: 12,
             alignItems: 'center',
           }}
           onPress={confirmDeleteReminder}
           disabled={isDeleting}
         >
-          <Text style={{ color: theme.colors.white, fontFamily: theme.fontFamily.semibold, fontSize: theme.fontSize.bodyLg }}>
+          <Text style={{ color: '#FFFFFF', fontWeight: '600', fontSize: 15 }}>
             {isDeleting ? 'Deleting...' : 'Delete'}
           </Text>
         </TouchableOpacity>
@@ -1491,14 +1375,14 @@ const handleSettleReminder = async (reminder: ReminderItem) => {
                 }} 
                 style={styles.modalCloseButton}
               >
-                <Ionicons name="close" size={20} color={theme.colors.textMuted} />
+                <Ionicons name="close" size={20} color={COLORS.textMuted} />
               </TouchableOpacity>
             </View>
 
             {/* Inline Error Banner */}
             {errorMessage && (
               <View style={styles.inlineErrorContainer}>
-                <Ionicons name="alert-circle-outline" size={18} color={theme.colors.danger} />
+                <Ionicons name="alert-circle-outline" size={18} color="#DC2626" />
                 <Text style={styles.inlineErrorText}>{errorMessage}</Text>
               </View>
             )}
@@ -1506,7 +1390,7 @@ const handleSettleReminder = async (reminder: ReminderItem) => {
             {/* Inline Success Banner */}
             {successMessage && (
               <View style={styles.inlineSuccessContainer}>
-                <Ionicons name="checkmark-circle-outline" size={18} color={theme.colors.green} />
+                <Ionicons name="checkmark-circle-outline" size={18} color="#16A34A" />
                 <Text style={styles.inlineSuccessText}>{successMessage}</Text>
               </View>
             )}
@@ -1516,7 +1400,7 @@ const handleSettleReminder = async (reminder: ReminderItem) => {
               <TextInput
                 style={styles.textInput}
                 placeholder="e.g., Electricity Bill"
-                placeholderTextColor={theme.colors.textMuted}
+                placeholderTextColor={COLORS.textMuted}
                 value={newTitle}
                 onChangeText={setNewTitle}
               />
@@ -1525,7 +1409,7 @@ const handleSettleReminder = async (reminder: ReminderItem) => {
               <TextInput
                 style={styles.textInput}
                 placeholder="0.00"
-                placeholderTextColor={theme.colors.textMuted}
+                placeholderTextColor={COLORS.textMuted}
                 keyboardType="numeric"
                 value={newAmount}
                 onChangeText={setNewAmount}
@@ -1541,10 +1425,10 @@ const handleSettleReminder = async (reminder: ReminderItem) => {
                       onPress={() => setNewCategoryId(cat.id)}
                       style={[
                         styles.categoryChip,
-                        isSelected && { backgroundColor: theme.colors.brand, borderColor: theme.colors.brand }
+                        isSelected && { backgroundColor: COLORS.headerDark, borderColor: COLORS.headerDark }
                       ]}
                     >
-                      <Text style={[styles.categoryChipText, isSelected && { color: theme.colors.white }]}>
+                      <Text style={[styles.categoryChipText, isSelected && { color: '#FFFFFF' }]}>
                         {cat.name}
                       </Text>
                     </TouchableOpacity>
@@ -1556,7 +1440,7 @@ const handleSettleReminder = async (reminder: ReminderItem) => {
               <TextInput
                 style={styles.textInput}
                 placeholder="YYYY-MM-DD"
-                placeholderTextColor={theme.colors.textMuted}
+                placeholderTextColor={COLORS.textMuted}
                 value={newDueDate}
                 onChangeText={setNewDueDate}
               />
@@ -1567,7 +1451,7 @@ const handleSettleReminder = async (reminder: ReminderItem) => {
                 disabled={submitting}
               >
                 {submitting ? (
-                  <ActivityIndicator color={theme.colors.white} />
+                  <ActivityIndicator color="#FFFFFF" />
                 ) : (
                   <Text style={styles.submitButtonText}>Save Reminder</Text>
                 )}
@@ -1589,3 +1473,533 @@ const handleSettleReminder = async (reminder: ReminderItem) => {
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  mainContainer: { flex: 1, backgroundColor: COLORS.bg },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  scrollView: { flex: 1 },
+  scrollContent: { backgroundColor: COLORS.bg, paddingBottom: 50 },
+
+  headerBackground: {
+    backgroundColor: COLORS.headerDark,
+    paddingHorizontal: 24,
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 24) + 12 : 22,
+    paddingBottom: 30,
+    borderBottomLeftRadius: 32,
+    borderBottomRightRadius: 32,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowRadius: 16,
+    elevation: 5,
+    zIndex: 10,
+  },
+  topRowContainer: { marginBottom: 24 },
+  topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  userProfileGroup: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  avatarImage: { width: 48, height: 48, borderRadius: 24, borderWidth: 2, borderColor: '#FFFFFF' },
+  avatarFallback: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: COLORS.yellowGreen,
+  },
+  avatarInitial: { color: '#FFFFFF', fontSize: 20, fontWeight: '700' },
+  helloText: { fontSize: 16, fontWeight: '700', color: '#FFFFFF', letterSpacing: -0.3, lineHeight: 26 },
+  userNameText: { fontSize: 18, fontWeight: '600', color: 'rgba(255,255,255,0.82)', marginTop: 1 },
+  
+  roleBadgeContainer: {
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+    maxWidth: 120,
+  },
+  roleBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'capitalize',
+    letterSpacing: 0.5,
+  },
+
+  balanceBlock: { alignItems: 'center' },
+  balanceLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 12 },
+  balanceLabelIconWrap: {
+    width: 22, height: 22, borderRadius: 11,
+    backgroundColor: COLORS.yellowGreen, justifyContent: 'center', alignItems: 'center',
+  },
+  balanceLabel: { fontSize: 12, color: COLORS.white, fontWeight: '700', letterSpacing: 1.2, textTransform: 'uppercase' },
+  pillTrackOuter: { width: '100%', padding: 4, borderRadius: 30, backgroundColor: 'rgba(255,255,255,0.08)' },
+  pillTrack: { width: '100%', height: 46, borderRadius: 26, backgroundColor: 'rgba(255,255,255,0.15)', overflow: 'hidden' },
+  pillFill: { height: '100%', borderRadius: 26, backgroundColor: COLORS.cyan },
+  balanceAmountRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginTop: 16 },
+  pillAmountText: { fontSize: 32, fontWeight: '800', color: '#FFFFFF', letterSpacing: -0.6 },
+  pillAmountDivider: { fontSize: 22, color: 'rgba(255,255,255,0.3)', fontWeight: '300' },
+  pillAmountTotal: { fontSize: 15, fontWeight: '600', color: 'rgba(255,255,255,0.65)' },
+
+  sectionBlock: { paddingHorizontal: 24, marginTop: 20 },
+  sectionHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+  sectionTitle: { fontSize: 17, fontWeight: '700', color: COLORS.darkOlive, letterSpacing: -0.3 },
+  seeAllText: { fontSize: 13, color: COLORS.deepTeal, fontWeight: '700' },
+
+  dateStripContainer: {
+    gap: 8,
+    paddingVertical: 4,
+  },
+  dateBox: {
+    width: 54,
+    height: 72,
+    borderRadius: 16,
+    backgroundColor: COLORS.card,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+  },
+  dateBoxToday: {
+    backgroundColor: COLORS.headerDark,
+    borderColor: COLORS.headerDark,
+  },
+  dateBoxBorderSelected: {
+    borderColor: COLORS.headerDark,
+    backgroundColor: COLORS.card,
+  },
+  dateDayName: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: COLORS.textMuted,
+    marginBottom: 2,
+  },
+  dateDayNumber: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: COLORS.darkOlive,
+  },
+  dateTextToday: {
+    color: '#FFFFFF',
+  },
+  dateTextBorderSelected: {
+    color: COLORS.headerDark,
+  },
+  dotContainer: {
+    height: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  pendingDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: COLORS.olive,
+  },
+  pendingDotToday: {
+    backgroundColor: COLORS.yellowGreen,
+  },
+  pendingDotBorderSelected: {
+    backgroundColor: COLORS.deepTeal,
+  },
+
+  // Statistics Styles
+  statsCard: {
+    backgroundColor: COLORS.card,
+    borderRadius: 24,
+    padding: 20,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  circleContainer: {
+    width: 180,
+    height: 180,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  innerCircle: {
+    position: 'absolute',
+    width: 130,
+    height: 130,
+    borderRadius: 65,
+    backgroundColor: COLORS.card,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  statsLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: COLORS.textMuted,
+    marginBottom: 2,
+  },
+  statsAmount: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: COLORS.darkOlive,
+    letterSpacing: -0.5,
+  },
+  legendContainer: {
+    width: '100%',
+    marginTop: 16,
+    gap: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+    paddingTop: 16,
+  },
+  legendRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  legendLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+    marginRight: 12,
+  },
+  legendColorDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+  },
+  legendCategoryName: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: COLORS.darkOlive,
+  },
+  legendRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  legendAmount: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: COLORS.black,
+  },
+  legendPercentage: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: COLORS.textMuted,
+  },
+  emptyLegendText: {
+    textAlign: 'center',
+    fontSize: 13,
+    color: COLORS.textMuted,
+    paddingVertical: 10,
+  },
+  lineGraphSubtitle: {
+    fontSize: 12,
+    color: COLORS.textMuted,
+    fontWeight: '600',
+    marginBottom: 12,
+    alignSelf: 'flex-start',
+  },
+  graphWrapper: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: 8,
+  },
+
+  // Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: COLORS.overlay,
+    justifyContent: 'flex-end',
+  },
+  
+  modalContainer: {
+    backgroundColor: COLORS.bg,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    paddingHorizontal: 24,
+    paddingTop: 24,
+    paddingBottom: 40,
+    maxHeight: SCREEN_HEIGHT * 0.75,
+    shadowColor: COLORS.modalShadow,
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 10,
+  },
+
+modalContainer2: {
+    backgroundColor: COLORS.bg,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    borderBottomLeftRadius: 28,
+    borderBottomRightRadius: 28,
+    paddingHorizontal: 24,
+    paddingTop: 24,
+    paddingBottom: 40,
+    maxHeight: SCREEN_HEIGHT * 0.75,
+    shadowColor: COLORS.modalShadow,
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 10,
+  },
+
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+  },
+  modalHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+    marginRight: 10,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: COLORS.darkOlive,
+  },
+  modalSubtitle: {
+    fontSize: 12,
+    color: COLORS.textMuted,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  modalCloseButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#F1F5F9',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalBody: {
+    gap: 10,
+    paddingBottom: 20,
+  },
+
+  reminderCardHome: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 18,
+  },
+  cardContentHome: {
+    flex: 1,
+    marginRight: 8,
+  },
+  reminderTitleHome: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#1E293B',
+  },
+  reminderSubHome: {
+    fontSize: 11,
+    color: '#475569',
+    marginTop: 2,
+  },
+  dueBadgeHome: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  dueBadgeTextHome: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+
+  calendarBadgeHome: {
+    width: 48,
+    height: 48,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.6)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  deleteButtonHome: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: 'rgba(220, 38, 38, 0.08)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 8,
+  },
+
+  // Form Styles for Add Reminder
+  formContainer: {
+    gap: 12,
+  },
+  inputLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: COLORS.darkOlive,
+  },
+  textInput: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 14,
+    color: COLORS.black,
+  },
+  categoryScroll: {
+    flexDirection: 'row',
+    marginBottom: 4,
+  },
+  categoryChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    backgroundColor: '#FFFFFF',
+    marginRight: 8,
+  },
+  categoryChipText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: COLORS.darkOlive,
+  },
+  submitButton: {
+    backgroundColor: COLORS.headerDark,
+    borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  submitButtonText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  emptyStateContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 32,
+    gap: 8,
+  },
+  emptyStateTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: COLORS.darkOlive,
+    marginTop: 4,
+  },
+  emptyStateText: {
+    fontSize: 13,
+    color: COLORS.textMuted,
+    textAlign: 'center',
+  },
+  inlineErrorContainer: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  backgroundColor: '#FEF2F2',
+  borderColor: '#FCA5A5',
+  borderWidth: 1,
+  paddingHorizontal: 12,
+  paddingVertical: 10,
+  borderRadius: 8,
+  marginBottom: 16,
+  gap: 8,
+},
+inlineErrorText: {
+  color: '#DC2626',
+  fontSize: 13,
+  fontWeight: '500',
+  flex: 1,
+},
+inlineSuccessContainer: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  backgroundColor: 'rgba(126, 160, 14, 0.1)',
+  borderColor: 'rgba(126, 160, 14, 0.3)',
+  borderWidth: 1,
+  paddingHorizontal: 12,
+  paddingVertical: 10,
+  borderRadius: 8,
+  marginBottom: 16,
+  gap: 8,
+},
+inlineSuccessText: {
+  color: COLORS.olive,
+  fontSize: 13,
+  fontWeight: '500',
+  flex: 1,
+},
+balanceAmountLeft: {
+  flexDirection: 'row', alignItems: 'baseline', gap: 8,
+},
+incomeIconButton: {
+  width: 20,
+  height: 20,
+  borderRadius: 14,             // Makes it a perfect circle
+  justifyContent: 'center',
+  alignItems: 'center',
+  shadowColor: '#000',          // Optional subtle shadow
+  shadowOffset: { width: 0, height: 1 },
+  shadowOpacity: 0.2,
+  shadowRadius: 1.41,
+  marginLeft: 8,
+},
+seeMoreDateBox: {
+  justifyContent: 'center',
+  alignItems: 'center',
+  backgroundColor: COLORS.card,
+  borderStyle: 'dashed',
+  borderWidth: 1.5,
+  borderColor: COLORS.deepTeal,
+},
+seeMoreLabel: {
+  fontSize: 12,
+  fontWeight: '600',
+  color: COLORS.deepTeal,
+},
+
+calendarCard: {
+  backgroundColor: COLORS.card,
+  borderRadius: 20,
+  borderWidth: 1,
+  borderColor: '#E2E8F0',
+  paddingVertical: 8,
+  overflow: 'hidden',
+},
+calendarLegendRow: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: 8,
+  marginTop: 14,
+},
+calendarLegendDot: {
+  width: 6,
+  height: 6,
+  borderRadius: 3,
+  backgroundColor: COLORS.olive,
+},
+calendarLegendText: {
+  fontSize: 12,
+  fontWeight: '600',
+  color: COLORS.textMuted,
+},
+
+});

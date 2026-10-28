@@ -8,6 +8,7 @@ import {
     KeyboardAvoidingView,
     Platform,
     ScrollView,
+    StyleSheet,
     Text,
     TextInput,
     TouchableOpacity,
@@ -15,10 +16,6 @@ import {
 } from 'react-native';
 import { getAiModel } from '../../services/aiClient';
 
-import { theme } from '@/constants/theme';
-import { insightStyles as styles } from '@/constants/ui.styles';
-import React from 'react';
-import { GradientBackground } from '../../components/GradientBackground';
 import { supabase } from '../../lib/supabase';
 
 interface PacingResult {
@@ -229,10 +226,10 @@ export default function InsightScreen() {
 
     const getStatusConfig = (status?: string) => {
         switch (status) {
-            case 'ON_TRACK': return { color: theme.colors.emeraldDark, bg: theme.colors.emerald100, label: 'On Track 🚀' };
-            case 'WARNING': return { color: theme.colors.warningMid, bg: theme.colors.warningBg, label: 'Warning ⚠️' };
-            case 'CRITICAL': return { color: theme.colors.danger, bg: theme.colors.dangerSoft, label: 'Critical 🚨' };
-            default: return { color: theme.colors.emerald700, bg: theme.colors.mintTint, label: 'Analyzing...' };
+            case 'ON_TRACK': return { color: '#059669', bg: '#D1FAE5', label: 'On Track 🚀' };
+            case 'WARNING': return { color: '#D97706', bg: '#FEF3C7', label: 'Warning ⚠️' };
+            case 'CRITICAL': return { color: '#DC2626', bg: '#FEE2E2', label: 'Critical 🚨' };
+            default: return { color: '#047857', bg: '#E6F4EA', label: 'Analyzing...' };
         }
     };
 
@@ -269,7 +266,7 @@ export default function InsightScreen() {
                             <View style={styles.resultContainer}>
                                 <View style={styles.aiCardHeader}>
                                     <View style={styles.aiCardTitleGroup}>
-                                        <Ionicons name="sparkles" size={16} color={theme.colors.emeraldDark} />
+                                        <Ionicons name="sparkles" size={16} color="#059669" />
                                         <Text style={styles.aiCardHeaderTitle}>AI Financial Health Report</Text>
                                     </View>
                                     <View style={[styles.statusBadge, { backgroundColor: statusCfg.bg }]}>
@@ -320,7 +317,7 @@ export default function InsightScreen() {
 
                                 <View style={styles.tipCard}>
                                     <View style={styles.tipIconBox}>
-                                        <Ionicons name="bulb" size={18} color={theme.colors.warningMid} />
+                                        <Ionicons name="bulb" size={18} color="#D97706" />
                                     </View>
                                     <View style={styles.tipTextContainer}>
                                         <Text style={styles.tipTitle}>Smart Recommendation</Text>
@@ -338,9 +335,6 @@ export default function InsightScreen() {
     return (
         <View style={styles.safeArea}>
             <Stack.Screen options={{ headerShown: false }} />
-            <View style={styles.screenGradientFill}>
-                <GradientBackground />
-            </View>
             <StatusBar style="light" />
 
             <KeyboardAvoidingView 
@@ -351,7 +345,7 @@ export default function InsightScreen() {
                     {/* Header */}
                     <View style={styles.headerRow}>
                         <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-                            <Ionicons name="chevron-back" size={22} color={theme.colors.emerald900} />
+                            <Ionicons name="chevron-back" size={22} color="#064E3B" />
                         </TouchableOpacity>
                         
                         <View style={styles.headerTitleRow}>
@@ -407,15 +401,15 @@ export default function InsightScreen() {
                         {/* Quick Prompts Bar */}
                         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipsScroll}>
                             <TouchableOpacity style={styles.chipButton} onPress={handleFetchPacingInsights} disabled={loading}>
-                                <Ionicons name="analytics" size={14} color={theme.colors.emeraldDark} />
+                                <Ionicons name="analytics" size={14} color="#059669" />
                                 <Text style={styles.chipText}>Check Status</Text>
                             </TouchableOpacity>
                             <TouchableOpacity style={styles.chipButton} onPress={() => handleSendMessage("What are my pending reminders?")} disabled={loading}>
-                                <Ionicons name="calendar-outline" size={14} color={theme.colors.emeraldDark} />
+                                <Ionicons name="calendar-outline" size={14} color="#059669" />
                                 <Text style={styles.chipText}>Pending Bills?</Text>
                             </TouchableOpacity>
                             <TouchableOpacity style={styles.chipButton} onPress={() => handleSendMessage("Give me tips to save more money this week")} disabled={loading}>
-                                <Ionicons name="bulb-outline" size={14} color={theme.colors.emeraldDark} />
+                                <Ionicons name="bulb-outline" size={14} color="#059669" />
                                 <Text style={styles.chipText}>Saving Tips</Text>
                             </TouchableOpacity>
                         </ScrollView>
@@ -425,7 +419,7 @@ export default function InsightScreen() {
                             <TextInput
                                 style={styles.textInput}
                                 placeholder="Ask Coach Payton something..."
-                                placeholderTextColor={theme.colors.textSubtle}
+                                placeholderTextColor="#94A3B8"
                                 value={inputText}
                                 onChangeText={setInputText}
                             />
@@ -434,7 +428,7 @@ export default function InsightScreen() {
                                 onPress={() => handleSendMessage()}
                                 disabled={!inputText.trim() || loading}
                             >
-                                <Ionicons name="arrow-up" size={18} color={theme.colors.white} />
+                                <Ionicons name="arrow-up" size={18} color="#FFFFFF" />
                             </TouchableOpacity>
                         </View>
                     </View>
@@ -443,3 +437,227 @@ export default function InsightScreen() {
         </View>
     );
 }
+
+const styles = StyleSheet.create({
+    safeArea: { flex: 1, backgroundColor: '#1F4F59' },
+    modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(6, 78, 59, 0.6)' },
+    mainContainer: {
+        flex: 1,
+        backgroundColor: '#F6FBF9',
+        borderTopLeftRadius: 32,
+        borderTopRightRadius: 32,
+        overflow: 'hidden',
+        marginTop: 45,
+        paddingTop: 8,
+    },
+    headerRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 20,
+        paddingVertical: 14,
+        gap: 14,
+        backgroundColor: '#FFFFFF',
+        borderBottomWidth: 1,
+        borderBottomColor: '#E2F0EC',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.03,
+        shadowRadius: 2,
+        elevation: 2,
+    },
+    backButton: { 
+        padding: 6,
+        backgroundColor: '#ECFDF5',
+        borderRadius: 10,
+    },
+    headerTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+    avatarContainer: { position: 'relative' },
+    headerAvatar: { width: 40, height: 40, borderRadius: 20, borderWidth: 1.5, borderColor: '#059669' },
+    chatAvatar: { width: 34, height: 34, borderRadius: 17, borderWidth: 1, borderColor: '#059669' },
+    onlineBadge: {
+        position: 'absolute',
+        bottom: 0,
+        right: 0,
+        width: 10,
+        height: 10,
+        borderRadius: 5,
+        backgroundColor: '#059669',
+        borderWidth: 1.5,
+        borderColor: '#FFFFFF',
+    },
+    titleContainer: { flexDirection: 'column' },
+    screenTitle: { fontSize: 16, fontWeight: '700', color: '#064E3B', letterSpacing: -0.2 },
+    activeStatusRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 2 },
+    screenSubtitle: { fontSize: 11, color: '#047857', fontWeight: '500' },
+    chatScrollContent: { padding: 16, paddingBottom: 20 },
+    userMessageRow: { flexDirection: 'row', justifyContent: 'flex-end', marginVertical: 6 },
+    userBubble: {
+        backgroundColor: '#059669',
+        borderRadius: 20,
+        borderBottomRightRadius: 6,
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        maxWidth: '80%',
+        shadowColor: '#059669',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.15,
+        shadowRadius: 4,
+        elevation: 2,
+    },
+    userText: { color: '#FFFFFF', fontSize: 14, fontWeight: '500' },
+    coachMessageRow: { flexDirection: 'row', alignItems: 'flex-start', marginVertical: 8, gap: 10 },
+    coachContentContainer: { flex: 1 },
+    coachBubble: {
+        backgroundColor: '#FFFFFF',
+        borderRadius: 20,
+        borderBottomLeftRadius: 6,
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        borderWidth: 1,
+        borderColor: '#D1E7DD',
+        maxWidth: '92%',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.02,
+        shadowRadius: 2,
+        elevation: 1,
+    },
+    coachText: { color: '#064E3B', fontSize: 14, lineHeight: 21 },
+    typingBubble: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#FFFFFF',
+        paddingHorizontal: 14,
+        paddingVertical: 10,
+        borderRadius: 16,
+        borderBottomLeftRadius: 4,
+        borderWidth: 1,
+        borderColor: '#D1E7DD',
+        gap: 8,
+    },
+    typingDots: { flexDirection: 'row', gap: 3, alignItems: 'center' },
+    dot: { width: 5, height: 5, borderRadius: 2.5, backgroundColor: '#059669' },
+    dot1: { opacity: 0.4 },
+    dot2: { opacity: 0.7 },
+    dot3: { opacity: 1 },
+    typingText: { fontSize: 12, color: '#047857', fontStyle: 'italic' },
+    resultContainer: { 
+        marginTop: 4, 
+        gap: 12,
+        backgroundColor: '#FFFFFF',
+        padding: 16,
+        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: '#D1E7DD',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.05,
+        shadowRadius: 8,
+        elevation: 3,
+    },
+    aiCardHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        borderBottomWidth: 1,
+        borderBottomColor: '#E2F0EC',
+        paddingBottom: 10,
+    },
+    aiCardTitleGroup: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    aiCardHeaderTitle: { fontSize: 13, fontWeight: '700', color: '#064E3B' },
+    statusBadge: {
+        paddingVertical: 4,
+        paddingHorizontal: 10,
+        borderRadius: 20,
+    },
+    statusText: { fontWeight: '700', fontSize: 11, letterSpacing: 0.3 },
+    progressSection: { gap: 6, backgroundColor: '#F0FDF4', padding: 12, borderRadius: 12, borderWidth: 1, borderColor: '#DCFCE7' },
+    progressLabels: { flexDirection: 'row', justifyContent: 'space-between' },
+    progressLabelText: { fontSize: 11, fontWeight: '600', color: '#047857' },
+    progressBarBackground: { height: 8, backgroundColor: '#D1E7DD', borderRadius: 4, overflow: 'hidden' },
+    progressBarFill: { height: '100%', backgroundColor: '#059669', borderRadius: 4 },
+    metricsRow: { flexDirection: 'row', gap: 10 },
+    metricCard: {
+        flex: 1,
+        backgroundColor: '#F0FDF4',
+        padding: 12,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: '#DCFCE7',
+    },
+    metricLabel: { fontSize: 11, color: '#047857', fontWeight: '500' },
+    metricValue: { fontSize: 15, fontWeight: '700', color: '#064E3B', marginTop: 4 },
+    summaryBox: {
+        backgroundColor: '#F0FDF4',
+        padding: 12,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: '#DCFCE7',
+    },
+    summaryTitle: { fontSize: 12, fontWeight: '700', color: '#064E3B', marginBottom: 4 },
+    summaryText: { fontSize: 12, color: '#065F46', lineHeight: 18 },
+    tipCard: {
+        flexDirection: 'row',
+        gap: 10,
+        backgroundColor: '#FFFBEB',
+        padding: 12,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: '#FDE68A',
+        alignItems: 'flex-start',
+    },
+    tipIconBox: {
+        backgroundColor: '#FEF3C7',
+        padding: 6,
+        borderRadius: 8,
+    },
+    tipTextContainer: { flex: 1 },
+    tipTitle: { fontSize: 12, fontWeight: '700', color: '#92400E' },
+    tipDescription: { fontSize: 11, color: '#B45309', marginTop: 2, lineHeight: 16 },
+    bottomBarContainer: {
+        padding: 12,
+        backgroundColor: '#FFFFFF',
+        borderTopWidth: 1,
+        borderTopColor: '#E2F0EC',
+        gap: 10,
+    },
+    chipsScroll: { flexDirection: 'row', paddingBottom: 4 },
+    chipButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#ECFDF5',
+        paddingVertical: 6,
+        paddingHorizontal: 12,
+        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: '#A7F3D0',
+        gap: 6,
+        marginRight: 8,
+    },
+    chipText: { color: '#059669', fontWeight: '600', fontSize: 12 },
+    inputRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    textInput: {
+        flex: 1,
+        backgroundColor: '#F6FBF9',
+        borderWidth: 1,
+        borderColor: '#D1E7DD',
+        borderRadius: 24,
+        paddingHorizontal: 16,
+        paddingVertical: 10,
+        fontSize: 14,
+        color: '#064E3B',
+    },
+    sendButton: {
+        backgroundColor: '#05968a',
+        justifyContent: 'center',
+        alignItems: 'center',
+        width: 42,
+        height: 42,
+        borderRadius: 21,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 3,
+        elevation: 2,
+    },
+    sendButtonDisabled: { backgroundColor: '#d1dad5', shadowOpacity: 0 },
+});

@@ -5,20 +5,19 @@ import { useCallback, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Modal,
+  StatusBar as NativeStatusBar,
+  Platform,
   RefreshControl,
   ScrollView,
+  StyleSheet,
   Switch,
   Text,
   TextInput,
   TouchableOpacity,
-  View
+  View,
 } from 'react-native';
 
 
-import { theme } from '@/constants/theme';
-import { incomeStyles as styles } from '@/constants/ui.styles';
-import React from 'react';
-import { GradientBackground } from '../../components/GradientBackground';
 import { supabase } from '../../lib/supabase';
 
 interface IncomeItem {
@@ -426,7 +425,7 @@ const handleDeleteIncome = (id: string) => {
     return (
       <View style={[styles.container, styles.loadingCenter]}>
         <StatusBar style="light" />
-        <ActivityIndicator size="large" color={theme.colors.brand} />
+        <ActivityIndicator size="large" color="#1F4F59" />
       </View>
     );
   }
@@ -436,26 +435,22 @@ const handleDeleteIncome = (id: string) => {
       <StatusBar style="light" />
 
       <View style={styles.headerContainer}>
-        <View style={styles.headerGradientFill}>
-          <GradientBackground />
-        </View>
         <View style={styles.headerRow}>
           <TouchableOpacity style={styles.iconCircleButton} onPress={() => router.back()} activeOpacity={0.7}>
-            <Ionicons name="arrow-back" size={20} color={theme.colors.white} />
+            <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Income Management</Text>
           <TouchableOpacity style={styles.iconCircleButton} onPress={handleOpenAddModal} activeOpacity={0.7}>
-            <Ionicons name="add" size={22} color={theme.colors.white} />
+            <Ionicons name="add" size={22} color="#FFFFFF" />
           </TouchableOpacity>
         </View>
       </View>
 
       <ScrollView
-        style={styles.sheet}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchData(); }} tintColor={theme.colors.brand} />
+          <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchData(); }} tintColor="#1F4F59" />
         }
       >
         <View style={styles.bodyCard}>
@@ -464,7 +459,7 @@ const handleDeleteIncome = (id: string) => {
               <Ionicons 
                 name={screenMessage.type === 'error' ? 'alert-circle-outline' : 'checkmark-circle-outline'} 
                 size={16} 
-                color={screenMessage.type === 'error' ? theme.colors.dangerDeep : theme.colors.roleGreen} 
+                color={screenMessage.type === 'error' ? '#991B1B' : '#166534'} 
               />
               <Text style={[styles.bannerText, screenMessage.type === 'error' ? styles.bannerTextError : styles.bannerTextSuccess]}>
                 {screenMessage.text}
@@ -482,7 +477,7 @@ const handleDeleteIncome = (id: string) => {
           {activeIncomes.length === 0 ? (
             <View style={styles.emptyContainer}>
               <View style={styles.emptyIconBox}>
-                <Ionicons name="receipt-outline" size={28} color={theme.colors.brand} />
+                <Ionicons name="receipt-outline" size={28} color="#1F4F59" />
               </View>
               <Text style={styles.emptyTitle}>No Income Found</Text>
               <Text style={styles.emptyText}>Tap the '+' icon above to add a new income stream.</Text>
@@ -508,22 +503,22 @@ const handleDeleteIncome = (id: string) => {
               <View style={styles.modalHeaderRow}>
                 <Text style={styles.modalTitle}>Add Income</Text>
                 <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.modalCloseBtn}>
-                  <Ionicons name="close" size={18} color={theme.colors.textMuted} />
+                  <Ionicons name="close" size={18} color="#64748B" />
                 </TouchableOpacity>
               </View>
 
               {/* Error Banner */}
               {modalMessage && modalMessage.type === 'error' && (
-                <View style={[styles.inlineBanner, styles.bannerError, { marginBottom: theme.space[12] }]}>
-                  <Ionicons name="alert-circle-outline" size={16} color={theme.colors.danger} />
+                <View style={[styles.inlineBanner, styles.bannerError, { marginBottom: 12 }]}>
+                  <Ionicons name="alert-circle-outline" size={16} color="#DC2626" />
                   <Text style={[styles.bannerText, styles.bannerTextError]}>{modalMessage.text}</Text>
                 </View>
               )}
 
               {/* Success Banner */}
               {modalMessage && modalMessage.type === 'success' && (
-                <View style={[styles.inlineBanner, styles.bannerSuccess, { marginBottom: theme.space[12] }]}>
-                  <Ionicons name="checkmark-circle-outline" size={16} color={theme.colors.green} />
+                <View style={[styles.inlineBanner, styles.bannerSuccess, { marginBottom: 12 }]}>
+                  <Ionicons name="checkmark-circle-outline" size={16} color="#16A34A" />
                   <Text style={[styles.bannerText, styles.bannerTextSuccess]}>{modalMessage.text}</Text>
                 </View>
               )}
@@ -532,7 +527,7 @@ const handleDeleteIncome = (id: string) => {
               <TextInput
                 style={styles.modalInput}
                 placeholder="e.g. Salary, Freelance, Allowance"
-                placeholderTextColor={theme.colors.textSubtle}
+                placeholderTextColor="#94A3B8"
                 value={sourceName}
                 onChangeText={setSourceName}
               />
@@ -541,7 +536,7 @@ const handleDeleteIncome = (id: string) => {
               <TextInput
                 style={styles.modalInput}
                 placeholder="0.00"
-                placeholderTextColor={theme.colors.textSubtle}
+                placeholderTextColor="#94A3B8"
                 keyboardType="numeric"
                 value={amount}
                 onChangeText={setAmount}
@@ -567,7 +562,7 @@ const handleDeleteIncome = (id: string) => {
               </View>
 
               <View style={styles.previewDateBox}>
-                <Ionicons name="calendar-outline" size={14} color={theme.colors.brand} />
+                <Ionicons name="calendar-outline" size={14} color="#1F4F59" />
                 <Text style={styles.previewDateText}>
                   {startDate && endDate ? (startDate === endDate ? formatDate(startDate) : `${formatDate(startDate)} → ${formatDate(endDate)}`) : 'Select period'}
                 </Text>
@@ -575,13 +570,13 @@ const handleDeleteIncome = (id: string) => {
 
               <View style={styles.toggleRow}>
                 <View style={styles.toggleTextContainer}>
-                  <Text style={[styles.inputLabel, { marginBottom: theme.space[2] }]}>Set Budget Allocation</Text>
+                  <Text style={[styles.inputLabel, { marginBottom: 2 }]}>Set Budget Allocation</Text>
                   <Text style={styles.toggleSubtext}>Allocate this income across categories</Text>
                 </View>
                 <Switch
-                  trackColor={{ false: theme.colors.borderStrong, true: theme.colors.brand }}
-                  thumbColor={enableBudgetAllocation ? theme.colors.white : theme.colors.surfaceAlt}
-                  ios_backgroundColor={theme.colors.borderStrong}
+                  trackColor={{ false: '#CBD5E1', true: '#1F4F59' }}
+                  thumbColor={enableBudgetAllocation ? '#FFFFFF' : '#F1F5F9'}
+                  ios_backgroundColor="#CBD5E1"
                   onValueChange={(value) => {
                     setEnableBudgetAllocation(value);
                     if (value) setAllocationModalVisible(true);
@@ -596,7 +591,7 @@ const handleDeleteIncome = (id: string) => {
                 </TouchableOpacity>
                 <TouchableOpacity style={[styles.modalButton, styles.confirmBtn]} onPress={handleSaveIncome} disabled={submitting}>
                   {submitting ? (
-                    <ActivityIndicator color={theme.colors.white} size="small" />
+                    <ActivityIndicator color="#FFFFFF" size="small" />
                   ) : (
                     <Text style={styles.confirmBtnText}>Save Income</Text>
                   )}
@@ -614,7 +609,7 @@ const handleDeleteIncome = (id: string) => {
             <View style={styles.modalHeaderRow}>
               <Text style={styles.modalTitle}>Select Date Range</Text>
               <TouchableOpacity onPress={() => setCalendarModalVisible(false)} style={styles.modalCloseBtn}>
-                <Ionicons name="close" size={18} color={theme.colors.textMuted} />
+                <Ionicons name="close" size={18} color="#64748B" />
               </TouchableOpacity>
             </View>
 
@@ -624,10 +619,10 @@ const handleDeleteIncome = (id: string) => {
               </Text>
               <View style={styles.calendarNavRow}>
                 <TouchableOpacity onPress={() => changeMonth(-1)} style={styles.calendarNavBtn}>
-                  <Ionicons name="chevron-back" size={18} color={theme.colors.textStrong} />
+                  <Ionicons name="chevron-back" size={18} color="#0F172A" />
                 </TouchableOpacity>
                 <TouchableOpacity onPress={() => changeMonth(1)} style={styles.calendarNavBtn}>
-                  <Ionicons name="chevron-forward" size={18} color={theme.colors.textStrong} />
+                  <Ionicons name="chevron-forward" size={18} color="#0F172A" />
                 </TouchableOpacity>
               </View>
             </View>
@@ -674,7 +669,7 @@ const handleDeleteIncome = (id: string) => {
             <View style={styles.modalHeaderRow}>
               <Text style={styles.modalTitle}>Allocate Budget</Text>
               <TouchableOpacity onPress={() => setAllocationModalVisible(false)} style={styles.modalCloseBtn}>
-                <Ionicons name="close" size={18} color={theme.colors.textMuted} />
+                <Ionicons name="close" size={18} color="#64748B" />
               </TouchableOpacity>
             </View>
 
@@ -682,8 +677,8 @@ const handleDeleteIncome = (id: string) => {
               style={[
                 styles.previewDateBox,
                 {
-                  backgroundColor: getRemainingBalance() === 0 ? theme.colors.greenSoft : theme.colors.warningBg,
-                  borderColor: getRemainingBalance() === 0 ? theme.colors.greenLight : theme.colors.warningBorder,
+                  backgroundColor: getRemainingBalance() === 0 ? '#DCFCE7' : '#FEF3C7',
+                  borderColor: getRemainingBalance() === 0 ? '#BBF7D0' : '#FDE68A',
                   borderWidth: 1,
                 },
               ]}
@@ -691,27 +686,27 @@ const handleDeleteIncome = (id: string) => {
               <Ionicons
                 name={getRemainingBalance() === 0 ? 'checkmark-circle-outline' : 'alert-circle-outline'}
                 size={16}
-                color={getRemainingBalance() === 0 ? theme.colors.roleGreen : theme.colors.warningDeep}
+                color={getRemainingBalance() === 0 ? '#166534' : '#92400E'}
               />
-              <Text style={[styles.previewDateText, { fontFamily: theme.fontFamily.semibold, color: getRemainingBalance() === 0 ? theme.colors.roleGreen : theme.colors.warningDeep }]}>
+              <Text style={[styles.previewDateText, { fontWeight: '600', color: getRemainingBalance() === 0 ? '#166534' : '#92400E' }]}>
                 Remaining to Allocate: ₱{getRemainingBalance().toFixed(2)}
               </Text>
             </View>
 
-            <ScrollView contentContainerStyle={{ paddingVertical: theme.space[10] }} showsVerticalScrollIndicator={false}>
+            <ScrollView contentContainerStyle={{ paddingVertical: 10 }} showsVerticalScrollIndicator={false}>
               {categories.length === 0 ? (
-                <Text style={{ textAlign: 'center', color: theme.colors.textMuted, marginVertical: theme.space[20] }}>No categories found. Please add categories first.</Text>
+                <Text style={{ textAlign: 'center', color: '#64748B', marginVertical: 20 }}>No categories found. Please add categories first.</Text>
               ) : (
                 categories.map((cat) => (
                   <View key={cat.id} style={styles.allocationRow}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-                      <Ionicons name={cat.icon || 'folder-outline'} size={18} color={cat.color || theme.colors.brand} style={{ marginRight: theme.space[8] }} />
-                      <Text style={[styles.inputLabel, { marginBottom: 0, color: theme.colors.slate700 }]}>{cat.name}</Text>
+                      <Ionicons name={cat.icon || 'folder-outline'} size={18} color={cat.color || '#1F4F59'} style={{ marginRight: 8 }} />
+                      <Text style={[styles.inputLabel, { marginBottom: 0, color: '#334155' }]}>{cat.name}</Text>
                     </View>
                     <TextInput
                       style={[styles.modalInput, { width: 110, textAlign: 'right', marginBottom: 0 }]}
                       placeholder="0.00"
-                      placeholderTextColor={theme.colors.textSubtle}
+                      placeholderTextColor="#94A3B8"
                       keyboardType="numeric"
                       value={categoryAllocations[cat.id] || ''}
                       onChangeText={(val) => handleAllocationChange(cat.id, val)}
@@ -725,9 +720,9 @@ const handleDeleteIncome = (id: string) => {
               style={[
                 styles.confirmBtn, 
                 { 
-                  marginTop: theme.space[12], 
-                  paddingVertical: theme.space[14], 
-                  borderRadius: theme.radius.md, 
+                  marginTop: 12, 
+                  paddingVertical: 14, 
+                  borderRadius: 12, 
                   alignItems: 'center', 
                   opacity: getRemainingBalance() !== 0 ? 0.6 : 1 
                 }
@@ -745,18 +740,18 @@ const handleDeleteIncome = (id: string) => {
       <Modal animationType="fade" transparent={true} visible={confirmConfig.visible} onRequestClose={() => setConfirmConfig(prev => ({ ...prev, visible: false }))}>
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContainer, { maxWidth: 340, width: '85%', padding: 22 }]}>
-            <View style={[styles.emptyIconBox, { backgroundColor: confirmConfig.type === 'danger' ? theme.colors.dangerBg : theme.colors.canvasMint, alignSelf: 'center', marginBottom: theme.space[16] }]}>
+            <View style={[styles.emptyIconBox, { backgroundColor: confirmConfig.type === 'danger' ? '#FEF2F2' : '#F0F5F2', alignSelf: 'center', marginBottom: 16 }]}>
               <Ionicons 
                 name={confirmConfig.type === 'danger' ? 'trash-outline' : 'archive-outline'} 
                 size={24} 
-                color={confirmConfig.type === 'danger' ? theme.colors.danger : theme.colors.brand} 
+                color={confirmConfig.type === 'danger' ? '#DC2626' : '#1F4F59'} 
               />
             </View>
-            <Text style={[styles.modalTitle, { textAlign: 'center', marginBottom: theme.space[6] }]}>{confirmConfig.title}</Text>
-            <Text style={{ fontFamily: theme.fontFamily.regular, fontSize: theme.fontSize.caption, color: theme.colors.textMuted, textAlign: 'center', marginBottom: theme.space[20], lineHeight: 18 }}>
+            <Text style={[styles.modalTitle, { textAlign: 'center', marginBottom: 6 }]}>{confirmConfig.title}</Text>
+            <Text style={{ fontSize: 13, color: '#64748B', textAlign: 'center', marginBottom: 20, lineHeight: 18 }}>
               {confirmConfig.message}
             </Text>
-            <View style={{ flexDirection: 'row', gap: theme.space[10] }}>
+            <View style={{ flexDirection: 'row', gap: 10 }}>
               <TouchableOpacity 
                 style={[styles.modalButton, styles.cancelBtn]} 
                 onPress={() => setConfirmConfig(prev => ({ ...prev, visible: false }))}
@@ -764,10 +759,10 @@ const handleDeleteIncome = (id: string) => {
                 <Text style={styles.cancelBtnText}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity 
-                style={[styles.modalButton, { backgroundColor: confirmConfig.type === 'danger' ? theme.colors.danger : theme.colors.brand }]} 
+                style={[styles.modalButton, { backgroundColor: confirmConfig.type === 'danger' ? '#DC2626' : '#1F4F59' }]} 
                 onPress={confirmConfig.onConfirm}
               >
-                <Text style={[styles.confirmBtnText, { color: theme.colors.white }]}>Confirm</Text>
+                <Text style={[styles.confirmBtnText, { color: '#FFFFFF' }]}>Confirm</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -785,7 +780,7 @@ function IncomeCard({ item, onArchive, onDelete }: { item: IncomeItem; onArchive
       <View style={styles.cardHeaderRow}>
         <View style={styles.cardHeaderLeft}>
           <View style={styles.statusBadge}>
-            <Ionicons name="wallet" size={18} color={theme.colors.brand} />
+            <Ionicons name="wallet" size={18} color="#1F4F59" />
           </View>
           <View style={styles.titleWrapper}>
             <Text style={styles.sourceText} numberOfLines={1}>{item.source_name}</Text>
@@ -801,7 +796,7 @@ function IncomeCard({ item, onArchive, onDelete }: { item: IncomeItem; onArchive
 
       <View style={styles.cardFooterRow}>
         <View style={styles.dateContainer}>
-          <Ionicons name="calendar-outline" size={13} color={theme.colors.textMuted} />
+          <Ionicons name="calendar-outline" size={13} color="#64748B" />
           <Text style={styles.dateText}>
             {isSameDate ? formatDate(item.start_date) : `${formatDate(item.start_date)} → ${formatDate(item.end_date)}`}
           </Text>
@@ -809,13 +804,317 @@ function IncomeCard({ item, onArchive, onDelete }: { item: IncomeItem; onArchive
 
         <View style={styles.actionButtonsRow}>
           <TouchableOpacity onPress={onArchive} style={[styles.actionButton, styles.archiveButtonBorder]} activeOpacity={0.7}>
-            <Ionicons name="archive-outline" size={13} color={theme.colors.brand} />
+            <Ionicons name="archive-outline" size={13} color="#1F4F59" />
           </TouchableOpacity>
           <TouchableOpacity onPress={onDelete} style={[styles.actionButton, styles.deleteButtonBorder]} activeOpacity={0.7}>
-            <Ionicons name="trash-outline" size={13} color={theme.colors.rose} />
+            <Ionicons name="trash-outline" size={13} color="#E11D48" />
           </TouchableOpacity>
         </View>
       </View>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#F8FAFC' },
+  loadingCenter: { justifyContent: 'center', alignItems: 'center' },
+  headerContainer: {
+    backgroundColor: '#1F4F59',
+    paddingHorizontal: 20,
+    paddingTop: Platform.OS === 'android' ? (NativeStatusBar.currentHeight ? NativeStatusBar.currentHeight + 16 : 44) : 16,
+    borderBottomLeftRadius: 32,
+    borderBottomRightRadius: 32,
+    paddingBottom: 20,
+  },
+  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  headerTitle: { fontSize: 17, fontWeight: '700', color: '#FFFFFF', letterSpacing: 0.2 },
+  iconCircleButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  scrollContent: { flexGrow: 1, backgroundColor: '#F8FAFC' },
+  bodyCard: {
+    flex: 1,
+    backgroundColor: '#F8FAFC',
+    paddingTop: 22,
+    paddingHorizontal: 20,
+    paddingBottom: 40,
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  sectionTitle: { fontSize: 16, fontWeight: '700', color: '#1F4F59' },
+  countBadge: {
+    backgroundColor: '#E6FFFA',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 20,
+  },
+  countBadgeText: { fontSize: 11, fontWeight: '700', color: '#1F4F59' },
+  emptyContainer: {
+    paddingVertical: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderStyle: 'dashed',
+    marginTop: 4,
+  },
+  emptyIconBox: {
+    width: 56,
+    height: 56,
+    borderRadius: 16,
+    backgroundColor: '#F0FDFA',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  emptyTitle: { fontSize: 15, fontWeight: '700', color: '#0F172A', marginBottom: 4 },
+  emptyText: { fontSize: 12, color: '#64748B', fontWeight: '500', textAlign: 'center', paddingHorizontal: 32 },
+  incomeCard: {
+    backgroundColor: '#FFFFFF',
+    padding: 16,
+    borderRadius: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: '#1F4F59',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+  },
+  cardHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  cardHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+    marginRight: 8,
+  },
+  statusBadge: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: '#E6FFFA',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  titleWrapper: {
+    flex: 1,
+  },
+  sourceText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  amountContainer: {
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+  },
+  amountText: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#1F4F59',
+  },
+  cardDivider: {
+    height: 1,
+    backgroundColor: '#F1F5F9',
+    marginVertical: 12,
+  },
+  cardFooterRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  dateContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flex: 1,
+    marginRight: 6,
+  },
+  dateText: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: '#64748B',
+  },
+  actionButtonsRow: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F0F5F2',
+    paddingVertical: 5,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#F0F5F2',
+    gap: 4,
+  },
+  archiveButtonBorder: {
+    backgroundColor: '#F0F5F2',
+    borderColor: '#F0F5F2',
+  },
+  deleteButtonBorder: {
+    backgroundColor: '#FFF5F5',
+    borderColor: '#FFF5F5',
+  },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(15, 23, 42, 0.5)', justifyContent: 'center', alignItems: 'center' },
+  modalScrollContent: { flexGrow: 1, justifyContent: 'center', alignItems: 'center', width: '100%',padding: 20 },
+  modalContainer: { backgroundColor: '#FFFFFF', width: '100%', padding: 24, borderRadius: 24, shadowColor: '#1F4F59', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.1, shadowRadius: 20, elevation: 5 },
+  calendarModalContainer: { backgroundColor: '#FFFFFF', width: '90%', maxWidth: 380, padding: 20, borderRadius: 24, shadowColor: '#1F4F59', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.1, shadowRadius: 20, elevation: 5 },
+  modalHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+  modalTitle: { fontSize: 17, fontWeight: '700', color: '#0F172A' },
+  modalCloseBtn: { width: 30, height: 30, borderRadius: 8, backgroundColor: '#F1F5F9', justifyContent: 'center', alignItems: 'center' },
+  inputLabel: { fontSize: 12, color: '#475569', fontWeight: '600', marginBottom: 6, marginTop: 4 },
+  modalInput: {
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    padding: 12,
+    borderRadius: 12,
+    fontSize: 14,
+    fontWeight: '500',
+    marginBottom: 4,
+    backgroundColor: '#F8FAFC',
+    color: '#0F172A',
+  },
+  chipsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 12,
+  },
+  chipButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 4,
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#FFFFFF',
+    width: '31%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  chipButtonSelected: {
+    backgroundColor: '#1F4F59',
+    borderColor: '#1F4F59',
+  },
+  chipText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#475569',
+  },
+  chipTextSelected: {
+    color: '#FFFFFF',
+  },
+  previewDateBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#F0FDFA',
+    padding: 10,
+    borderRadius: 10,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#CCFBF1',
+  },
+  previewDateText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#1F4F59',
+  },
+  modalButtonsRow: { flexDirection: 'row', justifyContent: 'flex-end', gap: 10, marginTop: 12 },
+  modalButton: { paddingVertical: 12, paddingHorizontal: 16, borderRadius: 12, flex: 1, alignItems: 'center' },
+  cancelBtn: { backgroundColor: '#F1F5F9', borderWidth: 1, borderColor: '#E2E8F0' },
+  cancelBtnText: { color: '#475569', fontWeight: '600', fontSize: 13 },
+  confirmBtn: { backgroundColor: '#1F4F59' },
+  confirmBtnText: { color: '#FFFFFF', fontWeight: '600', fontSize: 13 },
+
+  calendarMonthHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
+  calendarMonthTitle: { fontSize: 15, fontWeight: '700', color: '#0F172A' },
+  calendarNavRow: { flexDirection: 'row', gap: 8 },
+  calendarNavBtn: { width: 32, height: 32, borderRadius: 10, backgroundColor: '#F1F5F9', justifyContent: 'center', alignItems: 'center' },
+  calendarDaysOfWeek: { flexDirection: 'row', justifyContent: 'space-around', marginBottom: 8 },
+  calendarDayOfWeekText: { fontSize: 11, fontWeight: '600', color: '#64748B', width: '14.28%', textAlign: 'center' },
+  calendarGrid: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: 16 },
+  calendarDayCell: { width: '14.28%', aspectRatio: 1, justifyContent: 'center', alignItems: 'center', marginVertical: 2 },
+  calendarDayCellDisabled: { opacity: 0.3 },
+  calendarCellInRange: { backgroundColor: '#bafdff' },
+  calendarCellEndpoint: { backgroundColor: '#00f7ff', borderRadius: 20 },
+  calendarDayText: { fontSize: 13, fontWeight: '600', color: '#334155' },
+  calendarDayTextDisabled: { color: '#94A3B8' },
+  calendarDayTextSelected: { color: '#0F172A', fontWeight: '700' },
+
+  toggleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginVertical: 14,
+    backgroundColor: '#F8FAFC',
+    padding: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  toggleTextContainer: {
+    flex: 1,
+    marginRight: 10,
+  },
+  toggleSubtext: {
+    fontSize: 12,
+    color: '#64748B',
+  },
+  allocationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+    backgroundColor: '#FFFFFF',
+  },
+  // Add these entries to your existing StyleSheet.create object:
+  inlineBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 14,
+    gap: 8,
+    borderWidth: 1,
+  },
+  bannerError: {
+    backgroundColor: '#FEF2F2',
+    borderColor: '#FEE2E2',
+  },
+  bannerSuccess: {
+    backgroundColor: '#F0FDF4',
+    borderColor: '#DCFCE7',
+  },
+  bannerText: {
+    fontSize: 12,
+    fontWeight: '600',
+    flex: 1,
+  },
+  bannerTextError: {
+    color: '#DC2626',
+  },
+  bannerTextSuccess: {
+    color: '#166534',
+  },
+});
