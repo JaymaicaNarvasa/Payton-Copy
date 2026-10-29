@@ -1,6 +1,7 @@
 // app/scan.tsx
+import { theme } from '@/constants/theme';
+import { scanStyles as styles } from '@/constants/ui.styles';
 import { Ionicons } from '@expo/vector-icons';
-import { getAiModel } from '../../services/aiClient';
 import { decode } from 'base64-arraybuffer';
 import { CameraView, FlashMode, useCameraPermissions } from 'expo-camera';
 import { Stack, useLocalSearchParams, usePathname, useRouter } from 'expo-router';
@@ -9,8 +10,6 @@ import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Dimensions,
-  Modal,
-  Platform,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -23,7 +22,9 @@ import Animated, {
   withRepeat,
   withTiming
 } from 'react-native-reanimated';
+import { PaytonAlertDialog } from '../../components/PaytonAlert';
 import { supabase } from '../../lib/supabase';
+import { getAiModel } from '../../services/aiClient';
 
 const { width } = Dimensions.get('window');
 
@@ -42,7 +43,7 @@ interface AlertConfig {
 export default function ScanReceiptScreen() {
   const router = useRouter();
   const pathname = usePathname();
-  const { incomeId: paramIncomeId } = useLocalSearchParams<{ incomeId?: string }>();
+  const { allowanceId: paramAllowanceId } = useLocalSearchParams<{ allowanceId?: string }>();
 
   const isFocused = pathname === '/scan' || pathname.includes('scan');
 
@@ -92,17 +93,17 @@ export default function ScanReceiptScreen() {
     return (
       <View style={[styles.fallbackContainer, styles.centerAlign]}>
         <StatusBar style="dark" />
-        <ActivityIndicator size="small" color="#0E2417" />
+        <ActivityIndicator size="small" color={theme.colors.forestDeep} />
       </View>
     );
   }
 
   if (!permission.granted) {
     return (
-      <View style={[styles.fallbackContainer, styles.centerAlign, { paddingHorizontal: 32 }]}>
+      <View style={[styles.fallbackContainer, styles.centerAlign, { paddingHorizontal: theme.space[32] }]}>
         <StatusBar style="dark" />
         <View style={styles.permissionIconCircle}>
-          <Ionicons name="camera-outline" size={32} color="#475569" />
+          <Ionicons name="camera-outline" size={32} color={theme.colors.textSecondary} />
         </View>
         <Text style={styles.permissionTitle}>Camera Access Required</Text>
         <Text style={styles.permissionDescription}>
@@ -201,22 +202,22 @@ export default function ScanReceiptScreen() {
                   const { data: { user }, error: userError } = await supabase.auth.getUser();
                   if (userError || !user) throw new Error("You must be logged in to log expenses.");
 
-                  let targetIncomeId = paramIncomeId;
+                  let targetAllowanceId = paramAllowanceId;
 
-                  // 1. Get the latest income ID for inserting the expense
-                  const { data: latestIncome, error: latestError } = await supabase
-                    .from('income')
+                  // 1. Get the latest allowance ID for inserting the expense
+                  const { data: latestAllowance, error: latestError } = await supabase
+                    .from('allowances')
                     .select('id')
-                    .eq('user_id', user.id)
+                    .eq('spender_id', user.id)
                     .order('received_at', { ascending: false })
                     .limit(1)
                     .single();
 
-                  if (latestError || !latestIncome) {
+                  if (latestError || !latestAllowance) {
                     setAlertConfig({
                       visible: true,
-                      title: "No Income Found",
-                      message: "No active income was detected for your account. Please set up an income before logging expenses.",
+                      title: "No Allowance Found",
+                      message: "No active allowance was detected for your account. Please set up an allowance before logging expenses.",
                       type: 'warning',
                       buttons: [{ text: "Got It", onPress: () => setAlertConfig(prev => ({ ...prev, visible: false })) }]
                     });
@@ -224,51 +225,51 @@ export default function ScanReceiptScreen() {
                     return;
                   }
 
-                  targetIncomeId = latestIncome.id;
+                  targetAllowanceId = latestAllowance.id;
 
-                  // If a specific income ID was passed in params, verify it exists
-                  if (paramIncomeId) {
-                    const { data: specificIncome } = await supabase
-                      .from('income')
+                  // If a specific allowance ID was passed in params, verify it exists
+                  if (paramAllowanceId) {
+                    const { data: specificAllowance } = await supabase
+                      .from('allowances')
                       .select('id')
-                      .eq('id', paramIncomeId)
+                      .eq('id', paramAllowanceId)
                       .single();
 
-                    if (specificIncome) {
-                      targetIncomeId = specificIncome.id;
+                    if (specificAllowance) {
+                      targetAllowanceId = specificAllowance.id;
                     }
                   }
 
-                  // 2. Calculate total available income across ALL income for this personal
-                  const { data: allIncomes, error: incomeError } = await supabase
-                    .from('income')
+                  // 2. Calculate total available allowance across ALL allowances for this spender
+                  const { data: allAllowances, error: allowancesError } = await supabase
+                    .from('allowances')
                     .select('id, amount')
-                    .eq('user_id', user.id);
+                    .eq('spender_id', user.id);
 
-                  if (incomeError || !allIncomes || allIncomes.length === 0) {
-                    throw new Error("Could not retrieve income details.");
+                  if (allowancesError || !allAllowances || allAllowances.length === 0) {
+                    throw new Error("Could not retrieve allowance details.");
                   }
 
-                  const totalIncomeAmount = allIncomes.reduce((sum, item) => sum + Number(item.amount || 0), 0);
-                  const incomeIds = allIncomes.map(item => item.id);
+                  const totalAllowanceAmount = allAllowances.reduce((sum, item) => sum + Number(item.amount || 0), 0);
+                  const allowanceIds = allAllowances.map(item => item.id);
 
-                  // 3. Calculate total spent across ALL income for this personal
+                  // 3. Calculate total spent across ALL allowances
                   const { data: spentData, error: spentError } = await supabase
                     .from('expenses')
                     .select('amount')
-                    .in('income_id', incomeIds);
+                    .in('allowance_id', allowanceIds);
 
                   if (spentError) throw spentError;
 
                   const totalSpent = (spentData || []).reduce((sum, item) => sum + Number(item.amount || 0), 0);
-                  const remainingTotalIncome = totalIncomeAmount - totalSpent;
+                  const remainingTotalAllowance = totalAllowanceAmount - totalSpent;
 
-                  // 4. Check if expense amount is greater than the cumulative remaining income
-                  if (Number(totalAmount) > remainingTotalIncome) {
+                  // 4. Check if expense amount is greater than the cumulative remaining allowance
+                  if (Number(totalAmount) > remainingTotalAllowance) {
                     setAlertConfig({
                       visible: true,
                       title: "Amount Exceeded",
-                      message: `The scanned amount (₱${Number(totalAmount).toFixed(2)}) is greater than your total remaining income balance across all funds (₱${remainingTotalIncome.toFixed(2)}).`,
+                      message: `The scanned amount (₱${Number(totalAmount).toFixed(2)}) is greater than your total remaining allowance balance across all funds (₱${remainingTotalAllowance.toFixed(2)}).`,
                       type: 'warning',
                       buttons: [{ text: "Got It", onPress: () => setAlertConfig(prev => ({ ...prev, visible: false })) }]
                     });
@@ -304,7 +305,7 @@ export default function ScanReceiptScreen() {
                     { 
                       description: merchantName, 
                       amount: Number(totalAmount), 
-                      income_id: targetIncomeId || null, 
+                      allowance_id: targetAllowanceId || null, 
                       spent_at: new Date().toISOString(),
                       user_id: user.id,
                       category_id: categoryId,
@@ -363,21 +364,6 @@ export default function ScanReceiptScreen() {
     }
   };
 
-  const getAlertIconConfig = () => {
-    switch (alertConfig.type) {
-      case 'success':
-        return { name: 'checkmark-circle' as const, color: '#10B981', bg: 'rgba(16, 185, 129, 0.15)' };
-      case 'warning':
-        return { name: 'warning' as const, color: '#F59E0B', bg: 'rgba(245, 158, 11, 0.15)' };
-      case 'error':
-        return { name: 'alert-circle' as const, color: '#EF4444', bg: 'rgba(239, 68, 68, 0.15)' };
-      default:
-        return { name: 'information-circle' as const, color: '#3B82F6', bg: 'rgba(59, 130, 246, 0.15)' };
-    }
-  };
-
-  const alertIcon = getAlertIconConfig();
-
   return (
     <View style={styles.container}>
       <Stack.Screen options={{ headerShown: false }} />
@@ -395,7 +381,7 @@ export default function ScanReceiptScreen() {
           active={isFocused}
         />
       ) : (
-        <View style={[StyleSheet.absoluteFill, { backgroundColor: '#000000' }]} />
+        <View style={[StyleSheet.absoluteFill, { backgroundColor: theme.colors.black }]} />
       )}
 
       {/* Modern Overlay & Scanning Target Box */}
@@ -406,7 +392,7 @@ export default function ScanReceiptScreen() {
             onPress={() => router.back()}
             activeOpacity={0.7}
           >
-            <Ionicons name="close" size={22} color="#FFFFFF" />
+            <Ionicons name="close" size={22} color={theme.colors.white} />
           </TouchableOpacity>
 
           <View style={styles.badgeContainer}>
@@ -422,7 +408,7 @@ export default function ScanReceiptScreen() {
             <Ionicons 
               name={torchOn ? "flash" : "flash-off-outline"} 
               size={20} 
-              color={torchOn ? "#10B981" : "#FFFFFF"} 
+              color={torchOn ? theme.colors.emerald : theme.colors.white} 
             />
           </TouchableOpacity>
         </View>
@@ -450,7 +436,7 @@ export default function ScanReceiptScreen() {
       <View style={styles.actionControlContainer}>
         {scanning ? (
           <View style={styles.loadingBlock}>
-            <ActivityIndicator size="small" color="#10B981" />
+            <ActivityIndicator size="small" color={theme.colors.emerald} />
             <Text style={styles.loadingText}>Extracting receipt data via Gemini...</Text>
           </View>
         ) : (
@@ -464,322 +450,11 @@ export default function ScanReceiptScreen() {
         )}
       </View>
 
-      {/* Modern Custom Alert Modal */}
-      <Modal transparent visible={alertConfig.visible} animationType="fade">
-        <View style={styles.modalOverlay}>
-          <View style={styles.alertContainer}>
-            <View style={[styles.iconContainer, { backgroundColor: alertIcon.bg }]}>
-              <Ionicons name={alertIcon.name} size={28} color={alertIcon.color} />
-            </View>
-
-            <Text style={styles.alertTitle}>{alertConfig.title}</Text>
-            <Text style={styles.alertMessage}>{alertConfig.message}</Text>
-
-            <View style={styles.buttonGroup}>
-              {alertConfig.buttons.map((btn, index) => {
-                const isCancel = btn.style === 'cancel';
-                return (
-                  <TouchableOpacity
-                    key={index}
-                    style={[
-                      styles.alertButton,
-                      isCancel ? styles.cancelButton : styles.primaryButton,
-                      alertConfig.buttons.length > 1 && { flex: 1 },
-                    ]}
-                    activeOpacity={0.8}
-                    onPress={btn.onPress}
-                  >
-                    <Text
-                      style={[
-                        styles.buttonText,
-                        isCancel ? styles.cancelButtonText : styles.primaryButtonText,
-                      ]}
-                    >
-                      {btn.text}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          </View>
-        </View>
-      </Modal>
+      {/* Shared Payton alert */}
+      <PaytonAlertDialog
+        {...alertConfig}
+        onDismiss={() => setAlertConfig(prev => ({ ...prev, visible: false }))}
+      />
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#000000' },
-  fallbackContainer: { flex: 1, backgroundColor: '#FAFBFD' },
-  centerAlign: { justifyContent: 'center', alignItems: 'center' },
-  topUtilityRow: {
-    flexDirection: 'row',
-    width: '100%',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingTop: Platform.OS === 'android' ? 50 : 10,
-  },
-  utilityRoundButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(15, 23, 42, 0.6)', 
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.15)'
-  },
-  utilityButtonActive: {
-    backgroundColor: '#FFFFFF',
-    borderColor: '#10B981'
-  },
-  badgeContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(15, 23, 42, 0.75)',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(16, 185, 129, 0.3)',
-    gap: 8,
-  },
-  pulseDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#10B981',
-  },
-  instructionText: { 
-    color: '#FFFFFF', 
-    fontSize: 13, 
-    fontWeight: '600', 
-    letterSpacing: 0.2,
-  },
-  overlayContainer: { 
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    justifyContent: 'space-between', 
-    alignItems: 'center', 
-    backgroundColor: 'rgba(3, 7, 18, 0.55)', 
-    paddingHorizontal: 20,
-    paddingBottom: 110,
-  },
-  scanTargetBox: { 
-    width: width * 0.82, 
-    height: width * 1.2, 
-    borderWidth: 1.5, 
-    borderColor: 'rgba(16, 185, 129, 0.4)', 
-    borderRadius: 28, 
-    backgroundColor: 'transparent',
-    overflow: 'hidden',
-    position: 'relative'
-  },
-  cornerMarker: {
-    position: 'absolute',
-    width: 24,
-    height: 24,
-    borderColor: '#10B981',
-    borderWidth: 3,
-  },
-  topLeftMarker: {
-    top: -2,
-    left: -2,
-    borderRightWidth: 0,
-    borderBottomWidth: 0,
-    borderTopLeftRadius: 18,
-  },
-  topRightMarker: {
-    top: -2,
-    right: -2,
-    borderLeftWidth: 0,
-    borderBottomWidth: 0,
-    borderTopRightRadius: 18,
-  },
-  bottomLeftMarker: {
-    bottom: -2,
-    left: -2,
-    borderRightWidth: 0,
-    borderTopWidth: 0,
-    borderBottomLeftRadius: 18,
-  },
-  bottomRightMarker: {
-    bottom: -2,
-    right: -2,
-    borderLeftWidth: 0,
-    borderTopWidth: 0,
-    borderBottomRightRadius: 18,
-  },
-  laserLineContainer: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    height: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  laserCore: {
-    width: '90%',
-    height: 3,
-    backgroundColor: '#34D399',
-    borderRadius: 2,
-    shadowColor: '#10B981',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.9,
-    shadowRadius: 10,
-    elevation: 8,
-  },
-  laserGlow: {
-    position: 'absolute',
-    width: '100%',
-    height: 16,
-    backgroundColor: 'rgba(52, 211, 153, 0.15)',
-  },
-  safeBottomHeaderSpacer: { marginBottom: 10 },
-  actionControlContainer: { 
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: 'rgba(3, 7, 18, 0.9)', 
-    paddingTop: 24,
-    paddingBottom: Platform.OS === 'ios' ? 44 : 28, 
-    alignItems: 'center', 
-    justifyContent: 'center',
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.08)'
-  },
-  outerCaptureRing: { 
-    width: 78, 
-    height: 78, 
-    borderRadius: 39, 
-    borderWidth: 4, 
-    borderColor: '#FFFFFF', 
-    justifyContent: 'center', 
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 5
-  },
-  innerCaptureSolid: { 
-    width: 60, 
-    height: 60, 
-    borderRadius: 30, 
-    backgroundColor: '#10B981' 
-  },
-  loadingBlock: { 
-    alignItems: 'center', 
-    flexDirection: 'row', 
-    gap: 12,
-    backgroundColor: 'rgba(15, 23, 42, 0.95)',
-    paddingVertical: 14,
-    paddingHorizontal: 24,
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: 'rgba(16, 185, 129, 0.3)'
-  },
-  loadingText: { color: '#E2E8F0', fontSize: 13, fontWeight: '600', letterSpacing: -0.2 },
-  permissionIconCircle: { 
-    width: 64, 
-    height: 64, 
-    borderRadius: 20, 
-    backgroundColor: '#F1F5F9', 
-    justifyContent: 'center', 
-    alignItems: 'center', 
-    marginBottom: 5,
-    borderWidth: 1,
-    borderColor: '#E2E8F0'
-  },
-  permissionTitle: { fontSize: 20, fontWeight: '700', color: '#1E293B', textAlign: 'center', letterSpacing: -0.4 },
-  permissionDescription: { fontSize: 14, color: '#64748B', textAlign: 'center', marginTop: 8, lineHeight: 22, fontWeight: '400' },
-  grantPermissionBtn: { backgroundColor: '#1E293B', paddingVertical: 14, paddingHorizontal: 28, borderRadius: 16, marginTop: 28 },
-  grantPermissionBtnText: { color: '#FFFFFF', fontWeight: '600', fontSize: 14 },
-
-  // Custom Alert Styles
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(3, 7, 18, 0.75)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 24,
-  },
-  alertContainer: {
-    width: '100%',
-    maxWidth: 340,
-    backgroundColor: '#0F172A',
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-    padding: 24,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.4,
-    shadowRadius: 20,
-    elevation: 10,
-  },
-  iconContainer: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  alertTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#F8FAFC',
-    textAlign: 'center',
-    marginBottom: 8,
-    letterSpacing: -0.3,
-  },
-  alertMessage: {
-    fontSize: 14,
-    color: '#94A3B8',
-    textAlign: 'center',
-    lineHeight: 20,
-    marginBottom: 24,
-  },
-  buttonGroup: {
-    flexDirection: 'row',
-    gap: 12,
-    width: '100%',
-  },
-  alertButton: {
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  primaryButton: {
-    backgroundColor: '#10B981',
-    flex: 1,
-  },
-  primaryButtonText: {
-    color: '#FFFFFF',
-    fontWeight: '600',
-    fontSize: 14,
-  },
-  cancelButton: {
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-    flex: 1,
-  },
-  cancelButtonText: {
-    color: '#E2E8F0',
-    fontWeight: '600',
-    fontSize: 14,
-  },
-  buttonText: {
-    fontSize: 14,
-    fontWeight: '600',
-  }
-});

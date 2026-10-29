@@ -1,23 +1,34 @@
+// app/(personalTabs)/split.tsx
 import { supabase } from '@/lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
 import emailjs from 'emailjs-com';
 import 'expo-blob';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as ImagePicker from 'expo-image-picker';
-import React, { useEffect, useState } from 'react';
+import { StatusBar } from 'expo-status-bar';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Image,
   Modal,
   RefreshControl,
   ScrollView,
+  StyleProp,
   Text,
   TextInput,
   TouchableOpacity,
-  View
+  View,
+  ViewStyle,
 } from 'react-native';
-import { colors, styles } from '../../constants/split.style';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import GradientBackground from '../../components/GradientBackground';
+import { AlertConfig, PaytonAlertDialog } from '../../components/PaytonAlert';
+import { theme } from '../../constants/theme';
+import { splitStyles as styles } from '../../constants/ui.styles';
+
+const { colors, space } = theme;
+const DEFAULT_AVATAR = require('../../assets/images/default.png');
 
 type Friend = {
   id: string;
@@ -55,7 +66,30 @@ type ActiveSplit = {
   split_friends: ActiveSplitFriend[];
 };
 
+type Msg = { text: string; type: 'error' | 'success' } | null;
+
+/** Inline success / error banner (was copy-pasted 6 times) */
+function Banner({ msg, style }: { msg: Msg; style?: StyleProp<ViewStyle> }) {
+  if (!msg) return null;
+  const isError = msg.type === 'error';
+  return (
+    <View style={[styles.inlineMessageContainer, isError ? styles.errorBanner : styles.successBanner, style]}>
+      <Ionicons
+        name={isError ? 'alert-circle-outline' : 'checkmark-circle-outline'}
+        size={18}
+        color={isError ? colors.danger : colors.success}
+        style={{ marginRight: space[6] }}
+      />
+      <Text style={[styles.inlineMessageText, isError ? styles.errorText : styles.successText]}>{msg.text}</Text>
+    </View>
+  );
+}
+
+const ALERT_CLOSED: AlertConfig = { visible: false, title: '' };
+
 export default function SplitScreen() {
+  const insets = useSafeAreaInsets();
+
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [refreshing, setRefreshing] = useState<boolean>(false);
@@ -75,8 +109,7 @@ export default function SplitScreen() {
   const [addFriendModalVisible, setAddFriendModalVisible] = useState<boolean>(false);
   const [newFriendName, setNewFriendName] = useState<string>('');
   const [newFriendEmail, setNewFriendEmail] = useState<string>('');
-  // Settlement Management Modal State
-  const [settleModalVisible, setSettleModalVisible] = useState<boolean>(false);
+  // Settlement Management State
   const [selectedSplitForSettle, setSelectedSplitForSettle] = useState<ActiveSplit | null>(null);
   // Settlement Payment Entry Modal State
   const [settleAmountModalVisible, setSettleAmountModalVisible] = useState<boolean>(false);
@@ -85,24 +118,21 @@ export default function SplitScreen() {
   const [editingFriend, setEditingFriend] = useState<Friend | null>(null);
   const [friendImageUri, setFriendImageUri] = useState<string | null>(null);
   const [myProfile, setMyProfile] = useState<{ full_name?: string; avatar_url?: string } | null>(null);
-  const [saving, setSaving] = useState(false);
-  const [formMessage, setFormMessage] = useState<{ text: string; type: 'error' | 'success' } | null>(null);
   const [selectedFriend, setSelectedFriend] = useState<Friend | null>(null);
   const [manageModalVisible, setManageModalVisible] = useState(false);
-  // Add this near your other state declarations
-  const [friendToDelete, setFriendToDelete] = useState<any | null>(null);
-  const [deleteMessage, setDeleteMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
-  const [splitFormMessage, setSplitFormMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
-  const [splitToDelete, setSplitToDelete] = useState<any | null>(null);
-  const [splitDeleteMessage, setSplitDeleteMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
-  const [reminderMessage, setReminderMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
-  // Add this state with your other messages:
-  const [settleModalMessage, setSettleModalMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
-  const [settleActionMessage, setSettleActionMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
 
-  const showAlert = (title: string, message: string) => {
-    Alert.alert(title, message, [{ text: 'OK' }]);
-  };
+  // Inline banners
+  const [formMessage, setFormMessage] = useState<Msg>(null);
+  const [deleteMessage, setDeleteMessage] = useState<Msg>(null);
+  const [splitFormMessage, setSplitFormMessage] = useState<Msg>(null);
+  const [splitDeleteMessage, setSplitDeleteMessage] = useState<Msg>(null);
+  const [reminderMessage, setReminderMessage] = useState<Msg>(null);
+  const [settleModalMessage, setSettleModalMessage] = useState<Msg>(null);
+  const [settleActionMessage, setSettleActionMessage] = useState<Msg>(null);
+
+  // Shared dialog (PaytonAlertDialog local-state API): permission errors + delete confirmations
+  const [alertCfg, setAlertCfg] = useState<AlertConfig>(ALERT_CLOSED);
+  const closeAlert = useCallback(() => setAlertCfg((p) => ({ ...p, visible: false })), []);
 
   useEffect(() => {
     fetchUserAndData();
@@ -133,7 +163,7 @@ export default function SplitScreen() {
   }, []);
 
   const fetchData = async (userId: string) => {
-    // 0. Fetch Categories[cite: 1]
+    // 0. Fetch Categories
     try {
       const { data: catData, error: catErr } = await supabase
         .from('categories')
@@ -223,38 +253,34 @@ export default function SplitScreen() {
   };
 
   const pickImage = async (useCamera: boolean = false) => {
-    let permissionResult;
-    
-    if (useCamera) {
-      permissionResult = await ImagePicker.requestCameraPermissionsAsync();
-    } else {
-      permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    }
+    const permissionResult = useCamera
+      ? await ImagePicker.requestCameraPermissionsAsync()
+      : await ImagePicker.requestMediaLibraryPermissionsAsync();
 
     if (!permissionResult.granted) {
-      showAlert('Permission Denied', 'Kinahanglan ang pahintulot para ma-access ang camera o gallery.');
+      setAlertCfg({
+        visible: true,
+        type: 'warning',
+        title: 'Permission Denied',
+        message: 'Kinahanglan ang pahintulot para ma-access ang camera o gallery.',
+        buttons: [{ text: 'OK', onPress: closeAlert }],
+      });
       return;
     }
 
-    let result = useCamera
-      ? await ImagePicker.launchCameraAsync({ 
-          mediaTypes: ['images'], 
-          allowsEditing: true, 
-          aspect: [1, 1], 
-          quality: 0.5,
-          base64: false,
-        })
-      : await ImagePicker.launchImageLibraryAsync({ 
-          mediaTypes: ['images'], 
-          allowsEditing: true, 
-          aspect: [1, 1], 
-          quality: 0.5,
-          base64: false,
-        });
+    const options: ImagePicker.ImagePickerOptions = {
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.5,
+      base64: false,
+    };
+    const result = useCamera
+      ? await ImagePicker.launchCameraAsync(options)
+      : await ImagePicker.launchImageLibraryAsync(options);
 
     if (!result.canceled && result.assets && result.assets.length > 0) {
-      const uri = result.assets[0].uri;
-      setFriendImageUri(uri);
+      setFriendImageUri(result.assets[0].uri);
     }
   };
 
@@ -293,103 +319,136 @@ export default function SplitScreen() {
     }
   };
 
-const handleSaveFriend = async () => {
-  if (!newFriendName.trim() || !user) {
-    setFormMessage({ text: "Please enter your friend's name.", type: 'error' });
-    return;
-  }
+  const closeFriendModal = () => {
+    setAddFriendModalVisible(false);
+    setEditingFriend(null);
+    setNewFriendName('');
+    setNewFriendEmail('');
+    setFriendImageUri(null);
+    setFormMessage(null);
+  };
 
-  try {
-    setLoading(true);
-    setFormMessage(null); // Clear any existing messages
-    let uploadedAvatarUrl = editingFriend?.avatar_url || null;
-
-    if (friendImageUri && !friendImageUri.startsWith('http')) {
-      uploadedAvatarUrl = await uploadAvatarToSupabase(friendImageUri);
+  const handleSaveFriend = async () => {
+    if (!newFriendName.trim() || !user) {
+      setFormMessage({ text: "Please enter your friend's name.", type: 'error' });
+      return;
     }
 
-    const friendDataPayload = {
-      user_id: user.id,
-      full_name: newFriendName.trim(),
-      email: newFriendEmail.trim() ? newFriendEmail.trim().toLowerCase() : null,
-      avatar_url: uploadedAvatarUrl,
-    };
-
-    let actionType = editingFriend ? "updated" : "added";
-
-    if (editingFriend) {
-      const { data, error } = await supabase
-        .from('friends')
-        .update(friendDataPayload)
-        .eq('id', editingFriend.id)
-        .select()
-        .single();
-
-      if (error) throw error;
-      if (data) {
-        setFriends((prev) => (prev || []).map((f) => (f.id === editingFriend.id ? data : f)));
-      }
-
-      // Log the successful friend update matching your logs table schema
-      await supabase.from('logs').insert({
-        user_id: user.id,
-        details: `updated friend "${newFriendName.trim()}".`,
-      });
-    } else {
-      const { data, error } = await supabase
-        .from('friends')
-        .insert([friendDataPayload])
-        .select()
-        .single();
-
-      if (error) throw error;
-      if (data) {
-        setFriends((prev) => [...(prev || []), data]);
-      }
-
-      // Log the successful friend creation matching your logs table schema
-      await supabase.from('logs').insert({
-        user_id: user.id,
-        details: `added friend "${newFriendName.trim()}".`,
-      });
-    }
-
-    // Success feedback
-    setFormMessage({ 
-      text: `Friend successfully ${actionType}!`, 
-      type: 'success' 
-    });
-
-    // Wait 1.2 seconds, then reset everything including loading
-    setTimeout(() => {
-      setEditingFriend(null);
-      setNewFriendName('');
-      setNewFriendEmail('');
-      setFriendImageUri(null);
+    try {
+      setLoading(true);
       setFormMessage(null);
-      setAddFriendModalVisible(false);
-      setLoading(false); // <--- Turn off loading here!
-    }, 1200);
+      let uploadedAvatarUrl = editingFriend?.avatar_url || null;
 
-  } catch (err: any) {
-    setFormMessage({ 
-      text: err.message || 'Failed to save friend. Please try again.', 
-      type: 'error' 
+      if (friendImageUri && !friendImageUri.startsWith('http')) {
+        uploadedAvatarUrl = await uploadAvatarToSupabase(friendImageUri);
+      }
+
+      const friendDataPayload = {
+        user_id: user.id,
+        full_name: newFriendName.trim(),
+        email: newFriendEmail.trim() ? newFriendEmail.trim().toLowerCase() : null,
+        avatar_url: uploadedAvatarUrl,
+      };
+
+      const actionType = editingFriend ? 'updated' : 'added';
+
+      if (editingFriend) {
+        const { data, error } = await supabase
+          .from('friends')
+          .update(friendDataPayload)
+          .eq('id', editingFriend.id)
+          .select()
+          .single();
+
+        if (error) throw error;
+        if (data) {
+          setFriends((prev) => (prev || []).map((f) => (f.id === editingFriend.id ? data : f)));
+        }
+
+        await supabase.from('logs').insert({
+          user_id: user.id,
+          details: `updated friend "${newFriendName.trim()}".`,
+        });
+      } else {
+        const { data, error } = await supabase
+          .from('friends')
+          .insert([friendDataPayload])
+          .select()
+          .single();
+
+        if (error) throw error;
+        if (data) {
+          setFriends((prev) => [...(prev || []), data]);
+        }
+
+        await supabase.from('logs').insert({
+          user_id: user.id,
+          details: `added friend "${newFriendName.trim()}".`,
+        });
+      }
+
+      setFormMessage({ text: `Friend successfully ${actionType}!`, type: 'success' });
+
+      // let the success banner show, then reset everything
+      setTimeout(() => {
+        closeFriendModal();
+        setLoading(false);
+      }, 1200);
+    } catch (err: any) {
+      setFormMessage({ text: err.message || 'Failed to save friend. Please try again.', type: 'error' });
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteFriend = async (friend: Friend) => {
+    try {
+      const { error } = await supabase.from('friends').delete().eq('id', friend.id);
+      if (error) throw error;
+
+      const {
+        data: { user: currentUser },
+      } = await supabase.auth.getUser();
+      if (currentUser) {
+        await supabase.from('logs').insert({
+          user_id: currentUser.id,
+          details: `deleted friend "${friend.full_name || friend.id}".`,
+        });
+      }
+
+      setFriends((prev) => prev.filter((f) => f.id !== friend.id));
+      setDeleteMessage({ text: 'Friend deleted successfully.', type: 'success' });
+      setTimeout(() => setDeleteMessage(null), 3000);
+    } catch (err: any) {
+      setDeleteMessage({ text: err.message || 'Failed to delete friend.', type: 'error' });
+    }
+  };
+
+  const confirmDeleteFriend = (friendId: string) => {
+    const friend = friends.find((f) => f.id === friendId);
+    if (!friend) return;
+    setAlertCfg({
+      visible: true,
+      type: 'warning',
+      title: 'Delete Friend?',
+      message: `Are you sure you want to delete "${friend.full_name}"? This action cannot be undone.`,
+      buttons: [
+        { text: 'Cancel', style: 'cancel', onPress: closeAlert },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            closeAlert();
+            handleDeleteFriend(friend);
+          },
+        },
+      ],
     });
-    setLoading(false); // <--- Turn off loading on error too
-  }
-};
-
-const confirmDeleteFriend = (friendId: string) => {
-  // Optional: Find the friend object if you want to show their name in the confirmation dialog
-  const friend = friends.find(f => f.id === friendId);
-  setFriendToDelete(friend);
-};
+  };
 
   const handleFriendPress = (friend: Friend) => {
-  setSelectedFriend(friend);
-  setManageModalVisible(true);
-};
+    setSelectedFriend(friend);
+    setManageModalVisible(true);
+  };
 
   const openEditModal = (friend: Friend) => {
     setEditingFriend(friend);
@@ -400,53 +459,58 @@ const confirmDeleteFriend = (friendId: string) => {
   };
 
   const handleDeleteSplit = async (splitId: string) => {
-  try {
-    setLoading(true);
-    setSplitDeleteMessage(null); // Clear any previous message
-
-    // Optional: fetch the split description before deleting if you want a descriptive log
-    const { data: splitToDelete } = await supabase
-      .from('split_expenses')
-      .select('description, total_amount')
-      .eq('id', splitId)
-      .maybeSingle();
-
-    const { error } = await supabase
-      .from('split_expenses')
-      .delete()
-      .eq('id', splitId);
-
-    if (error) throw error;
-
-    // Fetch current user and log the deletion action matching your logs table schema
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      const splitDesc = splitToDelete?.description || splitId;
-      await supabase.from('logs').insert({
-        user_id: user.id,
-        details: `deleted split expense "${splitDesc}".`,
-      });
-    }
-
-    setActiveSplits((prev) => prev.filter((s) => s.id !== splitId));
-    
-    // Show inline success message
-    setSplitDeleteMessage({ text: 'Split expense deleted successfully.', type: 'success' });
-    
-    // Auto-clear message after 3 seconds
-    setTimeout(() => {
+    try {
+      setLoading(true);
       setSplitDeleteMessage(null);
-    }, 3000);
 
-  } catch (err: any) {
-    setSplitDeleteMessage({ 
-      text: err.message || 'Failed to delete split.', 
-      type: 'error' 
+      // fetch the description first so the log is readable
+      const { data: splitRow } = await supabase
+        .from('split_expenses')
+        .select('description, total_amount')
+        .eq('id', splitId)
+        .maybeSingle();
+
+      const { error } = await supabase.from('split_expenses').delete().eq('id', splitId);
+      if (error) throw error;
+
+      const {
+        data: { user: currentUser },
+      } = await supabase.auth.getUser();
+      if (currentUser) {
+        await supabase.from('logs').insert({
+          user_id: currentUser.id,
+          details: `deleted split expense "${splitRow?.description || splitId}".`,
+        });
+      }
+
+      setActiveSplits((prev) => prev.filter((s) => s.id !== splitId));
+      setSplitDeleteMessage({ text: 'Split expense deleted successfully.', type: 'success' });
+      setTimeout(() => setSplitDeleteMessage(null), 3000);
+    } catch (err: any) {
+      setSplitDeleteMessage({ text: err.message || 'Failed to delete split.', type: 'error' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const confirmDeleteSplit = (split: ActiveSplit) =>
+    setAlertCfg({
+      visible: true,
+      type: 'warning',
+      title: 'Delete Split Expense?',
+      message: `Are you sure you want to delete "${split.description}"? This action cannot be undone.`,
+      buttons: [
+        { text: 'Cancel', style: 'cancel', onPress: closeAlert },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            closeAlert();
+            handleDeleteSplit(split.id);
+          },
+        },
+      ],
     });
-  } finally {
-    setLoading(false);
-  }
-};
 
   const toggleSelectFriend = (friendId: string) => {
     if (selectedFriends.includes(friendId)) {
@@ -463,185 +527,161 @@ const confirmDeleteFriend = (friendId: string) => {
     setCustomShares((prev) => ({ ...prev, [friendId]: val }));
   };
 
-const handleCreateSplitDirectly = async () => {
-  if (loading) return; // Prevent double taps
+  const handleCreateSplitDirectly = async () => {
+    if (loading) return; // prevent double taps
+    setSplitFormMessage(null);
 
-  // Clear any existing messages
-  setSplitFormMessage(null);
+    const numericAmount = parseFloat(amount);
+    if (!description.trim() || isNaN(numericAmount) || numericAmount <= 0) {
+      setSplitFormMessage({ text: 'Please enter a valid description and amount.', type: 'error' });
+      return;
+    }
 
-  const numericAmount = parseFloat(amount);
-  if (!description.trim() || isNaN(numericAmount) || numericAmount <= 0) {
-    setSplitFormMessage({ text: 'Please enter a valid description and amount.', type: 'error' });
-    return;
-  }
+    if ((selectedFriends?.length || 0) === 0) {
+      setSplitFormMessage({ text: 'Please select at least one friend to split with.', type: 'error' });
+      return;
+    }
 
-  if ((selectedFriends?.length || 0) === 0) {
-    setSplitFormMessage({ text: 'Please select at least one friend to split with.', type: 'error' });
-    return;
-  }
+    let calculatedFriendsPayload: { friend_id: string; owed_amount: number }[] = [];
+    let ownerShare = 0;
 
-  let calculatedFriendsPayload: { friend_id: string; owed_amount: number }[] = [];
-  let ownerShare = 0;
+    if (splitType === 'EQUAL') {
+      const totalParticipants = selectedFriends.length + 1;
+      const share = parseFloat((numericAmount / totalParticipants).toFixed(2));
+      ownerShare = share;
+      calculatedFriendsPayload = selectedFriends.map((fId) => ({ friend_id: fId, owed_amount: share }));
+    } else {
+      let customSum = 0;
+      for (const fId of selectedFriends) {
+        const val = parseFloat(customShares[fId] || '0');
+        if (isNaN(val) || val < 0) {
+          setSplitFormMessage({ text: 'Please enter valid custom amounts for selected friends.', type: 'error' });
+          return;
+        }
+        customSum += val;
+        calculatedFriendsPayload.push({ friend_id: fId, owed_amount: val });
+      }
 
-  if (splitType === 'EQUAL') {
-    const totalParticipants = selectedFriends.length + 1;
-    const share = parseFloat((numericAmount / totalParticipants).toFixed(2));
-    ownerShare = share;
-    calculatedFriendsPayload = selectedFriends.map((fId) => ({
-      friend_id: fId,
-      owed_amount: share,
-    }));
-  } else {
-    let customSum = 0;
-    for (const fId of selectedFriends) {
-      const val = parseFloat(customShares[fId] || '0');
-      if (isNaN(val) || val < 0) {
-        setSplitFormMessage({ text: 'Please enter valid custom amounts for selected friends.', type: 'error' });
+      if (customSum > numericAmount) {
+        setSplitFormMessage({ text: 'The sum of friend shares cannot exceed total amount.', type: 'error' });
         return;
       }
-      customSum += val;
-      calculatedFriendsPayload.push({
-        friend_id: fId,
-        owed_amount: val,
-      });
+      ownerShare = parseFloat((numericAmount - customSum).toFixed(2));
     }
 
-    if (customSum > numericAmount) {
-      setSplitFormMessage({ text: 'The sum of friend shares cannot exceed total amount.', type: 'error' });
-      return;
-    }
-    ownerShare = parseFloat((numericAmount - customSum).toFixed(2));
-  }
+    setLoading(true);
 
-  // Turn loading on right before performing network/async operations
-  setLoading(true);
+    try {
+      // 1. Most recent active income (with its amount)
+      const { data: latestIncome, error: incomeFetchErr } = await supabase
+        .from('income')
+        .select('id, amount')
+        .eq('user_id', user.id)
+        .eq('is_archived', false)
+        .order('received_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
-  try {
-    // 1. Fetch the user's most recent active income dynamically (including its amount)
-    let activeIncomeId = null;
-    const { data: latestIncome, error: incomeFetchErr } = await supabase
-      .from('income')
-      .select('id, amount')
-      .eq('user_id', user.id)
-      .eq('is_archived', false) // ensure it's not archived
-      .order('received_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
+      if (incomeFetchErr) throw incomeFetchErr;
 
-    if (incomeFetchErr) throw incomeFetchErr;
+      if (!latestIncome) {
+        setSplitFormMessage({
+          text: 'No active income found. Please create an income before splitting expenses.',
+          type: 'error',
+        });
+        setLoading(false);
+        return;
+      }
 
-    // Validation: Ensure an active income exists
-    if (!latestIncome) {
-      setSplitFormMessage({ 
-        text: 'No active income found. Please create an income before splitting expenses.', 
-        type: 'error' 
-      });
-      setLoading(false);
-      return;
-    }
+      const activeIncomeId = latestIncome.id;
 
-    activeIncomeId = latestIncome.id;
+      // 1b. Expenses already linked to this income -> remaining balance
+      const { data: incomeExpenses, error: expFetchErr } = await supabase
+        .from('expenses')
+        .select('amount')
+        .eq('income_id', activeIncomeId);
 
-    // 1b. Fetch all expenses linked to this active income to calculate total spent
-    const { data: incomeExpenses, error: expFetchErr } = await supabase
-      .from('expenses')
-      .select('amount')
-      .eq('income_id', activeIncomeId);
+      if (expFetchErr) throw expFetchErr;
 
-    if (expFetchErr) throw expFetchErr;
+      const totalExpenses = (incomeExpenses || []).reduce((sum, exp) => sum + (exp.amount || 0), 0);
+      const remainingBalance = latestIncome.amount - totalExpenses;
 
-    const totalExpenses = (incomeExpenses || []).reduce((sum, exp) => sum + (exp.amount || 0), 0);
-    const remainingBalance = latestIncome.amount - totalExpenses;
+      if (numericAmount > remainingBalance) {
+        setSplitFormMessage({
+          text: `Split amount (${numericAmount}) exceeds your remaining income balance (${remainingBalance.toFixed(2)}).`,
+          type: 'error',
+        });
+        setLoading(false);
+        return;
+      }
 
-    // Validation: Ensure split amount does not exceed remaining balance
-    if (numericAmount > remainingBalance) {
-      setSplitFormMessage({ 
-        text: `Split amount (${numericAmount}) exceeds your remaining income balance (${remainingBalance.toFixed(2)}).`, 
-        type: 'error' 
-      });
-      setLoading(false);
-      return;
-    }
+      // 2. split_expenses
+      const { data: splitExp, error: splitExpErr } = await supabase
+        .from('split_expenses')
+        .insert([
+          {
+            user_id: user.id,
+            description: description.trim(),
+            total_amount: numericAmount,
+            personal_share: ownerShare,
+            created_at: new Date().toISOString(),
+            split_type: splitType,
+            category_id: selectedCategoryId,
+          },
+        ])
+        .select()
+        .single();
 
-    // 2. Insert into split_expenses table
-    const { data: splitExp, error: splitExpErr } = await supabase
-      .from('split_expenses')
-      .insert([
+      if (splitExpErr) throw splitExpErr;
+
+      const friendInserts = calculatedFriendsPayload.map((f) => ({
+        split_expense_id: splitExp.id,
+        friend_id: f.friend_id,
+        owed_amount: f.owed_amount,
+        status: 'unpaid',
+        updated_at: new Date().toISOString(),
+      }));
+
+      const { error: friendsErr } = await supabase.from('split_friends').insert(friendInserts);
+      if (friendsErr) throw friendsErr;
+
+      // 3. general expenses table
+      const { error: expenseErr } = await supabase.from('expenses').insert([
         {
           user_id: user.id,
+          amount: numericAmount,
           description: description.trim(),
-          total_amount: numericAmount,
-          personal_share: ownerShare,
-          created_at: new Date().toISOString(),
-          split_type: splitType,
           category_id: selectedCategoryId,
+          income_id: activeIncomeId,
+          spent_at: new Date().toISOString(),
         },
-      ])
-      .select()
-      .single();
+      ]);
 
-    if (splitExpErr) throw splitExpErr;
+      if (expenseErr) console.error('Failed to log in expenses table:', expenseErr.message);
 
-    const friendInserts = calculatedFriendsPayload.map((f: any) => ({
-      split_expense_id: splitExp.id,
-      friend_id: f.friend_id,
-      owed_amount: f.owed_amount,
-      status: 'unpaid',
-      updated_at: new Date().toISOString(),
-    }));
+      // 4. email notifications
+      await sendNewSplitEmails(splitExp, calculatedFriendsPayload, numericAmount, description.trim(), myProfile?.full_name);
 
-    const { error: friendsErr } = await supabase.from('split_friends').insert(friendInserts);
-    if (friendsErr) throw friendsErr;
-
-    // 3. Insert into general expenses table using category_id, fetched income_id, and spent_at
-    const { error: expenseErr } = await supabase.from('expenses').insert([
-      {
+      await supabase.from('logs').insert({
         user_id: user.id,
-        amount: numericAmount,
-        description: description.trim(),
-        category_id: selectedCategoryId,
-        income_id: activeIncomeId,
-        spent_at: new Date().toISOString(),
-      },
-    ]);
+        details: `created split expense "${description.trim()}" (${numericAmount}).`,
+      });
 
-    if (expenseErr) console.error('Failed to log in expenses table:', expenseErr.message);
+      setSplitFormMessage({ text: 'Split expense saved, logged to expenses, and emails sent!', type: 'success' });
 
-    // 4. Send email notifications
-    await sendNewSplitEmails(
-      splitExp,
-      calculatedFriendsPayload,
-      numericAmount,
-      description.trim(),
-      myProfile?.full_name
-    );
-
-    // Log the successful split creation matching your logs table schema
-    await supabase.from('logs').insert({
-      user_id: user.id,
-      details: `created split expense "${description.trim()}" (${numericAmount}).`,
-    });
-
-    // Show success inline message
-    setSplitFormMessage({ text: 'Split expense saved, logged to expenses, and emails sent!', type: 'success' });
-
-    // Delay closing the modal so the user can see the success banner
-    setTimeout(() => {
-      setFormVisible(false);
-      resetForm();
-      fetchData(user.id);
-      setSplitFormMessage(null);
+      // let the user see the success banner before closing
+      setTimeout(() => {
+        setFormVisible(false);
+        resetForm();
+        fetchData(user.id);
+        setSplitFormMessage(null);
+        setLoading(false);
+      }, 1200);
+    } catch (err: any) {
+      setSplitFormMessage({ text: err.message || 'Failed to process split.', type: 'error' });
       setLoading(false);
-    }, 1200);
-
-  } catch (err: any) {
-    setSplitFormMessage({ 
-      text: err.message || 'Failed to process split.', 
-      type: 'error' 
-    });
-    setLoading(false);
-  }
-};
+    }
+  };
 
   const handleInitiateSettleFriend = (friendShare: ActiveSplitFriend) => {
     setSelectedFriendToSettle(friendShare);
@@ -649,118 +689,106 @@ const handleCreateSplitDirectly = async () => {
     setSettleAmountModalVisible(true);
   };
 
-const handleConfirmSettlePayment = async () => {
-  if (!user || !selectedFriendToSettle) return;
+  const handleConfirmSettlePayment = async () => {
+    if (!user || !selectedFriendToSettle) return;
 
-  // Clear previous modal messages
-  setSettleModalMessage(null);
+    setSettleModalMessage(null);
 
-  const paidVal = parseFloat(paymentInputAmount);
-  if (isNaN(paidVal) || paidVal <= 0) {
-    // Show error inline inside the modal instead of an alert popup
-    setSettleModalMessage({ text: 'Please enter a valid amount paid.', type: 'error' });
-    return;
-  }
-
-  // Close the modal and turn loading on
-  setSettleAmountModalVisible(false);
-  setLoading(true);
-
-  try {
-    // 1. Validate that an active income exists FIRST before changing any data
-    const { data: latestIncome, error: incomeFetchErr } = await supabase
-      .from('income')
-      .select('id, amount')
-      .eq('user_id', user.id)
-      .eq('is_archived', false)
-      .order('received_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (incomeFetchErr) throw incomeFetchErr;
-    
-    if (!latestIncome) {
-      throw new Error('No active income found. Please create an active income before settling payments.');
+    const paidVal = parseFloat(paymentInputAmount);
+    if (isNaN(paidVal) || paidVal <= 0) {
+      setSettleModalMessage({ text: 'Please enter a valid amount paid.', type: 'error' });
+      return;
     }
 
-    const friendName = selectedFriendToSettle.friends?.full_name || 'Friend';
-    const currentOwed = selectedFriendToSettle.owed_amount || 0;
-    const newOwed = Math.max(0, currentOwed - paidVal);
-    const isFullyPaid = newOwed === 0;
+    setSettleAmountModalVisible(false);
+    setLoading(true);
 
-    // 2. Update split_friends table
-    const { error: updateFriendErr } = await supabase
-      .from('split_friends')
-      .update({
-        owed_amount: parseFloat(newOwed.toFixed(2)),
-        status: isFullyPaid ? 'paid' : 'unpaid',
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', selectedFriendToSettle.id);
+    try {
+      // 1. an active income must exist BEFORE any data changes
+      const { data: latestIncome, error: incomeFetchErr } = await supabase
+        .from('income')
+        .select('id, amount')
+        .eq('user_id', user.id)
+        .eq('is_archived', false)
+        .order('received_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
-    if (updateFriendErr) throw updateFriendErr;
+      if (incomeFetchErr) throw incomeFetchErr;
 
-    // 3. Add the received payment to the active income found earlier
-    const currentIncomeAmount = parseFloat(latestIncome.amount) || 0;
-    const updatedIncomeAmount = currentIncomeAmount + paidVal;
+      if (!latestIncome) {
+        throw new Error('No active income found. Please create an active income before settling payments.');
+      }
 
-    const { error: incomeUpdateErr } = await supabase
-      .from('income')
-      .update({ amount: updatedIncomeAmount })
-      .eq('id', latestIncome.id);
+      const friendName = selectedFriendToSettle.friends?.full_name || 'Friend';
+      const currentOwed = selectedFriendToSettle.owed_amount || 0;
+      const newOwed = Math.max(0, currentOwed - paidVal);
+      const isFullyPaid = newOwed === 0;
 
-    if (incomeUpdateErr) {
-      console.error('Failed to update income amount:', incomeUpdateErr.message);
-      throw incomeUpdateErr;
-    }
+      // 2. split_friends
+      const { error: updateFriendErr } = await supabase
+        .from('split_friends')
+        .update({
+          owed_amount: parseFloat(newOwed.toFixed(2)),
+          status: isFullyPaid ? 'paid' : 'unpaid',
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', selectedFriendToSettle.id);
 
-    // 4. Log the successful settlement payment action matching your logs table schema
-    await supabase.from('logs').insert({
-      user_id: user.id,
-      details: `settled split payment of ₱${paidVal.toFixed(2)} from "${friendName}".`,
-    });
+      if (updateFriendErr) throw updateFriendErr;
 
-    let successMessage = `Successfully received ₱${paidVal.toFixed(2)} from ${friendName} (added to your active income). ${
-      isFullyPaid ? 'Fully settled!' : `Remaining balance: ₱${newOwed.toFixed(2)}`
-    }`;
+      // 3. add the received payment to the active income
+      const currentIncomeAmount = parseFloat(latestIncome.amount) || 0;
+      const updatedIncomeAmount = currentIncomeAmount + paidVal;
 
-    // Show inline success message on the main screen
-    setSettleActionMessage({ text: successMessage, type: 'success' });
-    setTimeout(() => setSettleActionMessage(null), 4000);
+      const { error: incomeUpdateErr } = await supabase
+        .from('income')
+        .update({ amount: updatedIncomeAmount })
+        .eq('id', latestIncome.id);
 
-    if (selectedSplitForSettle) {
-      setSelectedSplitForSettle((prev) => {
-        if (!prev) return null;
-        return {
-          ...prev,
-          split_friends: prev.split_friends.map((sf) =>
-            sf.id === selectedFriendToSettle.id
-              ? {
-                  ...sf,
-                  owed_amount: parseFloat(newOwed.toFixed(2)),
-                  status: isFullyPaid ? 'paid' : 'unpaid',
-                }
-              : sf
-          ),
-        };
+      if (incomeUpdateErr) {
+        console.error('Failed to update income amount:', incomeUpdateErr.message);
+        throw incomeUpdateErr;
+      }
+
+      // 4. log
+      await supabase.from('logs').insert({
+        user_id: user.id,
+        details: `settled split payment of ₱${paidVal.toFixed(2)} from "${friendName}".`,
       });
-    }
 
-    fetchData(user.id);
-  } catch (err: unknown) {
-    const errorMessage = err instanceof Error ? err.message : 'Failed to record payment.';
-    setSettleActionMessage({
-      text: errorMessage,
-      type: 'error',
-    });
-    // Automatically clear the error message after 4 seconds
-    setTimeout(() => setSettleActionMessage(null), 4000);
-  } finally {
-    setLoading(false);
-    setSelectedFriendToSettle(null);
-    setPaymentInputAmount('');
-  }
-};
+      const successMessage = `Successfully received ₱${paidVal.toFixed(2)} from ${friendName} (added to your active income). ${
+        isFullyPaid ? 'Fully settled!' : `Remaining balance: ₱${newOwed.toFixed(2)}`
+      }`;
+
+      setSettleActionMessage({ text: successMessage, type: 'success' });
+      setTimeout(() => setSettleActionMessage(null), 4000);
+
+      if (selectedSplitForSettle) {
+        setSelectedSplitForSettle((prev) => {
+          if (!prev) return null;
+          return {
+            ...prev,
+            split_friends: prev.split_friends.map((sf) =>
+              sf.id === selectedFriendToSettle.id
+                ? { ...sf, owed_amount: parseFloat(newOwed.toFixed(2)), status: isFullyPaid ? 'paid' : 'unpaid' }
+                : sf
+            ),
+          };
+        });
+      }
+
+      fetchData(user.id);
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to record payment.';
+      setSettleActionMessage({ text: errorMessage, type: 'error' });
+      setTimeout(() => setSettleActionMessage(null), 4000);
+    } finally {
+      setLoading(false);
+      setSelectedFriendToSettle(null);
+      setPaymentInputAmount('');
+    }
+  };
 
   const resetForm = () => {
     setDescription('');
@@ -771,92 +799,86 @@ const handleConfirmSettlePayment = async () => {
     if (categories.length > 0) setSelectedCategoryId(categories[0].id);
   };
 
+  const closeCreateForm = () => {
+    setFormVisible(false);
+    setDescription('');
+    setAmount('');
+    setSelectedFriends([]);
+    setCustomShares({});
+    setSplitFormMessage(null);
+  };
+
   const calculateOwnerShare = () => {
     const total = parseFloat(amount) || 0;
     const friendCount = selectedFriends?.length || 0;
     if (splitType === 'EQUAL') {
-      const parts = friendCount + 1;
-      return (total / parts).toFixed(2);
-    } else {
-      let customSum = 0;
-      (selectedFriends || []).forEach((id) => {
-        customSum += parseFloat(customShares[id] || '0');
-      });
-      return Math.max(0, total - customSum).toFixed(2);
+      return (total / (friendCount + 1)).toFixed(2);
     }
+    let customSum = 0;
+    (selectedFriends || []).forEach((id) => {
+      customSum += parseFloat(customShares[id] || '0');
+    });
+    return Math.max(0, total - customSum).toFixed(2);
   };
 
   const handleSendReminderEmail = async (
-  friendEmail: any, 
-  friendName: any, 
-  owedAmount: any, 
-  totalAmount: any,
-  description: any,
-  senderName: any
-) => {
-  try {
-    setReminderMessage(null); // Clear any existing messages
-
-    const templateParams = {
-      email: friendEmail,                        
-      email_subject: `Reminder: Balance for ${description}`, 
-      friend_name: friendName,                    
-      intro_message: "This is a friendly reminder that you still have a remaining balance for this expense.",
-      description: description,                    
-      total_amount: (totalAmount || 0).toFixed(2),      
-      amount: (owedAmount || 0).toFixed(2),            
-      call_to_action: "Please settle this at your earliest convenience. Thank you!",
-      sender_name: senderName,                    
-    };
-
-    const serviceID = 'service_67drjkh';    
-    const templateID = 'template_amd0qms';   
-    const userID = 'W4iiQMEllSfk5dSfk';        
-
-    const response = await emailjs.send(serviceID, templateID, templateParams, userID);
-    
-    console.log('SUCCESS!', response.status, response.text);
-    
-    // Show inline success message
-    setReminderMessage({ text: 'Email reminder sent successfully!', type: 'success' });
-
-    // Auto-clear message after 3 seconds
-    setTimeout(() => {
-      setReminderMessage(null);
-    }, 3000);
-
-  } catch (err: any) {
-    console.error('FAILED...', err);
-    
-    // Show inline error message
-    setReminderMessage({ 
-      text: err.text || err.message || 'Failed to send email reminder.', 
-      type: 'error' 
-    });
-  }
-};
-
-  const sendNewSplitEmails = async (createdSplitData: any, friendsPayload: any, totalAmount: any, description: any, senderName: any) => {
+    friendEmail: any,
+    friendName: any,
+    owedAmount: any,
+    totalAmount: any,
+    desc: any,
+    senderName: any
+  ) => {
     try {
-      const serviceID = 'service_67drjkh';    
-      const templateID = 'template_amd0qms';   
-      const userID = 'W4iiQMEllSfk5dSfk';        
+      setReminderMessage(null);
+
+      const templateParams = {
+        email: friendEmail,
+        email_subject: `Reminder: Balance for ${desc}`,
+        friend_name: friendName,
+        intro_message: 'This is a friendly reminder that you still have a remaining balance for this expense.',
+        description: desc,
+        total_amount: (totalAmount || 0).toFixed(2),
+        amount: (owedAmount || 0).toFixed(2),
+        call_to_action: 'Please settle this at your earliest convenience. Thank you!',
+        sender_name: senderName,
+      };
+
+      const serviceID = 'service_67drjkh';
+      const templateID = 'template_amd0qms';
+      const userID = 'W4iiQMEllSfk5dSfk';
+
+      const response = await emailjs.send(serviceID, templateID, templateParams, userID);
+      console.log('SUCCESS!', response.status, response.text);
+
+      setReminderMessage({ text: 'Email reminder sent successfully!', type: 'success' });
+      setTimeout(() => setReminderMessage(null), 3000);
+    } catch (err: any) {
+      console.error('FAILED...', err);
+      setReminderMessage({ text: err.text || err.message || 'Failed to send email reminder.', type: 'error' });
+    }
+  };
+
+  const sendNewSplitEmails = async (createdSplitData: any, friendsPayload: any, totalAmount: any, desc: any, senderName: any) => {
+    try {
+      const serviceID = 'service_67drjkh';
+      const templateID = 'template_amd0qms';
+      const userID = 'W4iiQMEllSfk5dSfk';
 
       for (const item of friendsPayload) {
         const friendObj = (friends || []).find((f) => f.id === item.friend_id);
-        
         if (!friendObj || !friendObj.email) continue;
 
         const templateParams = {
-          email: friendObj.email,                                    
-          email_subject: `New Split Expense Added: ${description}`, 
-          friend_name: friendObj.full_name,                          
-          intro_message: "You have been added to a new split expense.", 
-          description: description,                                  
-          total_amount: parseFloat(totalAmount).toFixed(2),        
-          amount: parseFloat(item.owed_amount || 0).toFixed(2),    
-          call_to_action: "Please settle your balance accordingly. Thank you!",
-          sender_name: senderName,                                     
+          email: friendObj.email,
+          email_subject: `New Split Expense Added: ${desc}`,
+          friend_name: friendObj.full_name,
+          intro_message: 'You have been added to a new split expense.',
+          description: desc,
+          total_amount: parseFloat(totalAmount).toFixed(2),
+          amount: parseFloat(item.owed_amount || 0).toFixed(2),
+          call_to_action: 'Please settle your balance accordingly. Thank you!',
+          sender_name: senderName,
         };
 
         await emailjs.send(serviceID, templateID, templateParams, userID);
@@ -870,417 +892,274 @@ const handleConfirmSettlePayment = async () => {
 
   return (
     <View style={styles.container}>
-      {/* HEADER */}
-      <View style={styles.modernHeader}>
+      <StatusBar style="light" />
+
+      {/* HEADER (gradient) */}
+      <View style={[styles.modernHeader, { paddingTop: insets.top + space[12] }]}>
+        <View style={styles.headerGradientFill} pointerEvents="none">
+          <GradientBackground />
+        </View>
         <View style={styles.headerLeft}>
-          <Ionicons name="people-circle-outline" size={28} color="#FFFFFF" />
+          <Ionicons name="people-circle-outline" size={28} color={colors.white} />
           <Text style={styles.modernHeaderTitle}>Split Expenses</Text>
         </View>
-        <TouchableOpacity
-          style={styles.quickFormTrigger}
-          onPress={() => setFormVisible(true)}
-        >
-          <Ionicons name="add" size={18} color="#FFFFFF" />
+        <TouchableOpacity style={styles.quickFormTrigger} onPress={() => setFormVisible(true)}>
+          <Ionicons name="add" size={18} color={colors.white} />
           <Text style={styles.quickFormTriggerText}>New Split</Text>
         </TouchableOpacity>
       </View>
 
-      {loading && !refreshing ? (
-        <View style={styles.emptyContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-        </View>
-      ) : (
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              colors={[colors.primary]}
-              tintColor={colors.primary}
-            />
-          }
-        > 
+      {/* CONTENT SHEET */}
+      <View style={styles.sheet}>
+        {loading && !refreshing ? (
+          <View style={styles.emptyContainer}>
+            <ActivityIndicator size="large" color={colors.accent} />
+          </View>
+        ) : (
+          <ScrollView
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                colors={[colors.accent]}
+                tintColor={colors.accent}
+              />
+            }
+          >
+            {/* FRIENDS SECTION */}
+            <View style={styles.friendsSection}>
+              <Banner msg={deleteMessage} style={{ marginBottom: space[12] }} />
+              <Banner msg={splitDeleteMessage} style={{ marginBottom: space[12] }} />
+              <Banner msg={reminderMessage} style={{ marginBottom: space[12] }} />
+              <Banner msg={settleActionMessage} style={{ marginBottom: space[12] }} />
 
-          {/* FRIENDS SECTION */}
-          <View style={styles.friendsSection}>
-            {/* --- INLINE DELETE MESSAGE BANNER --- */}
-            {deleteMessage && (
-              <View style={[
-                styles.inlineMessageContainer, 
-                deleteMessage.type === 'error' ? styles.errorBanner : styles.successBanner,
-                { marginBottom: 12 }
-              ]}>
-                <Ionicons 
-                  name={deleteMessage.type === 'error' ? "alert-circle-outline" : "checkmark-circle-outline"} 
-                  size={18} 
-                  color={deleteMessage.type === 'error' ? '#D32F2F' : '#2E7D32'} 
-                  style={{ marginRight: 6 }}
-                />
-                <Text style={[
-                  styles.inlineMessageText, 
-                  deleteMessage.type === 'error' ? styles.errorText : styles.successText
-                ]}>
-                  {deleteMessage.text}
-                </Text>
+              <View style={styles.sectionTitleRow}>
+                <Text style={styles.sectionTitle}>Friends List</Text>
+                <Text style={styles.sectionCount}>{friends?.length || 0} friends</Text>
               </View>
-            )}
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontalFriendsScroll}>
+                <TouchableOpacity style={styles.avatarContainer} onPress={() => setAddFriendModalVisible(true)}>
+                  <View style={styles.addCircle}>
+                    <Ionicons name="add" size={24} color={colors.textSubtle} />
+                  </View>
+                  <Text style={styles.avatarName}>Add Friend</Text>
+                </TouchableOpacity>
 
-            {/* --- INLINE SPLIT DELETE MESSAGE BANNER --- */}
-            {splitDeleteMessage && (
-              <View style={[
-                styles.inlineMessageContainer, 
-                splitDeleteMessage.type === 'error' ? styles.errorBanner : styles.successBanner,
-                { marginBottom: 12 }
-              ]}>
-                <Ionicons 
-                  name={splitDeleteMessage.type === 'error' ? "alert-circle-outline" : "checkmark-circle-outline"} 
-                  size={18} 
-                  color={splitDeleteMessage.type === 'error' ? '#D32F2F' : '#2E7D32'} 
-                  style={{ marginRight: 6 }}
-                />
-                <Text style={[
-                  styles.inlineMessageText, 
-                  splitDeleteMessage.type === 'error' ? styles.errorText : styles.successText
-                ]}>
-                  {splitDeleteMessage.text}
-                </Text>
-              </View>
-            )}
-
-            {/* --- INLINE REMINDER EMAIL MESSAGE BANNER --- */}
-            {reminderMessage && (
-              <View style={[
-                styles.inlineMessageContainer, 
-                reminderMessage.type === 'error' ? styles.errorBanner : styles.successBanner,
-                { marginBottom: 12 }
-              ]}>
-                <Ionicons 
-                  name={reminderMessage.type === 'error' ? "alert-circle-outline" : "checkmark-circle-outline"} 
-                  size={18} 
-                  color={reminderMessage.type === 'error' ? '#D32F2F' : '#2E7D32'} 
-                  style={{ marginRight: 6 }}
-                />
-                <Text style={[
-                  styles.inlineMessageText, 
-                  reminderMessage.type === 'error' ? styles.errorText : styles.successText
-                ]}>
-                  {reminderMessage.text}
-                </Text>
-              </View>
-            )}
-
-            {/* --- MAIN SCREEN INLINE SUCCESS/ERROR BANNER FOR SETTLEMENTS --- */}
-            {settleActionMessage && (
-              <View style={[
-                styles.inlineMessageContainer, 
-                settleActionMessage.type === 'error' ? styles.errorBanner : styles.successBanner,
-                { marginBottom: 12 }
-              ]}>
-                <Ionicons 
-                  name={settleActionMessage.type === 'error' ? "alert-circle-outline" : "checkmark-circle-outline"} 
-                  size={18} 
-                  color={settleActionMessage.type === 'error' ? '#D32F2F' : '#2E7D32'} 
-                  style={{ marginRight: 6 }}
-                />
-                <Text style={[
-                  styles.inlineMessageText, 
-                  settleActionMessage.type === 'error' ? styles.errorText : styles.successText
-                ]}>
-                  {settleActionMessage.text}
-                </Text>
-              </View>
-            )}
-
-            <View style={styles.sectionTitleRow}>
-              <Text style={styles.sectionTitle}>Friends List</Text>
-              <Text style={styles.sectionCount}>{friends?.length || 0} friends</Text>
-            </View>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontalFriendsScroll}>
-              <TouchableOpacity style={styles.avatarContainer} onPress={() => setAddFriendModalVisible(true)}>
-                <View style={styles.addCircle}>
-                  <Ionicons name="add" size={24} color={colors.textFaint} />
-                </View>
-                <Text style={styles.avatarName}>Add Friend</Text>
-              </TouchableOpacity>
-
-              {([...(friends || [])].reverse()).map((f) => {
-                return (
-                  <TouchableOpacity 
-                    key={f.id} 
-                    style={styles.avatarContainer}
-                    onPress={() => handleFriendPress(f)}
-                  >
+                {[...(friends || [])].reverse().map((f) => (
+                  <TouchableOpacity key={f.id} style={styles.avatarContainer} onPress={() => handleFriendPress(f)}>
                     <Image
-                      source={
-                        f.avatar_url
-                          ? { uri: f.avatar_url }
-                          : require('../../assets/images/default.png')
-                      }
+                      source={f.avatar_url ? { uri: f.avatar_url } : DEFAULT_AVATAR}
                       style={styles.friendAvatar}
                     />
                     <Text style={styles.avatarName} numberOfLines={1}>
                       {f.full_name}
                     </Text>
                   </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-          </View>
-              
-          <View style={[styles.sectionTitleRow, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}>
-            <Text style={styles.sectionTitle}>Split History</Text>
-            <Text style={styles.sectionCount}>{activeSplits?.length || 0} splits</Text>
-          </View>
-
-          {(activeSplits?.length || 0) === 0 ? (
-            <View style={styles.emptyContainer}>
-              <Ionicons name="receipt-outline" size={48} color="#CBD5E1" />
-              <Text style={styles.emptyText}>No splits recorded yet.</Text>
+                ))}
+              </ScrollView>
             </View>
-          ) : (
-            (activeSplits || []).map((item: any) => {
-              const sfList = item.split_friends || [];
-              const totalAmount = item.total_amount || 0;
-              const personalShare = item.personal_share || 0;
 
-              // Get the dynamic category icon name (fallback to 'people-outline' if none exists)
-              const categoryIcon = item.categories?.icon || 'people-outline';
+            <View style={styles.sectionTitleRow}>
+              <Text style={styles.sectionTitle}>Split History</Text>
+              <Text style={styles.sectionCount}>{activeSplits?.length || 0} splits</Text>
+            </View>
 
-              return (
-                <View key={item.id} style={styles.historyCard}>
-                  {/* TOP ROW: Description, Date & Total Amount */}
-                  <View style={styles.historyTop}>
-                    <View style={styles.categoryIconContainer}>
-                      <Ionicons name={categoryIcon} size={22} color={colors.primary} />
-                    </View>
+            {(activeSplits?.length || 0) === 0 ? (
+              <View style={styles.emptyContainer}>
+                <Ionicons name="receipt-outline" size={48} color={colors.borderStrong} />
+                <Text style={styles.emptyText}>No splits recorded yet.</Text>
+              </View>
+            ) : (
+              (activeSplits || []).map((item: any) => {
+                const sfList = item.split_friends || [];
+                const totalAmount = item.total_amount || 0;
+                const personalShare = item.personal_share || 0;
+                const categoryIcon = item.categories?.icon || 'people-outline';
 
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.historyDesc}>{item.description}</Text>
-                      <Text style={styles.historyMeta}>
-                        {item.created_at 
-                          ? new Date(item.created_at).toLocaleDateString('en-US', { 
-                              month: 'long', 
-                              day: 'numeric', 
-                              year: 'numeric' 
-                            }) 
-                          : ''}
-                      </Text>
-                    </View>
+                return (
+                  <View key={item.id} style={styles.historyCard}>
+                    {/* TOP ROW: description, date, total, delete */}
+                    <View style={styles.historyTop}>
+                      <View style={styles.categoryIconContainer}>
+                        <Ionicons name={categoryIcon} size={22} color={colors.accent} />
+                      </View>
 
-                    <View style={{ alignItems: 'flex-end', justifyContent: 'center', marginRight: 10 }}>
-                      <Text style={{ fontSize: 11, color: '#64748B' }}>Total Amount</Text>
-                      <Text style={styles.settleCardTotalValue}>₱{totalAmount.toFixed(2)}</Text>
-                    </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.historyDesc}>{item.description}</Text>
+                        <Text style={styles.historyMeta}>
+                          {item.created_at
+                            ? new Date(item.created_at).toLocaleDateString('en-US', {
+                                month: 'long',
+                                day: 'numeric',
+                                year: 'numeric',
+                              })
+                            : ''}
+                        </Text>
+                      </View>
 
-                    <View style={styles.rightActionsContainer}>
-  <View style={styles.iconButtonsRow}>
-    <TouchableOpacity
-      style={styles.actionIconButton}
-      onPress={() => setSplitToDelete(item)} // <--- Triggers confirmation modal
-    >
-      <Ionicons name="trash-outline" size={18} color={'#ff5252'} />
-    </TouchableOpacity>
-  </View>
-</View>
-                  </View>
+                      <View style={{ alignItems: 'flex-end', justifyContent: 'center', marginRight: space[10] }}>
+                        <Text style={{ fontSize: theme.fontSize.tiny, color: colors.textMuted }}>Total Amount</Text>
+                        <Text style={styles.settleCardTotalValue}>₱{totalAmount.toFixed(2)}</Text>
+                      </View>
 
-                  <View style={{ height: 1, backgroundColor: '#f1f1f1', marginTop: 10, marginBottom: 7 }} />
-
-                  {/* DIRECTLY DISPLAYED DETAILS */}
-                  <View style={{ marginTop: 1 }}>
-                    {/* Owner Row (Me) */}
-                    <View style={styles.settleMemberRowCard}>
-                      <View style={styles.settleLeftCol}>
-                        <Image
-                          source={
-                            myProfile?.avatar_url
-                              ? { uri: myProfile.avatar_url }
-                              : require('../../assets/images/default.png')
-                          }
-                          style={styles.settleAvatarImage}
-                        />
-                        <View style={{ flexShrink: 1 }}>
-                          <Text style={styles.settleMemberName}>Me</Text>
-                          <Text style={styles.settleMemberSub}>My Share</Text>
+                      <View style={styles.rightActionsContainer}>
+                        <View style={styles.iconButtonsRow}>
+                          <TouchableOpacity style={styles.actionIconButton} onPress={() => confirmDeleteSplit(item)}>
+                            <Ionicons name="trash-outline" size={18} color={colors.dangerBright} />
+                          </TouchableOpacity>
                         </View>
                       </View>
-
-                      <View style={styles.settleCenterCol}>
-                        <Text style={styles.settleAmountText}>₱{personalShare.toFixed(2)}</Text>
-                      </View>
-
-                      <View style={styles.settleRightCol}>
-                        <View style={styles.settleOwnerBadge}>
-                          <Text style={styles.settleOwnerBadgeText}>Payer</Text>
-                        </View>
-                      </View>
-
-                      <View style={styles.settleSuperRightCol} />
                     </View>
 
-                    {/* Friends Rows */}
-                    {sfList.map((sf: any) => {
-                      const isPaid = sf.status === 'paid' && sf.owed_amount <= 0;
-                      const friendName = sf.friends?.full_name || 'Friend';
-                      const avatarUrl = sf.friends?.avatar_url;
+                    <View style={{ height: 1, backgroundColor: colors.borderLight, marginTop: space[10], marginBottom: 7 }} />
 
-                      return (
-                        <View key={sf.id} style={styles.settleMemberRowCard}>
-                          <View style={styles.settleLeftCol}>
-                            <Image
-                              source={
-                                avatarUrl
-                                  ? { uri: avatarUrl }
-                                  : require('../../assets/images/default.png')
-                              }
-                              style={styles.settleAvatarImage}
-                            />
-                            <View style={{ flexShrink: 1 }}>
-                              <Text style={styles.settleMemberName} numberOfLines={1}>{friendName}</Text>
-                              <Text style={styles.settleMemberSub}>
-                                {isPaid ? 'Settled' : 'Owes you'}
-                              </Text>
+                    {/* DETAILS */}
+                    <View style={{ marginTop: 1 }}>
+                      {/* Owner row (me) */}
+                      <View style={styles.settleMemberRowCard}>
+                        <View style={styles.settleLeftCol}>
+                          <Image
+                            source={myProfile?.avatar_url ? { uri: myProfile.avatar_url } : DEFAULT_AVATAR}
+                            style={styles.settleAvatarImage}
+                          />
+                          <View style={{ flexShrink: 1 }}>
+                            <Text style={styles.settleMemberName}>Me</Text>
+                            <Text style={styles.settleMemberSub}>My Share</Text>
+                          </View>
+                        </View>
+
+                        <View style={styles.settleCenterCol}>
+                          <Text style={styles.settleAmountText}>₱{personalShare.toFixed(2)}</Text>
+                        </View>
+
+                        <View style={styles.settleRightCol}>
+                          <View style={styles.settleOwnerBadge}>
+                            <Text style={styles.settleOwnerBadgeText}>Payer</Text>
+                          </View>
+                        </View>
+
+                        <View style={styles.settleSuperRightCol} />
+                      </View>
+
+                      {/* Friend rows */}
+                      {sfList.map((sf: any) => {
+                        const isPaid = sf.status === 'paid' && sf.owed_amount <= 0;
+                        const friendName = sf.friends?.full_name || 'Friend';
+                        const avatarUrl = sf.friends?.avatar_url;
+
+                        return (
+                          <View key={sf.id} style={styles.settleMemberRowCard}>
+                            <View style={styles.settleLeftCol}>
+                              <Image source={avatarUrl ? { uri: avatarUrl } : DEFAULT_AVATAR} style={styles.settleAvatarImage} />
+                              <View style={{ flexShrink: 1 }}>
+                                <Text style={styles.settleMemberName} numberOfLines={1}>
+                                  {friendName}
+                                </Text>
+                                <Text style={styles.settleMemberSub}>{isPaid ? 'Settled' : 'Owes you'}</Text>
+                              </View>
+                            </View>
+
+                            <View style={styles.settleCenterCol}>
+                              <Text style={styles.settleAmountText}>₱{(sf.owed_amount || 0).toFixed(2)}</Text>
+                            </View>
+
+                            <View style={styles.settleRightCol}>
+                              {isPaid ? (
+                                <View style={styles.settlePaidPill}>
+                                  <Ionicons name="checkmark-circle" size={14} color={colors.success} />
+                                  <Text style={styles.settlePaidPillText}>Paid</Text>
+                                </View>
+                              ) : (
+                                <TouchableOpacity style={styles.settlePayButton} onPress={() => handleInitiateSettleFriend(sf)}>
+                                  <Text style={styles.settlePayButtonText}>Settle</Text>
+                                </TouchableOpacity>
+                              )}
+                            </View>
+
+                            <View style={styles.settleSuperRightCol}>
+                              {!isPaid && sf.friends?.email ? (
+                                <TouchableOpacity
+                                  onPress={() =>
+                                    handleSendReminderEmail(
+                                      sf.friends?.email,
+                                      sf.friends?.full_name,
+                                      sf.owed_amount,
+                                      item?.total_amount,
+                                      item?.description,
+                                      myProfile?.full_name
+                                    )
+                                  }
+                                >
+                                  <Ionicons name="notifications-outline" size={20} color={colors.textMuted} />
+                                </TouchableOpacity>
+                              ) : null}
                             </View>
                           </View>
-
-                          <View style={styles.settleCenterCol}>
-                            <Text style={styles.settleAmountText}>₱{(sf.owed_amount || 0).toFixed(2)}</Text>
-                          </View>
-
-                          <View style={styles.settleRightCol}>
-                            {isPaid ? (
-                              <View style={styles.settlePaidPill}>
-                                <Ionicons name="checkmark-circle" size={14} color={colors.positive} />
-                                <Text style={styles.settlePaidPillText}>Paid</Text>
-                              </View>
-                            ) : (
-                              <TouchableOpacity
-                                style={styles.settlePayButton}
-                                onPress={() => handleInitiateSettleFriend(sf)}
-                              >
-                                <Text style={styles.settlePayButtonText}>Settle</Text>
-                              </TouchableOpacity>
-                            )}
-                          </View>
-
-                          <View style={styles.settleSuperRightCol}>
-                            {!isPaid && sf.friends?.email ? (
-                              <TouchableOpacity 
-                                onPress={() => handleSendReminderEmail(
-                                  sf.friends?.email,       
-                                  sf.friends?.full_name,   
-                                  sf.owed_amount,          
-                                  item?.total_amount,      
-                                  item?.description,       
-                                  myProfile?.full_name     
-                                )}
-                              >
-                                <Ionicons name="notifications-outline" size={20} color={colors.textMuted} />
-                              </TouchableOpacity>
-                            ) : null}
-                          </View>
-                        </View>
-                      );
-                    })}
+                        );
+                      })}
+                    </View>
                   </View>
-                </View>
-              );
-            })
-          )}
-        </ScrollView>
-      )}
+                );
+              })
+            )}
+          </ScrollView>
+        )}
+      </View>
 
       {/* CREATE SPLIT MODAL */}
-      <Modal visible={formVisible} animationType="fade" transparent>
+      <Modal visible={formVisible} animationType="fade" transparent onRequestClose={closeCreateForm}>
         <View style={styles.modalOverlay}>
           <View style={styles.formDrawerContainer}>
             <View style={styles.pullBar} />
             <View style={styles.modalHeader}>
               <Text style={styles.drawerTitle}>Create Split Expense</Text>
-              <TouchableOpacity 
-                style={styles.closeCircle} 
-                onPress={() => {
-                  setFormVisible(false);
-                  setDescription('');
-                  setAmount('');
-                  setSelectedFriends([]);
-                  setCustomShares({});
-                  setSplitFormMessage(null); // Clear message on close
-                }}
-              >
-                <Ionicons name="close" size={23} color={colors.headerDarker} />
+              <TouchableOpacity style={styles.closeCircle} onPress={closeCreateForm}>
+                <Ionicons name="close" size={23} color={colors.brandDark} />
               </TouchableOpacity>
             </View>
 
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 24 }}>
-              
-              {/* --- INLINE MESSAGE BANNER --- */}
-        {splitFormMessage && (
-          <View style={[
-            styles.inlineMessageContainer, 
-            splitFormMessage.type === 'error' ? styles.errorBanner : styles.successBanner,
-            { marginBottom: 16 }
-          ]}>
-            <Ionicons 
-              name={splitFormMessage.type === 'error' ? "alert-circle-outline" : "checkmark-circle-outline"} 
-              size={18} 
-              color={splitFormMessage.type === 'error' ? '#D32F2F' : '#2E7D32'} 
-              style={{ marginRight: 6 }}
-            />
-            <Text style={[
-              styles.inlineMessageText, 
-              splitFormMessage.type === 'error' ? styles.errorText : styles.successText
-            ]}>
-              {splitFormMessage.text}
-            </Text>
-          </View>
-        )}
-              
-              {/* 1. Total Amount First & Big */}
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: space[24] }}>
+              <Banner msg={splitFormMessage} style={{ marginBottom: space[16] }} />
+
+              {/* 1. Total amount */}
               <Text style={styles.label}>Total Amount (₱)</Text>
               <TextInput
                 style={styles.largeAmountInput}
                 placeholder="0.00"
-                placeholderTextColor={colors.textFaint}
+                placeholderTextColor={colors.textSubtle}
                 keyboardType="numeric"
                 value={amount}
                 onChangeText={setAmount}
               />
 
-              {/* 2. Description Second */}
+              {/* 2. Description */}
               <Text style={styles.label}>Description</Text>
               <TextInput
                 style={styles.input}
                 placeholder="e.g. Dinner with Friends"
-                placeholderTextColor={colors.textFaint}
+                placeholderTextColor={colors.textSubtle}
                 value={description}
                 onChangeText={setDescription}
               />
 
-              {/* 3. Category Selection (Horizontal ScrollView) */}
+              {/* 3. Category */}
               <Text style={styles.label}>Category</Text>
-              <ScrollView 
-                horizontal 
-                showsHorizontalScrollIndicator={false} 
-                contentContainerStyle={{ gap: 8, marginBottom: 16 }}
-              >
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: space[8], marginBottom: space[16] }}>
                 {(categories || []).map((cat) => {
                   const isSelected = selectedCategoryId === cat.id;
                   return (
                     <TouchableOpacity
                       key={cat.id}
                       style={[
-                        styles.checkChip, 
+                        styles.checkChip,
                         isSelected && styles.checkChipSelected,
-                        { paddingHorizontal: 16, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', gap: 6 }
+                        { paddingHorizontal: space[16], paddingVertical: space[8], flexDirection: 'row', alignItems: 'center', gap: space[6] },
                       ]}
                       onPress={() => setSelectedCategoryId(cat.id)}
                     >
-                      <Text style={[styles.checkChipText, isSelected && styles.checkChipTextSelected]}>
-                        {cat.name}
-                      </Text>
+                      <Text style={[styles.checkChipText, isSelected && styles.checkChipTextSelected]}>{cat.name}</Text>
                     </TouchableOpacity>
                   );
                 })}
@@ -1302,16 +1181,12 @@ const handleConfirmSettlePayment = async () => {
                 </TouchableOpacity>
               </View>
 
-              {/* 4. Horizontal Scrollable Friends Checklist */}
+              {/* 4. Friends checklist */}
               <Text style={styles.label}>Select Friends Included</Text>
               {(friends?.length || 0) === 0 ? (
                 <Text style={styles.emptyInlineText}>No friends added yet. Please add a friend first.</Text>
               ) : (
-                <ScrollView 
-                  horizontal 
-                  showsHorizontalScrollIndicator={false} 
-                  contentContainerStyle={styles.horizontalChecklist}
-                >
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontalChecklist}>
                   {(friends || []).map((f) => {
                     const isSelected = selectedFriends.includes(f.id);
                     return (
@@ -1323,11 +1198,9 @@ const handleConfirmSettlePayment = async () => {
                         <Ionicons
                           name={isSelected ? 'checkmark-circle' : 'ellipse-outline'}
                           size={16}
-                          color={isSelected ? colors.primary : colors.textMuted}
+                          color={isSelected ? colors.accent : colors.textMuted}
                         />
-                        <Text style={[styles.checkChipText, isSelected && styles.checkChipTextSelected]}>
-                          {f.full_name}
-                        </Text>
+                        <Text style={[styles.checkChipText, isSelected && styles.checkChipTextSelected]}>{f.full_name}</Text>
                       </TouchableOpacity>
                     );
                   })}
@@ -1345,7 +1218,7 @@ const handleConfirmSettlePayment = async () => {
                         <TextInput
                           style={styles.customInput}
                           placeholder="0.00"
-                          placeholderTextColor={colors.textFaint}
+                          placeholderTextColor={colors.textSubtle}
                           keyboardType="numeric"
                           value={customShares[fId] || ''}
                           onChangeText={(val) => handleCustomShareChange(fId, val)}
@@ -1358,431 +1231,235 @@ const handleConfirmSettlePayment = async () => {
 
               {amount !== '' && (selectedFriends?.length || 0) > 0 && (
                 <View style={styles.previewBanner}>
-                  <Ionicons name="information-circle-outline" size={20} color={colors.positive} />
+                  <Ionicons name="information-circle-outline" size={20} color={colors.success} />
                   <Text style={styles.previewText}>
-                    Your Personal Share: <Text style={{ fontWeight: '800' }}>₱{calculateOwnerShare()}</Text>
+                    Your Personal Share: <Text style={{ fontFamily: theme.fontFamily.extrabold }}>₱{calculateOwnerShare()}</Text>
                   </Text>
                 </View>
               )}
 
-              <TouchableOpacity 
-                style={[
-                  styles.submitBtn, 
-                  loading && { opacity: 0.7 }
-                ]} 
+              <TouchableOpacity
+                style={[styles.submitBtn, loading && { opacity: 0.7 }]}
                 onPress={handleCreateSplitDirectly}
                 disabled={loading}
               >
-                {loading ? (
-                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-                    <ActivityIndicator size="small" color="#FFFFFF" />
-                    <Text style={styles.submitBtnText}>Saving...</Text>
-                  </View>
-                ) : (
-                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-                    <Text style={styles.submitBtnText}>Confirm & Save Split</Text>
-                    <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
-                  </View>
-                )}
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: space[8] }}>
+                  {loading ? (
+                    <>
+                      <ActivityIndicator size="small" color={colors.white} />
+                      <Text style={styles.submitBtnText}>Saving...</Text>
+                    </>
+                  ) : (
+                    <>
+                      <Text style={styles.submitBtnText}>Confirm & Save Split</Text>
+                      <Ionicons name="arrow-forward" size={18} color={colors.white} />
+                    </>
+                  )}
+                </View>
               </TouchableOpacity>
             </ScrollView>
           </View>
         </View>
       </Modal>
 
-{/* --- MODERN SPLIT DELETE CONFIRMATION MODAL --- */}
-<Modal visible={!!splitToDelete} animationType="fade" transparent>
-  <View style={styles.modalOverlayCenter}>
-    <View style={[styles.alertModalContainer, { width: '85%', maxWidth: 360, alignItems: 'center', paddingVertical: 24 }]}>
-      
-      {/* Warning Icon Badge */}
-      <View style={{ 
-        width: 56, 
-        height: 56, 
-        borderRadius: 28, 
-        backgroundColor: '#FFEBEE', 
-        justifyContent: 'center', 
-        alignItems: 'center', 
-        marginBottom: 16 
-      }}>
-        <Ionicons name="warning-outline" size={28} color="#D32F2F" />
-      </View>
-
-      {/* Title & Description */}
-      <Text style={[styles.modalTitle, { textAlign: 'center', marginBottom: 8 }]}>
-        Delete Split Expense?
-      </Text>
-      <Text style={{ textAlign: 'center', color: colors.textMuted || '#666', fontSize: 14, marginBottom: 24, paddingHorizontal: 10 }}>
-        Are you sure you want to delete <Text style={{ fontWeight: '600', color: colors.textDark || '#333' }}>"{splitToDelete?.description}"</Text>? This action cannot be undone.
-      </Text>
-
-      {/* Action Buttons */}
-      <View style={{ flexDirection: 'row', gap: 12, width: '100%' }}>
-        <TouchableOpacity 
-          style={{ 
-            flex: 1, 
-            paddingVertical: 12, 
-            borderRadius: 8, 
-            backgroundColor: '#F5F5F5', 
-            alignItems: 'center' 
-          }}
-          onPress={() => setSplitToDelete(null)}
-        >
-          <Text style={{ fontWeight: '600', color: '#333' }}>Cancel</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity 
-          style={{ 
-            flex: 1, 
-            paddingVertical: 12, 
-            borderRadius: 8, 
-            backgroundColor: '#D32F2F', 
-            alignItems: 'center' 
-          }}
-          onPress={async () => {
-            const idToDelete = splitToDelete.id;
-            setSplitToDelete(null); // Close modal
-            await handleDeleteSplit(idToDelete); // Call your existing delete handler
-          }}
-        >
-          <Text style={{ fontWeight: '600', color: '#FFF' }}>Delete</Text>
-        </TouchableOpacity>
-      </View>
-
-    </View>
-  </View>
-</Modal>
-
       {/* ADD / EDIT FRIEND MODAL */}
-<Modal visible={addFriendModalVisible} animationType="fade" transparent>
-  <View style={styles.modalOverlayCenter}>
-    <View style={styles.alertModalContainer}>
-      <View style={styles.modalHeader}>
-        <Text style={styles.modalTitle}>
-          {editingFriend ? "Edit Friend" : "Add New Friend"}
-        </Text>
-        <TouchableOpacity 
-          style={styles.closeCircle} 
-          onPress={() => {
-            setAddFriendModalVisible(false);
-            setEditingFriend(null);
-            setNewFriendName('');
-            setNewFriendEmail('');
-            setFriendImageUri(null);
-            setFormMessage(null); // Clear message on close
-          }}
-        >
-          <Ionicons name="close" size={18} color={colors.textMuted} />
-        </TouchableOpacity>
-      </View>
-
-      {/* --- INLINE MESSAGE BANNER --- */}
-      {formMessage && (
-        <View style={[
-          styles.inlineMessageContainer, 
-          formMessage.type === 'error' ? styles.errorBanner : styles.successBanner
-        ]}>
-          <Ionicons 
-            name={formMessage.type === 'error' ? "alert-circle-outline" : "checkmark-circle-outline"} 
-            size={18} 
-            color={formMessage.type === 'error' ? '#D32F2F' : '#2E7D32'} 
-            style={{ marginRight: 6 }}
-          />
-          <Text style={[
-            styles.inlineMessageText, 
-            formMessage.type === 'error' ? styles.errorText : styles.successText
-          ]}>
-            {formMessage.text}
-          </Text>
-        </View>
-      )}
-
-      <TextInput
-        style={[styles.input, { marginTop: 12 }]}
-        placeholder="Friend's Full Name"
-        placeholderTextColor={colors.textFaint}
-        value={newFriendName}
-        onChangeText={setNewFriendName}
-      />
-
-      <TextInput
-        style={[styles.input, { marginTop: 12 }]}
-        placeholder="Friend's Email"
-        placeholderTextColor={colors.textFaint}
-        value={newFriendEmail}
-        onChangeText={setNewFriendEmail}
-      />
-
-      <View style={{ alignItems: 'center', marginVertical: 10 }}>
-        <Image
-          source={
-            friendImageUri
-              ? { uri: friendImageUri }
-              : require('../../assets/images/default.png')
-          }
-          style={{ width: 80, height: 80, borderRadius: 40, marginBottom: 10 }}
-        />
-        <View style={{ flexDirection: 'row', gap: 10 }}>
-          <TouchableOpacity onPress={() => pickImage(false)} style={{ padding: 6, backgroundColor: '#eee', borderRadius: 5 }}>
-            <Text>Pick from Gallery</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => pickImage(true)} style={{ padding: 6, backgroundColor: '#eee', borderRadius: 5 }}>
-            <Text>Take Photo</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-      
-      <TouchableOpacity 
-        style={[styles.submitBtn, loading && { opacity: 0.7 }]} 
-        onPress={handleSaveFriend}
-        disabled={loading}
-      >
-        <Text style={styles.submitBtnText}>
-          {loading ? "Saving..." : (editingFriend ? "Update Friend" : "Save Friend")}
-        </Text>
-      </TouchableOpacity>
-    </View>
-  </View>
-</Modal>
-
-{/* MANAGE FRIEND ACTION MODAL */}
-<Modal visible={manageModalVisible} animationType="fade" transparent>
-  <View style={styles.modalOverlayCenter}>
-    <View style={styles.alertModalContainer}>
-      <View style={styles.modalHeader}>
-        <Text style={styles.modalTitle}>Manage Friend</Text>
-        <TouchableOpacity 
-          style={styles.closeCircle} 
-          onPress={() => {
-            setManageModalVisible(false);
-            setSelectedFriend(null);
-          }}
-        >
-          <Ionicons name="close" size={18} color={colors.textMuted} />
-        </TouchableOpacity>
-      </View>
-
-      {selectedFriend && (
-        <View style={styles.manageContentContainer}>
-          {/* Friend Profile Snippet */}
-          <View style={styles.manageProfileRow}>
-            <Image
-              source={
-                selectedFriend.avatar_url
-                  ? { uri: selectedFriend.avatar_url }
-                  : require('../../assets/images/default.png')
-              }
-              style={{ width: 50, height: 50, borderRadius: 25, marginRight: 12 }}
-            />
-            <View style={{ flex: 1 }}>
-              <Text style={styles.manageFriendName}>{selectedFriend.full_name}</Text>
-              <Text style={styles.manageFriendEmail} numberOfLines={1}>
-                {selectedFriend.email || 'No email provided'}
-              </Text>
+      <Modal visible={addFriendModalVisible} animationType="fade" transparent onRequestClose={closeFriendModal}>
+        <View style={styles.modalOverlayCenter}>
+          <View style={styles.alertModalContainer}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>{editingFriend ? 'Edit Friend' : 'Add New Friend'}</Text>
+              <TouchableOpacity style={styles.closeCircle} onPress={closeFriendModal}>
+                <Ionicons name="close" size={18} color={colors.textMuted} />
+              </TouchableOpacity>
             </View>
+
+            <Banner msg={formMessage} />
+
+            <TextInput
+              style={[styles.input, { marginTop: space[12] }]}
+              placeholder="Friend's Full Name"
+              placeholderTextColor={colors.textSubtle}
+              value={newFriendName}
+              onChangeText={setNewFriendName}
+            />
+
+            <TextInput
+              style={[styles.input, { marginTop: space[12] }]}
+              placeholder="Friend's Email"
+              placeholderTextColor={colors.textSubtle}
+              value={newFriendEmail}
+              onChangeText={setNewFriendEmail}
+              autoCapitalize="none"
+              keyboardType="email-address"
+            />
+
+            <View style={{ alignItems: 'center', marginVertical: space[10] }}>
+              <Image
+                source={friendImageUri ? { uri: friendImageUri } : DEFAULT_AVATAR}
+                style={{ width: 80, height: 80, borderRadius: 40, marginBottom: space[10] }}
+              />
+              <View style={{ flexDirection: 'row', gap: space[10] }}>
+                <TouchableOpacity
+                  onPress={() => pickImage(false)}
+                  style={{ paddingVertical: space[8], paddingHorizontal: space[12], backgroundColor: colors.surfaceAlt, borderRadius: theme.radius.sm }}
+                >
+                  <Text style={{ fontFamily: theme.fontFamily.semibold, color: colors.textSecondary }}>Pick from Gallery</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => pickImage(true)}
+                  style={{ paddingVertical: space[8], paddingHorizontal: space[12], backgroundColor: colors.surfaceAlt, borderRadius: theme.radius.sm }}
+                >
+                  <Text style={{ fontFamily: theme.fontFamily.semibold, color: colors.textSecondary }}>Take Photo</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <TouchableOpacity style={[styles.submitBtn, loading && { opacity: 0.7 }]} onPress={handleSaveFriend} disabled={loading}>
+              <Text style={styles.submitBtnText}>{loading ? 'Saving...' : editingFriend ? 'Update Friend' : 'Save Friend'}</Text>
+            </TouchableOpacity>
           </View>
-
-          {/* Action Buttons */}
-          <TouchableOpacity 
-            style={styles.actionOptionBtn} 
-            onPress={() => {
-              const friendToEdit = selectedFriend;
-              setManageModalVisible(false);
-              setSelectedFriend(null);
-              openEditModal(friendToEdit);
-            }}
-          >
-            <Ionicons name="pencil-outline" size={20} color={colors.textDark || '#333'} style={{ marginRight: 10 }} />
-            <Text style={styles.actionOptionText}>Edit Friend Details</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity 
-            style={[styles.actionOptionBtn, styles.deleteOptionBtn]} 
-            onPress={() => {
-              const friendId = selectedFriend.id;
-              setManageModalVisible(false);
-              setSelectedFriend(null);
-              confirmDeleteFriend(friendId); // <--- Triggers modern confirmation modal instead
-            }}
-          >
-            <Ionicons name="trash-outline" size={20} color="#D32F2F" style={{ marginRight: 10 }} />
-            <Text style={[styles.actionOptionText, styles.deleteOptionText]}>Delete Friend</Text>
-          </TouchableOpacity>
         </View>
-      )}
-    </View>
-  </View>
-</Modal>
+      </Modal>
 
-{/* --- MODERN DELETE CONFIRMATION MODAL --- */}
-<Modal visible={!!friendToDelete} animationType="fade" transparent>
-  <View style={styles.modalOverlayCenter}>
-    <View style={[styles.alertModalContainer, { width: '85%', maxWidth: 360, alignItems: 'center', paddingVertical: 24 }]}>
-      
-      {/* Warning Icon Badge */}
-      <View style={{ 
-        width: 56, 
-        height: 56, 
-        borderRadius: 28, 
-        backgroundColor: '#FFEBEE', 
-        justifyContent: 'center', 
-        alignItems: 'center', 
-        marginBottom: 16 
-      }}>
-        <Ionicons name="warning-outline" size={28} color="#D32F2F" />
-      </View>
-
-      {/* Title & Description */}
-      <Text style={[styles.modalTitle, { textAlign: 'center', marginBottom: 8 }]}>
-        Delete Friend?
-      </Text>
-      <Text style={{ textAlign: 'center', color: colors.textMuted || '#666', fontSize: 14, marginBottom: 24, paddingHorizontal: 10 }}>
-        Are you sure you want to delete <Text style={{ fontWeight: '600', color: colors.textDark || '#333' }}>{friendToDelete?.full_name}</Text>? This action cannot be undone.
-      </Text>
-
-      {/* Action Buttons */}
-      <View style={{ flexDirection: 'row', gap: 12, width: '100%' }}>
-        <TouchableOpacity 
-          style={{ 
-            flex: 1, 
-            paddingVertical: 12, 
-            borderRadius: 8, 
-            backgroundColor: '#F5F5F5', 
-            alignItems: 'center' 
-          }}
-          onPress={() => setFriendToDelete(null)}
-        >
-          <Text style={{ fontWeight: '600', color: '#333' }}>Cancel</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity 
-  style={{ 
-    flex: 1, 
-    paddingVertical: 12, 
-    borderRadius: 8, 
-    backgroundColor: '#D32F2F', 
-    alignItems: 'center' 
-  }}
-  onPress={async () => {
-    const idToDelete = friendToDelete.id;
-    const friendName = friendToDelete.full_name;
-    setFriendToDelete(null); // Close confirmation modal
-    
-    try {
-      const { error } = await supabase
-        .from('friends')
-        .delete()
-        .eq('id', idToDelete);
-
-      if (error) throw error;
-
-      // Fetch current user and log the deletion action matching your logs table schema
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        await supabase.from('logs').insert({
-          user_id: user.id,
-          details: `deleted friend "${friendName || idToDelete}".`,
-        });
-      }
-
-      // Update state
-      setFriends((prev) => prev.filter((f) => f.id !== idToDelete));
-      
-      // Show inline success message
-      setDeleteMessage({ text: 'Friend deleted successfully.', type: 'success' });
-      
-      // Auto-clear message after 3 seconds
-      setTimeout(() => {
-        setDeleteMessage(null);
-      }, 3000);
-
-    } catch (err: any) {
-      setDeleteMessage({ 
-        text: err.message || 'Failed to delete friend.', 
-        type: 'error' 
-      });
-    }
-  }}
->
-  <Text style={{ fontWeight: '600', color: '#FFF' }}>Delete</Text>
-</TouchableOpacity>
-      </View>
-
-    </View>
-  </View>
-</Modal>
-
-{/* PAYMENT ENTRY INPUT MODAL FOR MARK PAID */}
-<Modal visible={settleAmountModalVisible} animationType="fade" transparent>
-  <View style={styles.modalOverlayCenter}>
-    <View style={styles.paymentModalContainer}>
-      <View style={styles.paymentModalHeader}>
-        <View style={styles.paymentModalTitleRow}>
-          <View style={styles.paymentIconContainer}>
-            <Ionicons name="cash-outline" size={20} color={colors.primary} />
-          </View>
-          <Text style={styles.paymentModalMainTitle}>Record Payment</Text>
-        </View>
-        <TouchableOpacity
-          style={styles.closeCircle}
-          onPress={() => {
-            setSettleAmountModalVisible(false);
-            setSettleModalMessage(null);
-          }}
-        >
-          <Ionicons name="close" size={18} color={colors.textMuted} />
-        </TouchableOpacity>
-      </View>
-
-      {/* --- INLINE ERROR MESSAGE INSIDE MODAL --- */}
-      {settleModalMessage && (
-        <View style={[styles.inlineMessageContainer, styles.errorBanner, { marginBottom: 12 }]}>
-          <Ionicons name="alert-circle-outline" size={16} color="#D32F2F" style={{ marginRight: 6 }} />
-          <Text style={[styles.inlineMessageText, styles.errorText]}>{settleModalMessage.text}</Text>
-        </View>
-      )}
-
-      <View style={styles.paymentInfoCard}>
-        <Text style={styles.paymentCardLabel}>From Friend</Text>
-        <Text style={styles.paymentFriendName}>
-          {selectedFriendToSettle?.friends?.full_name || 'Friend'}
-        </Text>
-        
-        <View style={styles.paymentCardDivider} />
-        
-        <View style={styles.paymentBalanceRow}>
-          <Text style={styles.paymentCardLabel}>Current Balance Owed:</Text>
-          <Text style={styles.paymentOwedAmount}>
-            ₱{(selectedFriendToSettle?.owed_amount || 0).toFixed(2)}
-          </Text>
-        </View>
-      </View>
-
-      <Text style={[styles.label, { marginBottom: 6 }]}>Amount Received (₱)</Text>
-      <TextInput
-        style={styles.paymentInput}
-        placeholder="0.00"
-        placeholderTextColor={colors.textFaint}
-        keyboardType="numeric"
-        value={paymentInputAmount}
-        onChangeText={(text) => {
-          setPaymentInputAmount(text);
-          if (settleModalMessage) setSettleModalMessage(null); // Clear error on typing
+      {/* MANAGE FRIEND ACTION MODAL */}
+      <Modal
+        visible={manageModalVisible}
+        animationType="fade"
+        transparent
+        onRequestClose={() => {
+          setManageModalVisible(false);
+          setSelectedFriend(null);
         }}
-        autoFocus={true}
-      />
-
-      <TouchableOpacity
-        style={styles.paymentSubmitBtn}
-        onPress={handleConfirmSettlePayment}
       >
-        <Ionicons name="checkmark-circle-outline" size={18} color="#FFFFFF" />
-        <Text style={styles.paymentSubmitBtnText}>Confirm Settlement</Text>
-      </TouchableOpacity>
+        <View style={styles.modalOverlayCenter}>
+          <View style={styles.alertModalContainer}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Manage Friend</Text>
+              <TouchableOpacity
+                style={styles.closeCircle}
+                onPress={() => {
+                  setManageModalVisible(false);
+                  setSelectedFriend(null);
+                }}
+              >
+                <Ionicons name="close" size={18} color={colors.textMuted} />
+              </TouchableOpacity>
+            </View>
 
-    </View>
-  </View>
-</Modal>
+            {selectedFriend && (
+              <View style={styles.manageContentContainer}>
+                <View style={styles.manageProfileRow}>
+                  <Image
+                    source={selectedFriend.avatar_url ? { uri: selectedFriend.avatar_url } : DEFAULT_AVATAR}
+                    style={{ width: 50, height: 50, borderRadius: 25, marginRight: space[12] }}
+                  />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.manageFriendName}>{selectedFriend.full_name}</Text>
+                    <Text style={styles.manageFriendEmail} numberOfLines={1}>
+                      {selectedFriend.email || 'No email provided'}
+                    </Text>
+                  </View>
+                </View>
+
+                <TouchableOpacity
+                  style={styles.actionOptionBtn}
+                  onPress={() => {
+                    const friendToEdit = selectedFriend;
+                    setManageModalVisible(false);
+                    setSelectedFriend(null);
+                    openEditModal(friendToEdit);
+                  }}
+                >
+                  <Ionicons name="pencil-outline" size={20} color={colors.textStrong} style={{ marginRight: space[10] }} />
+                  <Text style={styles.actionOptionText}>Edit Friend Details</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.actionOptionBtn, styles.deleteOptionBtn]}
+                  onPress={() => {
+                    const friendId = selectedFriend.id;
+                    setManageModalVisible(false);
+                    setSelectedFriend(null);
+                    confirmDeleteFriend(friendId);
+                  }}
+                >
+                  <Ionicons name="trash-outline" size={20} color={colors.dangerDark} style={{ marginRight: space[10] }} />
+                  <Text style={[styles.actionOptionText, styles.deleteOptionText]}>Delete Friend</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+        </View>
+      </Modal>
+
+      {/* RECORD PAYMENT MODAL */}
+      <Modal
+        visible={settleAmountModalVisible}
+        animationType="fade"
+        transparent
+        onRequestClose={() => {
+          setSettleAmountModalVisible(false);
+          setSettleModalMessage(null);
+        }}
+      >
+        <View style={styles.modalOverlayCenter}>
+          <View style={styles.paymentModalContainer}>
+            <View style={styles.paymentModalHeader}>
+              <View style={styles.paymentModalTitleRow}>
+                <View style={styles.paymentIconContainer}>
+                  <Ionicons name="cash-outline" size={20} color={colors.accent} />
+                </View>
+                <Text style={styles.paymentModalMainTitle}>Record Payment</Text>
+              </View>
+              <TouchableOpacity
+                style={styles.closeCircle}
+                onPress={() => {
+                  setSettleAmountModalVisible(false);
+                  setSettleModalMessage(null);
+                }}
+              >
+                <Ionicons name="close" size={18} color={colors.textMuted} />
+              </TouchableOpacity>
+            </View>
+
+            <Banner msg={settleModalMessage} style={{ marginBottom: space[12] }} />
+
+            <View style={styles.paymentInfoCard}>
+              <Text style={styles.paymentCardLabel}>From Friend</Text>
+              <Text style={styles.paymentFriendName}>{selectedFriendToSettle?.friends?.full_name || 'Friend'}</Text>
+
+              <View style={styles.paymentCardDivider} />
+
+              <View style={styles.paymentBalanceRow}>
+                <Text style={styles.paymentCardLabel}>Current Balance Owed:</Text>
+                <Text style={styles.paymentOwedAmount}>₱{(selectedFriendToSettle?.owed_amount || 0).toFixed(2)}</Text>
+              </View>
+            </View>
+
+            <Text style={[styles.label, { marginBottom: space[6] }]}>Amount Received (₱)</Text>
+            <TextInput
+              style={styles.paymentInput}
+              placeholder="0.00"
+              placeholderTextColor={colors.textSubtle}
+              keyboardType="numeric"
+              value={paymentInputAmount}
+              onChangeText={(text) => {
+                setPaymentInputAmount(text);
+                if (settleModalMessage) setSettleModalMessage(null);
+              }}
+              autoFocus
+            />
+
+            <TouchableOpacity style={styles.paymentSubmitBtn} onPress={handleConfirmSettlePayment}>
+              <Ionicons name="checkmark-circle-outline" size={18} color={colors.white} />
+              <Text style={styles.paymentSubmitBtnText}>Confirm Settlement</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* shared dialog: delete confirmations + permission errors */}
+      <PaytonAlertDialog {...alertCfg} onDismiss={closeAlert} />
     </View>
   );
 }

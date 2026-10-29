@@ -10,10 +10,11 @@ import {
   useState,
 } from 'react';
 import {
+  ActivityIndicator,
   Modal,
   Pressable,
   Text,
-  View
+  View,
 } from 'react-native';
 import Animated, {
   useAnimatedStyle,
@@ -39,6 +40,8 @@ export type AlertConfig = {
   message?: string;
   type?: AlertType;
   buttons?: AlertButton[];
+  /** true while an action is running: locks the dialog and shows a spinner on the filled button */
+  busy?: boolean;
 };
 
 const TYPE_THEME: Record<
@@ -58,6 +61,7 @@ export function PaytonAlertDialog({
   message,
   type = 'info',
   buttons,
+  busy = false,
   onDismiss,
 }: AlertConfig & { onDismiss?: () => void }) {
   const tone = TYPE_THEME[type];
@@ -71,10 +75,10 @@ export function PaytonAlertDialog({
       opacity.value = withTiming(1, { duration: 160 });
       scale.value = withSpring(1, { damping: 18, stiffness: 180 });
     } else {
-      opacity.value = 0;
+      opacity.value = withTiming(0, { duration: 120 });
       scale.value = 0.9;
     }
-  }, [visible]);
+  }, [visible, opacity, scale]);
 
   const cardStyle = useAnimatedStyle(() => ({
     opacity: opacity.value,
@@ -84,7 +88,7 @@ export function PaytonAlertDialog({
   const stacked = actions.length > 2;
 
   return (
-    <Modal transparent visible={visible} animationType="fade" statusBarTranslucent onRequestClose={onDismiss}>
+    <Modal transparent visible={visible} animationType="fade" statusBarTranslucent onRequestClose={busy ? () => {} : onDismiss}>
       <View style={styles.overlay}>
         <Animated.View style={[styles.card, cardStyle]}>
           {/* accent strip in the type colour */}
@@ -105,8 +109,6 @@ export function PaytonAlertDialog({
               const isDestructive = btn.style === 'destructive';
               const filledColor = isDestructive
                 ? theme.colors.danger
-                : type === 'error' || type === 'warning'
-                ? theme.colors.brand
                 : type === 'success'
                 ? theme.colors.success
                 : theme.colors.brand;
@@ -115,19 +117,25 @@ export function PaytonAlertDialog({
                 <Pressable
                   key={`${btn.text}-${i}`}
                   onPress={btn.onPress ?? onDismiss}
-                  android_ripple={{ color: 'rgba(255,255,255,0.15)' }}
+                  disabled={busy}
+                  android_ripple={{ color: theme.colors.alpha.white[15] }}
                   style={({ pressed }) => [
                     styles.button,
                     !stacked && { flex: 1 },
                     isCancel
                       ? styles.buttonGhost
                       : { backgroundColor: filledColor },
+                    busy && isCancel && { opacity: 0.5 },
                     pressed && { opacity: 0.85, transform: [{ scale: 0.98 }] },
                   ]}
                 >
-                  <Text style={[styles.buttonText, isCancel ? styles.buttonGhostText : { color: theme.colors.white }]}>
-                    {btn.text}
-                  </Text>
+                  {busy && !isCancel ? (
+                    <ActivityIndicator size="small" color={theme.colors.white} />
+                  ) : (
+                    <Text style={[styles.buttonText, isCancel ? styles.buttonGhostText : { color: theme.colors.white }]}>
+                      {btn.text}
+                    </Text>
+                  )}
                 </Pressable>
               );
             })}
@@ -178,5 +186,3 @@ export function useAlert() {
   if (!ctx) throw new Error('useAlert must be used inside <PaytonAlertProvider>');
   return ctx;
 }
-
-/* ---------- Styles ---------- */
