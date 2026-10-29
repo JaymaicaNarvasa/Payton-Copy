@@ -760,7 +760,6 @@ function TransactionsScreenContent() {
   );
 }
 
-
 export default function TransactionsScreenWrapper() {
   return (
     <SafeAreaProvider>

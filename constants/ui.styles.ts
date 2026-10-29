@@ -133,7 +133,7 @@ export const tabLayoutStyles = StyleSheet.create({
 
 
 // ======================================================================
-// HOME
+// HOME (shared by the Spender AND Personal dashboards)
 export const homeStyles = StyleSheet.create({
   mainContainer: { flex: 1, backgroundColor: theme.colors.background },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
@@ -590,53 +590,164 @@ inlineSuccessText: {
   trendCard: { backgroundColor: theme.colors.white, borderRadius: 28, paddingVertical: theme.space[20], paddingHorizontal: theme.space[20], borderWidth: 1, borderColor: theme.colors.border },
   donutLabelWrap: { position: 'absolute', width: 60, height: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: theme.space[4] },
   donutLabelText: { fontSize: theme.fontSize.tiny, fontFamily: theme.fontFamily.bold, color: theme.colors.textStrong },
+
+  // ---- Personal dashboard additions (shared definitions; Spender may adopt them too) ----
+  loadingBackground: { backgroundColor: theme.colors.background },
+  // header: amount + income action button on one row (Personal)
+  balanceAmountLeft: { flexDirection: 'row', alignItems: 'baseline', gap: theme.space[8] },
+  balanceAmountRowSplit: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: theme.space[14] },
+  // date strip under the due cards + its dashed "More" calendar trigger (Personal)
+  dateStripSection: { marginTop: theme.space[12] },
+  seeMoreDateBox: { justifyContent: 'center', alignItems: 'center', backgroundColor: theme.colors.white, borderStyle: 'dashed', borderWidth: 1.5, borderColor: theme.colors.brand },
+  seeMoreIcon: { marginBottom: theme.space[4] },
+  seeMoreLabel: { fontSize: theme.fontSize.small, fontFamily: theme.fontFamily.semibold, color: theme.colors.brand },
+  // due-dates calendar modal (Personal)
+  calendarCard: { backgroundColor: theme.colors.white, borderRadius: theme.radius.xl, borderWidth: 1, borderColor: theme.colors.border, paddingVertical: theme.space[8], overflow: 'hidden' },
+  calendarLegendRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: theme.space[8], marginTop: theme.space[14] },
+  calendarLegendDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: theme.colors.olive },
+  calendarLegendText: { fontSize: theme.fontSize.small, fontFamily: theme.fontFamily.semibold, color: theme.colors.textMuted },
+  // scheduled-dues modal: paid / settle states and days-left badge colours
+  reminderCardPaid: { opacity: 0.75 },
+  reminderTitlePaid: { textDecorationLine: 'line-through', color: theme.colors.textMuted },
+  reminderActionsRow: { flexDirection: 'row', alignItems: 'center', gap: theme.space[8] },
+  paidBadge: { paddingHorizontal: theme.space[12], paddingVertical: theme.space[6], backgroundColor: theme.colors.alpha.olive[15], borderRadius: theme.radius.sm, marginRight: theme.space[4] },
+  paidBadgeText: { color: theme.colors.olive, fontFamily: theme.fontFamily.semibold, fontSize: theme.fontSize.caption },
+  settleButtonHome: { backgroundColor: theme.colors.alpha.brand[10] },
+  dueBadgeUrgent: { backgroundColor: theme.colors.dangerBg },
+  dueBadgeNormal: { backgroundColor: theme.colors.alpha.brand[10] },
+  dueBadgeTextUrgent: { color: theme.colors.danger },
+  dueBadgeTextNormal: { color: theme.colors.brand },
+  // add-reminder form: selected category chip
+  categoryChipSelected: { backgroundColor: theme.colors.brand, borderColor: theme.colors.brand },
+  categoryChipTextSelected: { color: theme.colors.white },
 });
+
+/** react-native-calendars theme for the due-dates calendar (static, token-only). */
+export const homeCalendarTheme = {
+  backgroundColor: theme.colors.white,
+  calendarBackground: theme.colors.white,
+  textSectionTitleColor: theme.colors.textMuted,
+  selectedDayBackgroundColor: theme.colors.brand,
+  selectedDayTextColor: theme.colors.white,
+  todayTextColor: theme.colors.aqua,
+  dayTextColor: theme.colors.oliveDeep,
+  textDisabledColor: theme.colors.borderStrong,
+  dotColor: theme.colors.olive,
+  selectedDotColor: theme.colors.lime,
+  arrowColor: theme.colors.brand,
+  monthTextColor: theme.colors.oliveDeep,
+  textDayFontFamily: theme.fontFamily.semibold,
+  textMonthFontFamily: theme.fontFamily.bold,
+  textDayHeaderFontFamily: theme.fontFamily.bold,
+  textDayFontSize: theme.fontSize.bodyLg,
+  textMonthFontSize: theme.fontSize.title,
+  textDayHeaderFontSize: theme.fontSize.small,
+};
 
 
 // ======================================================================
 // TRANSACTIONS
 export const transactionStyles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: theme.colors.white },
+  container: { flex: 1, backgroundColor: theme.colors.background },
   centeredContent: { justifyContent: 'center', alignItems: 'center' },
-  topBackgroundHeader: { backgroundColor: theme.colors.gradientEnd, paddingBottom: theme.space[40] },
+
+  // ---- header (gradient is drawn by <GradientBackground /> inside headerGradientFill) ----
+  topBackgroundHeader: { backgroundColor: theme.colors.gradientEnd, paddingBottom: theme.space[40], overflow: 'hidden' },
+  headerGradientFill: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: theme.space[20] },
+  // NEW: shared round header button (back / add), same look as homeStyles.headerIconButton
+  headerActionButton: { width: 36, height: 36, borderRadius: theme.radius.md, backgroundColor: theme.colors.alpha.white[20], borderWidth: 1, borderColor: theme.colors.alpha.white[30], alignItems: 'center', justifyContent: 'center' },
   backButton: { width: 40, height: 40, borderRadius: theme.radius.xl, backgroundColor: theme.colors.alpha.white[15], justifyContent: 'center', alignItems: 'center' },
+  quickFormTrigger: { width: 38, height: 38, borderRadius: theme.radius.soft, backgroundColor: theme.colors.alpha.white[12], justifyContent: 'center', alignItems: 'center' },
   headerContent: { flex: 1, alignItems: 'center', paddingHorizontal: theme.space[12] },
   headerTitle: { fontSize: theme.fontSize.headingLg, fontFamily: theme.fontFamily.bold, color: theme.colors.white, letterSpacing: -0.3 },
-  scrollContent: { flex: 1, marginTop: -theme.layout.sheetOverlap, borderTopLeftRadius: theme.layout.sheetRadius, borderTopRightRadius: theme.layout.sheetRadius, overflow: 'hidden', backgroundColor: theme.colors.white },
+
+  // ---- content sheet ----
+  scrollContent: { flex: 1, marginTop: -theme.layout.sheetOverlap, borderTopLeftRadius: theme.layout.sheetRadius, borderTopRightRadius: theme.layout.sheetRadius, overflow: 'hidden', backgroundColor: theme.colors.background },
+  // NEW: scroll content padding (bottom clears the floating tab bar)
+  listContent: { paddingTop: theme.space[20], paddingBottom: theme.layout.tabBarClearance },
+  // NEW: wallets + search wrapper
+  topSection: { paddingHorizontal: theme.space[20], marginBottom: theme.space[12] },
+  // NEW: section heading, same as homeStyles.sectionTitle
+  sectionBlock: { marginBottom: theme.space[16] },
+  sectionTitle: { fontSize: 17, fontFamily: theme.fontFamily.extrabold, color: theme.colors.brandInk, letterSpacing: -0.3, marginBottom: theme.space[12] },
+
+  // ---- budget wallets (NEW) ----
+  walletStrip: { gap: theme.space[12], paddingVertical: theme.space[4], paddingRight: theme.space[4] },
+  walletCard: { width: 176, backgroundColor: theme.colors.white, borderRadius: theme.radius.lg, padding: theme.space[12], borderWidth: 1, borderColor: theme.colors.border, justifyContent: 'space-between', shadowColor: theme.colors.black, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 2 },
+  walletHeaderRow: { flexDirection: 'row', alignItems: 'center', marginBottom: theme.space[10] },
+  walletIconCircle: { width: 28, height: 28, borderRadius: theme.radius.sm, justifyContent: 'center', alignItems: 'center', marginRight: theme.space[8] },
+  walletName: { flex: 1, fontSize: theme.fontSize.caption, fontFamily: theme.fontFamily.bold, color: theme.colors.text },
+  walletRemainingLabel: { fontSize: theme.fontSize.micro, fontFamily: theme.fontFamily.regular, color: theme.colors.textMuted },
+  walletRemainingAmount: { fontSize: theme.fontSize.bodyLg, fontFamily: theme.fontFamily.extrabold, marginTop: theme.space[1] },
+  walletAmountPositive: { color: theme.colors.success },
+  walletAmountNegative: { color: theme.colors.danger },
+
+  // ---- search ----
   searchContainer: { paddingVertical: theme.space[4], marginTop: theme.space[4] },
-  searchWrapper: { flexDirection: 'row', alignItems: 'center', backgroundColor: theme.colors.white, borderWidth: 1, borderColor: theme.colors.border, borderRadius: theme.radius.md, paddingHorizontal: theme.space[12], height: 42 },
+  searchWrapper: { flexDirection: 'row', alignItems: 'center', backgroundColor: theme.colors.white, borderWidth: 1, borderColor: theme.colors.border, borderRadius: theme.radius.lg, paddingHorizontal: theme.space[14], height: 44 },
+  searchIcon: { marginRight: theme.space[8] },
   searchInput: { flex: 1, fontFamily: theme.fontFamily.regular, fontSize: theme.fontSize.caption, color: theme.colors.textStrong, paddingVertical: 0 },
-  
-  // Modern Screen-Level Inline Success Banner Styles
+
+  // ---- screen-level success banner ----
   screenInlineSuccessContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: theme.colors.greenBg, borderWidth: 1, borderColor: theme.colors.greenBorder, paddingHorizontal: theme.space[14], paddingVertical: theme.space[10], borderRadius: theme.radius.md, marginBottom: theme.space[12] },
   screenInlineSuccessText: { flex: 1, color: theme.colors.green, fontSize: theme.fontSize.caption, fontFamily: theme.fontFamily.semibold },
+  // NEW: spacing between a banner icon and its text
+  bannerIcon: { marginRight: theme.space[8] },
 
+  // ---- transaction rows (NEW) ----
+  txList: { paddingHorizontal: theme.space[20], gap: theme.space[10] },
+  txRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: theme.space[12], paddingHorizontal: theme.space[14], backgroundColor: theme.colors.white, borderRadius: theme.radius.lg, borderWidth: 1, borderColor: theme.colors.border, shadowColor: theme.colors.black, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 2 },
+  txIconBox: { width: 44, height: 44, borderRadius: theme.radius.md, justifyContent: 'center', alignItems: 'center', marginRight: theme.space[12] },
+  txBody: { flex: 1, justifyContent: 'center', marginRight: theme.space[8] },
+  txTitleRow: { flexDirection: 'row', alignItems: 'center', gap: theme.space[6] },
+  txTitle: { flexShrink: 1, fontSize: theme.fontSize.body, fontFamily: theme.fontFamily.bold, color: theme.colors.text },
+  txDate: { fontSize: theme.fontSize.tiny, fontFamily: theme.fontFamily.regular, color: theme.colors.textMuted, marginTop: theme.space[2] },
+  txRight: { flexDirection: 'row', alignItems: 'center', gap: theme.space[10] },
+  txAmount: { fontSize: theme.fontSize.body, fontFamily: theme.fontFamily.bold, color: theme.colors.danger },
+  deleteIconButton: { padding: theme.space[4], justifyContent: 'center', alignItems: 'center' },
+
+  // ---- empty state ----
   emptyTransactions: { alignItems: 'center', justifyContent: 'center', paddingVertical: 50, paddingHorizontal: theme.space[36], gap: theme.space[8] },
   emptyIconContainer: { width: 56, height: 56, borderRadius: theme.radius.soft, backgroundColor: theme.colors.brandWash, justifyContent: 'center', alignItems: 'center', marginBottom: theme.space[4] },
   emptyText: { fontSize: theme.fontSize.bodyLg, fontFamily: theme.fontFamily.bold, color: theme.colors.textSoft, letterSpacing: -0.3 },
+
+  // ---- scroll-to-top button ----
   scrollTopFAB: { position: 'absolute', bottom: 24, right: 24, width: 42, height: 42, borderRadius: 21, backgroundColor: theme.colors.brand, justifyContent: 'center', alignItems: 'center', elevation: 5 },
-  quickFormTrigger: { width: 38, height: 38, borderRadius: theme.radius.soft, backgroundColor: theme.colors.alpha.white[12], justifyContent: 'center', alignItems: 'center' },
-  modalOverlay: { flex: 1, backgroundColor: theme.colors.alpha.black[50], justifyContent: 'flex-end' },
-  modalContent: { backgroundColor: theme.colors.white, borderTopLeftRadius: theme.radius.xxxl, borderTopRightRadius: theme.radius.xxxl, padding: theme.space[24], paddingBottom: theme.space[40] },
-  modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: theme.space[12] },
-  modalTitle: { fontSize: theme.fontSize.title, fontFamily: theme.fontFamily.bold, color: theme.colors.text },
-  inlineErrorContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: theme.colors.dangerBg, borderWidth: 1, borderColor: theme.colors.dangerBorder, paddingHorizontal: theme.space[12], paddingVertical: theme.space[10], borderRadius: theme.radius.tight, marginBottom: theme.space[16] },
-  inlineErrorText: { flex: 1, color: theme.colors.danger, fontSize: theme.fontSize.small, fontFamily: theme.fontFamily.semibold },
-  inlineSuccessContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: theme.colors.greenBg, borderWidth: 1, borderColor: theme.colors.greenBorder, paddingHorizontal: theme.space[12], paddingVertical: theme.space[10], borderRadius: theme.radius.tight, marginBottom: theme.space[16] },
-  inlineSuccessText: { flex: 1, color: theme.colors.green, fontSize: theme.fontSize.small, fontFamily: theme.fontFamily.semibold },
-  calcInputContainer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: theme.colors.background, borderRadius: theme.radius.lg, borderWidth: 1, borderColor: theme.colors.border, paddingVertical: theme.space[12], marginBottom: theme.space[20] },
-  calcInput: { fontSize: 36, fontFamily: theme.fontFamily.bold, color: theme.colors.text, minWidth: 140, textAlign: 'center' },
+  // NEW: lifts the button above the floating tab bar
+  scrollTopFabRaised: { bottom: theme.layout.tabBarClearance },
+
+  // ---- add / edit expense modal ----
+  modalOverlay: { flex: 1, backgroundColor: theme.colors.overlay, justifyContent: 'flex-end' },
+  modalContent: { backgroundColor: theme.colors.background, borderTopLeftRadius: theme.radius.xxxl, borderTopRightRadius: theme.radius.xxxl, paddingHorizontal: theme.space[24], paddingTop: theme.space[24], paddingBottom: theme.space[40], ...theme.shadow.lg },
+  modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: theme.space[16], paddingBottom: theme.space[12], borderBottomWidth: 1, borderBottomColor: theme.colors.border },
+  modalTitle: { fontSize: theme.fontSize.title, fontFamily: theme.fontFamily.bold, color: theme.colors.oliveDeep },
+  // NEW: same as homeStyles.modalCloseButton
+  modalCloseButton: { width: 32, height: 32, borderRadius: theme.radius.lg, backgroundColor: theme.colors.surfaceAlt, justifyContent: 'center', alignItems: 'center' },
+  inlineErrorContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: theme.colors.dangerBg, borderWidth: 1, borderColor: theme.colors.dangerBorder, paddingHorizontal: theme.space[12], paddingVertical: theme.space[10], borderRadius: theme.radius.sm, marginBottom: theme.space[16] },
+  inlineErrorText: { flex: 1, color: theme.colors.danger, fontSize: theme.fontSize.caption, fontFamily: theme.fontFamily.medium },
+  inlineSuccessContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: theme.colors.greenBg, borderWidth: 1, borderColor: theme.colors.greenBorder, paddingHorizontal: theme.space[12], paddingVertical: theme.space[10], borderRadius: theme.radius.sm, marginBottom: theme.space[16] },
+  inlineSuccessText: { flex: 1, color: theme.colors.green, fontSize: theme.fontSize.caption, fontFamily: theme.fontFamily.medium },
+  calcInputContainer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: theme.colors.white, borderRadius: theme.radius.lg, borderWidth: 1, borderColor: theme.colors.border, paddingVertical: theme.space[12], marginBottom: theme.space[20] },
+  calcInput: { fontSize: 36, fontFamily: theme.fontFamily.extrabold, color: theme.colors.textStrong, minWidth: 140, textAlign: 'center' },
   inputGroup: { marginBottom: theme.space[16] },
-  inputLabel: { fontSize: theme.fontSize.caption, fontFamily: theme.fontFamily.semibold, color: theme.colors.textMuted, marginBottom: theme.space[8] },
-  textInputStyle: { backgroundColor: theme.colors.background, borderWidth: 1, borderColor: theme.colors.border, borderRadius: theme.radius.md, paddingHorizontal: theme.space[14], height: 46, fontFamily: theme.fontFamily.regular, fontSize: theme.fontSize.body, color: theme.colors.text },
-  categoryChip: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: theme.space[12], paddingVertical: theme.space[8], borderRadius: theme.radius.md, borderWidth: 1, gap: theme.space[6] },
-  categoryChipText: { fontSize: theme.fontSize.caption, fontFamily: theme.fontFamily.semibold },
+  inputLabel: { fontSize: theme.fontSize.caption, fontFamily: theme.fontFamily.bold, color: theme.colors.oliveDeep, marginBottom: theme.space[8] },
+  textInputStyle: { backgroundColor: theme.colors.white, borderWidth: 1, borderColor: theme.colors.borderStrong, borderRadius: theme.radius.md, paddingHorizontal: theme.space[16], height: 46, fontFamily: theme.fontFamily.regular, fontSize: theme.fontSize.body, color: theme.colors.textStrong },
+  // NEW: horizontal chip row spacing
+  categoryScrollContent: { gap: theme.space[8], paddingVertical: theme.space[4] },
+  categoryChip: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: theme.space[14], paddingVertical: theme.space[8], borderRadius: theme.radius.xl, borderWidth: 1, gap: theme.space[6] },
+  // NEW: chip states (replace the old runtime inline colours)
+  categoryChipIdle: { backgroundColor: theme.colors.white, borderColor: theme.colors.borderStrong },
+  categoryChipSelected: { backgroundColor: theme.colors.brand, borderColor: theme.colors.brand },
+  categoryChipText: { fontSize: theme.fontSize.small, fontFamily: theme.fontFamily.semibold },
+  categoryChipTextIdle: { color: theme.colors.oliveDeep },
+  categoryChipTextSelected: { color: theme.colors.white },
   submitButton: { backgroundColor: theme.colors.brand, borderRadius: theme.radius.soft, height: 50, justifyContent: 'center', alignItems: 'center', marginTop: theme.space[10] },
+  submitButtonBusy: { opacity: 0.7 },
   submitButtonText: { color: theme.colors.white, fontSize: theme.fontSize.bodyLg, fontFamily: theme.fontFamily.bold },
-  deleteIconButton: { padding: theme.space[4], justifyContent: 'center', alignItems: 'center' },
-  
-  // Modern Delete Modal Styles
+
+  // ---- legacy custom delete modal: no longer used by transaction.tsx (replaced by PaytonAlertDialog).
+  // Kept untouched so nothing else breaks; delete once `grep -rn "deleteModal\|cancelDeleteButton\|confirmDeleteButton\|deleteIconBadge" app components` is empty. ----
   deleteModalOverlay: { flex: 1, backgroundColor: theme.colors.alpha.black[55], justifyContent: 'center', alignItems: 'center', paddingHorizontal: theme.space[24] },
   deleteModalCard: { width: '100%', maxWidth: 340, backgroundColor: theme.colors.white, borderRadius: theme.radius.xxl, padding: theme.space[24], alignItems: 'center', shadowColor: theme.colors.black, shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.15, shadowRadius: 20, elevation: 10 },
   deleteIconBadge: { width: 52, height: 52, borderRadius: 26, backgroundColor: theme.colors.dangerBg, justifyContent: 'center', alignItems: 'center', marginBottom: theme.space[16] },
@@ -648,10 +759,10 @@ export const transactionStyles = StyleSheet.create({
   confirmDeleteButton: { flex: 1, height: 46, borderRadius: theme.radius.md, backgroundColor: theme.colors.danger, justifyContent: 'center', alignItems: 'center' },
   confirmDeleteButtonText: { fontSize: theme.fontSize.body, fontFamily: theme.fontFamily.semibold, color: theme.colors.white },
 
+  // ---- full-screen image viewer ----
   imageModalOverlay: { flex: 1, backgroundColor: theme.colors.alpha.black[90], justifyContent: 'center', alignItems: 'center' },
   fullScreenImage: { width: '90%', height: '80%' },
   closeImageButton: { position: 'absolute', top: 50, right: 20, zIndex: 10, padding: theme.space[10] },
-  headerGradientFill: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
 });
 
 
@@ -2908,7 +3019,9 @@ deleteOptionText: {
 
 
 // ======================================================================
-// PERSONAL / HOME
+// PERSONAL / HOME  -- DEPRECATED: the Personal dashboard now uses homeStyles.
+// Kept only because screens that were not reviewed may still import it; delete once
+// `grep -rn personalHomeStyles app components` returns nothing.
 export const personalHomeStyles = StyleSheet.create({
   mainContainer: { flex: 1, backgroundColor: theme.colors.background },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
@@ -3742,5 +3855,5 @@ export const incomeStyles = StyleSheet.create({
   },
   bannerTextSuccess: {
     color: theme.colors.roleGreen,
-  },
+  }, 
 });

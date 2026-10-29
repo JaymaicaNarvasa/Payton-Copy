@@ -5,24 +5,28 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
+  KeyboardAvoidingView,
   Modal,
   NativeScrollEvent,
   NativeSyntheticEvent,
   Platform,
   RefreshControl,
   ScrollView,
-  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View
 } from 'react-native';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import { GradientBackground } from '../../components/GradientBackground';
+import { PaytonAlertDialog } from '../../components/PaytonAlert';
+import { theme } from '../../constants/theme';
+import { transactionStyles as styles } from '../../constants/ui.styles';
 import { supabase } from '../../lib/supabase';
 
-const COLORS = {
-  white: '#FFFFFF',
-};
+const HIT_SLOP = { top: 10, bottom: 10, left: 10, right: 10 };
+const HIT_SLOP_SM = { top: 8, bottom: 8, left: 8, right: 8 };
 
 interface Transaction {
   id: string;
@@ -85,7 +89,7 @@ function TransactionsScreenContent() {
   const [modalError, setModalError] = useState<string | null>(null);
   const [modalSuccess, setModalSuccess] = useState<string | null>(null);
 
-  // Custom Modern Delete Confirmation States
+  // Delete confirmation (rendered with the shared PaytonAlertDialog, local state)
   const [isDeleteModalVisible, setIsDeleteModalVisible] = useState(false);
   const [transactionToDelete, setTransactionToDelete] = useState<Transaction | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -140,7 +144,7 @@ function TransactionsScreenContent() {
       
       const formattedCategories = (catData || []).map((cat: any) => ({
         ...cat,
-        color: cat.color || '#1F4F59',
+        color: cat.color || theme.colors.brand,
       }));
 
       setCategories(formattedCategories);
@@ -195,7 +199,7 @@ function TransactionsScreenContent() {
           categories: {
             name: rawCategory?.name || 'Uncategorized',
             icon: rawCategory?.icon || 'receipt-outline',
-            color: rawCategory?.color || '#64748B'
+            color: rawCategory?.color || theme.colors.textMuted
           }
         };
       });
@@ -239,7 +243,7 @@ function TransactionsScreenContent() {
                 category_id: catId,
                 category_name: rawCat?.name || 'Category',
                 icon: rawCat?.icon || 'receipt-outline',
-                color: rawCat?.color || '#1F4F59',
+                color: rawCat?.color || theme.colors.brand,
                 allocated_amount: 0,
                 spent_amount: 0,
                 remaining_amount: 0,
@@ -429,8 +433,14 @@ function TransactionsScreenContent() {
     setIsDeleteModalVisible(true);
   };
 
+  // Closing is blocked while a delete is in flight.
+  const closeDeleteDialog = () => {
+    if (!isDeleting) setIsDeleteModalVisible(false);
+  };
+
   const handleDeleteExpense = async () => {
-    if (!transactionToDelete) return;
+    // PaytonAlertDialog buttons cannot be disabled, so the in-flight guard lives here.
+    if (!transactionToDelete || isDeleting) return;
 
     try {
       setIsDeleting(true);
@@ -498,27 +508,35 @@ function TransactionsScreenContent() {
     return (
       <View style={[styles.container, styles.centeredContent]}>
         <StatusBar style="light" />
-        <ActivityIndicator size="large" color="#1F4F59" />
+        <ActivityIndicator size="large" color={theme.colors.brand} />
       </View>
     );
   }
 
   return (
-    <View style={[styles.container, { paddingBottom: insets.bottom }]}>
+    <View style={styles.container}>
       <StatusBar style="light" />
 
       {/* HEADER */}
-      <View style={[
-        styles.topBackgroundHeader, 
-        { paddingTop: Platform.OS === 'android' ? insets.top + 12 : insets.top + 8 }
-      ]}>
+      <View
+        style={[
+          styles.topBackgroundHeader,
+          { paddingTop: Platform.OS === 'android' ? insets.top + 12 : insets.top + 8 },
+        ]}
+      >
+        <View style={styles.headerGradientFill} pointerEvents="none">
+          <GradientBackground id="transactions-header-gradient" />
+        </View>
+
         <View style={styles.header}>
-          <TouchableOpacity 
+          <TouchableOpacity
             activeOpacity={0.7}
             onPress={handleBackPress}
-            style={styles.backButton}
+            style={styles.headerActionButton}
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
           >
-            <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
+            <Ionicons name="chevron-back" size={22} color={theme.colors.white} />
           </TouchableOpacity>
           
           <View style={styles.headerContent}>
@@ -531,9 +549,11 @@ function TransactionsScreenContent() {
               setEditingTransaction(null);
               setIsAddModalVisible(true);
             }}
-            style={styles.quickFormTrigger}
+            style={styles.headerActionButton}
+            accessibilityRole="button"
+            accessibilityLabel="Add expense"
           >
-            <Ionicons name="add" size={22} color={COLORS.white} />
+            <Ionicons name="add" size={22} color={theme.colors.white} />
           </TouchableOpacity>
         </View>
       </View>
@@ -543,105 +563,83 @@ function TransactionsScreenContent() {
         ref={scrollViewRef}
         style={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
         onScroll={handleScroll}
         scrollEventThrottle={16}
-        contentContainerStyle={{ paddingBottom: 80, paddingTop: 16 }}
+        contentContainerStyle={styles.listContent}
         refreshControl={
           <RefreshControl 
             refreshing={refreshing} 
             onRefresh={onRefresh} 
-            tintColor="#1F4F59" 
-            colors={['#1F4F59']} 
+            tintColor={theme.colors.olive} 
+            colors={[theme.colors.olive]} 
           />
         }
       >
-        <View style={{ paddingHorizontal: 20, marginBottom: 12 }}>
-          {/* MODERN INLINE SUCCESS ALERT BANNER */}
+        <View style={styles.topSection}>
+          {/* INLINE SUCCESS ALERT BANNER */}
           {successMessage && (
             <View style={styles.screenInlineSuccessContainer}>
-              <Ionicons name="checkmark-circle" size={18} color="#16A34A" style={{ marginRight: 8 }} />
+              <Ionicons name="checkmark-circle" size={18} color={theme.colors.green} style={styles.bannerIcon} />
               <Text style={styles.screenInlineSuccessText}>{successMessage}</Text>
-              <TouchableOpacity onPress={() => setSuccessMessage(null)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                <Ionicons name="close" size={16} color="#16A34A" />
+              <TouchableOpacity onPress={() => setSuccessMessage(null)} hitSlop={HIT_SLOP}>
+                <Ionicons name="close" size={16} color={theme.colors.green} />
               </TouchableOpacity>
             </View>
           )}
 
           {/* HORIZONTAL BUDGET WALLETS CONTAINER */}
-{budgetWallets.length > 0 && (
-  <View style={{ marginBottom: 16 }}>
-    <Text style={{ fontSize: 13, fontWeight: '700', color: '#64748B', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 }}>
-      Budget Wallets
-    </Text>
-    <ScrollView 
-      horizontal 
-      showsHorizontalScrollIndicator={false} 
-      contentContainerStyle={{ gap: 10 }}
-    >
-      {/* Sort wallets so the lowest remaining budget appears first */}
-      {[...budgetWallets]
-        .sort((a, b) => a.remaining_amount - b.remaining_amount)
-        .map((wallet) => {
-          const walletColor = wallet.color || '#1F4F59';
-          const isNegative = wallet.remaining_amount < 0;
-          return (
-            <View 
-              key={wallet.category_id}
-              style={{
-                width: 170,
-                backgroundColor: '#F8FAFC',
-                borderRadius: 14,
-                padding: 12,
-                borderWidth: 1,
-                borderColor: '#F1F5F9',
-                justifyContent: 'space-between'
-              }}
-            >
-              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-                <View style={{ 
-                  width: 28, 
-                  height: 28, 
-                  borderRadius: 8, 
-                  backgroundColor: `${walletColor}15`, 
-                  justifyContent: 'center', 
-                  alignItems: 'center', 
-                  marginRight: 8 
-                }}>
-                  <Ionicons name={wallet.icon || 'receipt-outline'} size={14} color={walletColor} />
-                </View>
-                <Text style={{ fontSize: 13, fontWeight: '700', color: '#1E293B', flex: 1 }} numberOfLines={1}>
-                  {wallet.category_name}
-                </Text>
-              </View>
+          {budgetWallets.length > 0 && (
+            <View style={styles.sectionBlock}>
+              <Text style={styles.sectionTitle}>Budget Wallets</Text>
+              <ScrollView 
+                horizontal 
+                showsHorizontalScrollIndicator={false} 
+                contentContainerStyle={styles.walletStrip}
+              >
+                {/* Sort wallets so the lowest remaining budget appears first */}
+                {[...budgetWallets]
+                  .sort((a, b) => a.remaining_amount - b.remaining_amount)
+                  .map((wallet) => {
+                    const walletColor = wallet.color || theme.colors.brand;
+                    const isNegative = wallet.remaining_amount < 0;
+                    return (
+                      <View key={wallet.category_id} style={styles.walletCard}>
+                        <View style={styles.walletHeaderRow}>
+                          <View style={[styles.walletIconCircle, { backgroundColor: `${walletColor}15` }]}>
+                            <Ionicons name={wallet.icon || 'receipt-outline'} size={14} color={walletColor} />
+                          </View>
+                          <Text style={styles.walletName} numberOfLines={1}>
+                            {wallet.category_name}
+                          </Text>
+                        </View>
 
-              <View>
-                <Text style={{ fontSize: 10, color: '#64748B', fontWeight: '500' }}>Remaining</Text>
-                <Text 
-                  style={{ 
-                    fontSize: 14, 
-                    fontWeight: '800', 
-                    color: isNegative ? '#DC2626' : '#16A34A',
-                    marginTop: 1 
-                  }}
-                  numberOfLines={1}
-                >
-                  {isNegative ? '-' : ''}₱{Math.abs(wallet.remaining_amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </Text>
-              </View>
+                        <View>
+                          <Text style={styles.walletRemainingLabel}>Remaining</Text>
+                          <Text
+                            style={[
+                              styles.walletRemainingAmount,
+                              isNegative ? styles.walletAmountNegative : styles.walletAmountPositive,
+                            ]}
+                            numberOfLines={1}
+                          >
+                            {isNegative ? '-' : ''}₱{Math.abs(wallet.remaining_amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </Text>
+                        </View>
+                      </View>
+                    );
+                  })}
+              </ScrollView>
             </View>
-          );
-        })}
-    </ScrollView>
-  </View>
-)}
+          )}
 
           <View style={styles.searchContainer}>
             <View style={styles.searchWrapper}>
-              <Ionicons name="search-outline" size={18} color="#94A3B8" style={{ marginRight: 8 }} />
+              <Ionicons name="search-outline" size={18} color={theme.colors.textSubtle} style={styles.searchIcon} />
               <TextInput
                 style={styles.searchInput}
                 placeholder="Search transactions or categories..."
-                placeholderTextColor="#94A3B8"
+                placeholderTextColor={theme.colors.textSubtle}
                 value={searchQuery}
                 onChangeText={setSearchQuery}
               />
@@ -652,71 +650,54 @@ function TransactionsScreenContent() {
         {filteredTransactions.length === 0 ? (
           <View style={styles.emptyTransactions}>
             <View style={styles.emptyIconContainer}>
-              <Ionicons name="receipt-outline" size={28} color="#94A3B8" />
+              <Ionicons name="receipt-outline" size={28} color={theme.colors.textSubtle} />
             </View>
             <Text style={styles.emptyText}>No Transactions Found</Text>
           </View>
         ) : (
-          <View style={{ paddingHorizontal: 20, gap: 8 }}>
+          <View style={styles.txList}>
             {filteredTransactions.map((expense) => {
-              const catColor = expense.categories?.color || '#64748B';
+              const catColor = expense.categories?.color || theme.colors.textMuted;
               return (
                 <TouchableOpacity
                   key={expense.id}
                   activeOpacity={0.7}
                   onPress={() => handleOpenEditModal(expense)}
-                  style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    paddingVertical: 12,
-                    paddingHorizontal: 14,
-                    backgroundColor: '#F8FAFC',
-                    borderRadius: 14,
-                    borderWidth: 1,
-                    borderColor: '#F1F5F9',
-                  }}
+                  style={styles.txRow}
                 >
-                  <View style={{ 
-                    width: 40, 
-                    height: 40, 
-                    borderRadius: 10, 
-                    backgroundColor: `${catColor}15`, 
-                    justifyContent: 'center', 
-                    alignItems: 'center', 
-                    marginRight: 12 
-                  }}>
-                    <Ionicons name={expense.categories?.icon || 'receipt-outline'} size={18} color={catColor} />
+                  <View style={[styles.txIconBox, { backgroundColor: `${catColor}15` }]}>
+                    <Ionicons name={expense.categories?.icon || 'receipt-outline'} size={20} color={catColor} />
                   </View>
                   
-                  <View style={{ flex: 1, justifyContent: 'center' }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                      <Text style={{ fontSize: 14, fontWeight: '700', color: '#1E293B' }} numberOfLines={1}>
+                  <View style={styles.txBody}>
+                    <View style={styles.txTitleRow}>
+                      <Text style={styles.txTitle} numberOfLines={1}>
                         {expense.description}
                       </Text>
                       {expense.photo_url ? (
                         <TouchableOpacity 
                           onPress={() => setSelectedImageUri(expense.photo_url!)}
-                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                          hitSlop={HIT_SLOP_SM}
                         >
-                          <Ionicons name="image-outline" size={14} color="#1F4F59" />
+                          <Ionicons name="image-outline" size={14} color={theme.colors.brand} />
                         </TouchableOpacity>
                       ) : null}
                     </View>
-                    <Text style={{ fontSize: 11, fontWeight: '500', color: '#64748B', marginTop: 2 }}>
+                    <Text style={styles.txDate}>
                       {formatDate(expense.spent_at)}
                     </Text>
                   </View>
 
-                  <View style={{ alignItems: 'flex-end', flexDirection: 'row', gap: 10 }}>
-                    <Text style={{ fontSize: 14, fontWeight: '700', color: '#DC2626' }}>
+                  <View style={styles.txRight}>
+                    <Text style={styles.txAmount}>
                       -₱{(expense.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                     </Text>
                     <TouchableOpacity 
                       onPress={() => confirmDeleteExpense(expense)}
                       style={styles.deleteIconButton}
-                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                      hitSlop={HIT_SLOP}
                     >
-                      <Ionicons name="trash-outline" size={16} color="#94A3B8" />
+                      <Ionicons name="trash-outline" size={16} color={theme.colors.textSubtle} />
                     </TouchableOpacity>
                   </View>
                 </TouchableOpacity>
@@ -733,27 +714,30 @@ function TransactionsScreenContent() {
         transparent={true}
         onRequestClose={handleCloseModal}
       >
-        <View style={styles.modalOverlay}>
+        <KeyboardAvoidingView
+          style={styles.modalOverlay}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>
                 {editingTransaction ? 'Edit Expense' : 'Add Expense'}
               </Text>
-              <TouchableOpacity onPress={handleCloseModal}>
-                <Ionicons name="close" size={24} color="#64748B" />
+              <TouchableOpacity onPress={handleCloseModal} style={styles.modalCloseButton}>
+                <Ionicons name="close" size={20} color={theme.colors.textMuted} />
               </TouchableOpacity>
             </View>
 
             {modalError && (
               <View style={styles.inlineErrorContainer}>
-                <Ionicons name="alert-circle-outline" size={18} color="#DC2626" style={{ marginRight: 6 }} />
+                <Ionicons name="alert-circle-outline" size={18} color={theme.colors.danger} style={styles.bannerIcon} />
                 <Text style={styles.inlineErrorText}>{modalError}</Text>
               </View>
             )}
 
             {modalSuccess && (
               <View style={styles.inlineSuccessContainer}>
-                <Ionicons name="checkmark-circle-outline" size={18} color="#16A34A" style={{ marginRight: 6 }} />
+                <Ionicons name="checkmark-circle-outline" size={18} color={theme.colors.green} style={styles.bannerIcon} />
                 <Text style={styles.inlineSuccessText}>{modalSuccess}</Text>
               </View>
             )}
@@ -762,7 +746,7 @@ function TransactionsScreenContent() {
               <TextInput
                 style={styles.calcInput}
                 placeholder="₱0.00"
-                placeholderTextColor="#CBD5E1"
+                placeholderTextColor={theme.colors.borderStrong}
                 keyboardType="numeric"
                 value={amountInput}
                 onChangeText={setAmountInput}
@@ -775,7 +759,7 @@ function TransactionsScreenContent() {
               <TextInput
                 style={styles.textInputStyle}
                 placeholder="e.g., Grocery shopping, Coffee..."
-                placeholderTextColor="#94A3B8"
+                placeholderTextColor={theme.colors.textSubtle}
                 value={descriptionInput}
                 onChangeText={setDescriptionInput}
               />
@@ -783,20 +767,22 @@ function TransactionsScreenContent() {
 
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Category</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 4 }}>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+                contentContainerStyle={styles.categoryScrollContent}
+              >
                 {categories.map((cat) => {
                   const isSelected = selectedCategory?.id === cat.id;
                   return (
                     <TouchableOpacity
                       key={cat.id}
                       onPress={() => setSelectedCategory(cat)}
-                      style={[
-                        styles.categoryChip,
-                        { backgroundColor: isSelected ? '#1F4F59' : '#F8FAFC', borderColor: isSelected ? '#1F4F59' : '#E2E8F0' }
-                      ]}
+                      style={[styles.categoryChip, isSelected ? styles.categoryChipSelected : styles.categoryChipIdle]}
                     >
-                      <Ionicons name={cat.icon || 'receipt-outline'} size={16} color={isSelected ? '#FFFFFF' : cat.color} />
-                      <Text style={[styles.categoryChipText, { color: isSelected ? '#FFFFFF' : '#1E293B' }]}>
+                      <Ionicons name={cat.icon || 'receipt-outline'} size={16} color={isSelected ? theme.colors.white : cat.color} />
+                      <Text style={[styles.categoryChipText, isSelected ? styles.categoryChipTextSelected : styles.categoryChipTextIdle]}>
                         {cat.name}
                       </Text>
                     </TouchableOpacity>
@@ -806,12 +792,12 @@ function TransactionsScreenContent() {
             </View>
 
             <TouchableOpacity 
-              style={[styles.submitButton, isSubmitting && { opacity: 0.7 }]}
+              style={[styles.submitButton, isSubmitting && styles.submitButtonBusy]}
               onPress={handleSaveExpense}
               disabled={isSubmitting}
             >
               {isSubmitting ? (
-                <ActivityIndicator color="#FFFFFF" />
+                <ActivityIndicator color={theme.colors.white} />
               ) : (
                 <Text style={styles.submitButtonText}>
                   {editingTransaction ? 'Update Expense' : 'Save Expense'}
@@ -819,53 +805,21 @@ function TransactionsScreenContent() {
               )}
             </TouchableOpacity>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
-      {/* MODERN DELETE CONFIRMATION MODAL */}
-      <Modal
+      {/* DELETE CONFIRMATION — shared PaytonAlertDialog (local state, no PaytonAlertProvider needed) */}
+      <PaytonAlertDialog
         visible={isDeleteModalVisible}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setIsDeleteModalVisible(false)}
-      >
-        <View style={styles.deleteModalOverlay}>
-          <View style={styles.deleteModalCard}>
-            <View style={styles.deleteIconBadge}>
-              <Ionicons name="trash-outline" size={24} color="#DC2626" />
-            </View>
-
-            <Text style={styles.deleteModalTitle}>Delete Transaction</Text>
-            <Text style={styles.deleteModalMessage}>
-              Are you sure you want to delete <Text style={{ fontWeight: '700', color: '#1E293B' }}>"{transactionToDelete?.description}"</Text>? This action cannot be undone.
-            </Text>
-
-            <View style={styles.deleteModalActions}>
-              <TouchableOpacity
-                style={styles.cancelDeleteButton}
-                activeOpacity={0.7}
-                onPress={() => setIsDeleteModalVisible(false)}
-                disabled={isDeleting}
-              >
-                <Text style={styles.cancelDeleteButtonText}>Cancel</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.confirmDeleteButton, isDeleting && { opacity: 0.7 }]}
-                activeOpacity={0.8}
-                onPress={handleDeleteExpense}
-                disabled={isDeleting}
-              >
-                {isDeleting ? (
-                  <ActivityIndicator color="#FFFFFF" size="small" />
-                ) : (
-                  <Text style={styles.confirmDeleteButtonText}>Delete</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+        type="error"
+        title="Delete Transaction"
+        message={`Are you sure you want to delete "${transactionToDelete?.description ?? ''}"?\nThis action cannot be undone.`}
+        buttons={[
+          { text: 'Cancel', style: 'cancel', onPress: closeDeleteDialog },
+          { text: isDeleting ? 'Deleting...' : 'Delete', style: 'destructive', onPress: handleDeleteExpense },
+        ]}
+        onDismiss={closeDeleteDialog}
+      />
 
       {/* FULL-SCREEN IMAGE VIEWER MODAL */}
       <Modal
@@ -879,7 +833,7 @@ function TransactionsScreenContent() {
             style={styles.closeImageButton} 
             onPress={() => setSelectedImageUri(null)}
           >
-            <Ionicons name="close" size={28} color="#FFFFFF" />
+            <Ionicons name="close" size={28} color={theme.colors.white} />
           </TouchableOpacity>
           {selectedImageUri ? (
             <Image 
@@ -892,71 +846,17 @@ function TransactionsScreenContent() {
       </Modal>
 
       {showScrollTop && (
-        <TouchableOpacity style={styles.scrollTopFAB} activeOpacity={0.8} onPress={scrollToTop}>
-          <Ionicons name="arrow-up" size={20} color="#FFFFFF" />
+        <TouchableOpacity
+          style={[styles.scrollTopFAB, styles.scrollTopFabRaised]}
+          activeOpacity={0.8}
+          onPress={scrollToTop}
+        >
+          <Ionicons name="arrow-up" size={20} color={theme.colors.white} />
         </TouchableOpacity>
       )}
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
-  centeredContent: { justifyContent: 'center', alignItems: 'center' },
-  topBackgroundHeader: { backgroundColor: '#1F4F59', borderBottomLeftRadius: 32, borderBottomRightRadius: 32, paddingBottom: 15 },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20 },
-  backButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255, 255, 255, 0.15)', justifyContent: 'center', alignItems: 'center' },
-  headerContent: { flex: 1, alignItems: 'center', paddingHorizontal: 12 },
-  headerTitle: { fontSize: 18, fontWeight: '700', color: '#FFFFFF', letterSpacing: -0.3 },
-  scrollContent: { flex: 1, backgroundColor: '#FFFFFF' },
-  searchContainer: { paddingVertical: 4, marginTop: 4 },
-  searchWrapper: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 12, paddingHorizontal: 12, height: 42 },
-  searchInput: { flex: 1, fontSize: 13, color: '#0F172A', paddingVertical: 0 },
-  
-  // Modern Screen-Level Inline Success Banner Styles
-  screenInlineSuccessContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F0FDF4', borderWidth: 1, borderColor: '#86EFAC', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12, marginBottom: 12 },
-  screenInlineSuccessText: { flex: 1, color: '#16A34A', fontSize: 13, fontWeight: '600' },
-
-  emptyTransactions: { alignItems: 'center', justifyContent: 'center', paddingVertical: 50, paddingHorizontal: 36, gap: 8 },
-  emptyIconContainer: { width: 56, height: 56, borderRadius: 14, backgroundColor: '#EFF4F6', justifyContent: 'center', alignItems: 'center', marginBottom: 4 },
-  emptyText: { fontSize: 15, fontWeight: '700', color: '#2D3748', letterSpacing: -0.3 },
-  scrollTopFAB: { position: 'absolute', bottom: 24, right: 24, width: 42, height: 42, borderRadius: 21, backgroundColor: '#1F4F59', justifyContent: 'center', alignItems: 'center', elevation: 5 },
-  quickFormTrigger: { width: 38, height: 38, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.12)', justifyContent: 'center', alignItems: 'center' },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.5)', justifyContent: 'flex-end' },
-  modalContent: { backgroundColor: '#FFFFFF', borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 24, paddingBottom: 40 },
-  modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
-  modalTitle: { fontSize: 18, fontWeight: '700', color: '#1E293B' },
-  inlineErrorContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FEF2F2', borderWidth: 1, borderColor: '#FCA5A5', paddingHorizontal: 12, paddingVertical: 10, borderRadius: 10, marginBottom: 16 },
-  inlineErrorText: { flex: 1, color: '#DC2626', fontSize: 12, fontWeight: '600' },
-  inlineSuccessContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F0FDF4', borderWidth: 1, borderColor: '#86EFAC', paddingHorizontal: 12, paddingVertical: 10, borderRadius: 10, marginBottom: 16 },
-  inlineSuccessText: { flex: 1, color: '#16A34A', fontSize: 12, fontWeight: '600' },
-  calcInputContainer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#F8FAFC', borderRadius: 16, borderWidth: 1, borderColor: '#E2E8F0', paddingVertical: 12, marginBottom: 20 },
-  calcInput: { fontSize: 36, fontWeight: '700', color: '#1E293B', minWidth: 140, textAlign: 'center' },
-  inputGroup: { marginBottom: 16 },
-  inputLabel: { fontSize: 13, fontWeight: '600', color: '#64748B', marginBottom: 8 },
-  textInputStyle: { backgroundColor: '#F8FAFC', borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 12, paddingHorizontal: 14, height: 46, fontSize: 14, color: '#1E293B' },
-  categoryChip: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12, borderWidth: 1, gap: 6 },
-  categoryChipText: { fontSize: 13, fontWeight: '600' },
-  submitButton: { backgroundColor: '#1F4F59', borderRadius: 14, height: 50, justifyContent: 'center', alignItems: 'center', marginTop: 10 },
-  submitButtonText: { color: '#FFFFFF', fontSize: 15, fontWeight: '700' },
-  deleteIconButton: { padding: 4, justifyContent: 'center', alignItems: 'center' },
-  
-  // Modern Delete Modal Styles
-  deleteModalOverlay: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.55)', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24 },
-  deleteModalCard: { width: '100%', maxWidth: 340, backgroundColor: '#FFFFFF', borderRadius: 24, padding: 24, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.15, shadowRadius: 20, elevation: 10 },
-  deleteIconBadge: { width: 52, height: 52, borderRadius: 26, backgroundColor: '#FEF2F2', justifyContent: 'center', alignItems: 'center', marginBottom: 16 },
-  deleteModalTitle: { fontSize: 18, fontWeight: '700', color: '#1E293B', marginBottom: 8, textAlign: 'center' },
-  deleteModalMessage: { fontSize: 13, fontWeight: '400', color: '#64748B', textAlign: 'center', lineHeight: 18, marginBottom: 24 },
-  deleteModalActions: { flexDirection: 'row', width: '100%', gap: 12 },
-  cancelDeleteButton: { flex: 1, height: 46, borderRadius: 12, borderWidth: 1, borderColor: '#E2E8F0', backgroundColor: '#F8FAFC', justifyContent: 'center', alignItems: 'center' },
-  cancelDeleteButtonText: { fontSize: 14, fontWeight: '600', color: '#475569' },
-  confirmDeleteButton: { flex: 1, height: 46, borderRadius: 12, backgroundColor: '#DC2626', justifyContent: 'center', alignItems: 'center' },
-  confirmDeleteButtonText: { fontSize: 14, fontWeight: '600', color: '#FFFFFF' },
-
-  imageModalOverlay: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.9)', justifyContent: 'center', alignItems: 'center' },
-  fullScreenImage: { width: '90%', height: '80%' },
-  closeImageButton: { position: 'absolute', top: 50, right: 20, zIndex: 10, padding: 10 }
-});
 
 export default function TransactionsScreenWrapper() {
   return (
