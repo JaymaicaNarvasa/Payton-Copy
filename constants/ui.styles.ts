@@ -3682,3 +3682,458 @@ export const incomeStyles = StyleSheet.create({
   calendarDayTextDisabled: { color: theme.colors.textSubtle },
   calendarDayTextSelected: { color: theme.colors.white, fontFamily: theme.fontFamily.bold },
 });
+
+
+// ======================================================================
+// SPONSOR HOME (app/(sponsorTabs)/home.tsx) — matches the Figma "Hello, <name>" dashboard
+export const sponsorHomeStyles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: theme.colors.white },
+
+  /* Header */
+  topBar: {
+    paddingTop: (Platform.OS === 'android' ? StatusBar.currentHeight || 24 : 44) + theme.space[12],
+    paddingHorizontal: theme.space[20],
+    paddingBottom: theme.space[16],
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: theme.colors.white,
+  },
+  headerLeft: { flexDirection: 'row', alignItems: 'center', flex: 1, marginRight: theme.space[12] },
+  headerTextGroup: { marginLeft: theme.space[14], justifyContent: 'center', flex: 1 },
+  helloText: { fontSize: theme.fontSize.headingLg, fontFamily: theme.fontFamily.extrabold, color: theme.colors.gradientEnd, letterSpacing: -0.3, lineHeight: 26 },
+  userName: { fontSize: theme.fontSize.subtitle, fontFamily: theme.fontFamily.bold, color: theme.colors.gradientEnd },
+  roleBadge: { backgroundColor: theme.colors.mintPill, paddingHorizontal: theme.space[14], paddingVertical: theme.space[6], borderRadius: theme.radius.pill },
+  roleBadgeText: { fontSize: theme.fontSize.small, fontFamily: theme.fontFamily.bold, color: theme.colors.gradientEnd },
+
+  /* Body */
+  bodyContent: { flex: 1 },
+  listScrollContent: { paddingHorizontal: theme.space[20], paddingBottom: theme.space[40] },
+  sectionGap: { marginTop: theme.space[24] },
+  skeletonGap: { marginTop: theme.space[24], marginBottom: theme.space[12] },
+
+  /* Remaining-balance card (gradient is drawn by <GradientBackground /> inside walletGradientClip) */
+  walletCard: { borderRadius: theme.radius.jumbo, padding: theme.space[20], backgroundColor: theme.colors.gradientEnd, ...theme.shadow.lg },
+  walletGradientClip: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, borderRadius: theme.radius.jumbo, overflow: 'hidden' },
+  walletTopRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  walletLabel: { fontSize: theme.fontSize.bodyLg, fontFamily: theme.fontFamily.semibold, color: theme.colors.alpha.white[82] },
+  monthPill: { backgroundColor: theme.colors.alpha.white[20], paddingHorizontal: theme.space[10], paddingVertical: theme.space[4], borderRadius: theme.radius.pill },
+  monthPillText: { fontSize: theme.fontSize.tiny, fontFamily: theme.fontFamily.semibold, color: theme.colors.white },
+  walletAmountRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: theme.space[6], marginBottom: theme.space[16] },
+  heroAmount: { flex: 1, color: theme.colors.white, fontSize: 40, fontFamily: theme.fontFamily.extrabold, letterSpacing: -0.8 },
+  eyeBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: theme.colors.alpha.white[15], alignItems: 'center', justifyContent: 'center', marginLeft: theme.space[8] },
+  walletStatsRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: theme.colors.alpha.white[15], borderRadius: theme.radius.md, paddingVertical: theme.space[10] },
+  walletStat: { flex: 1, paddingHorizontal: theme.space[12], gap: theme.space[2] },
+  statLabel: { fontSize: theme.fontSize.tiny, fontFamily: theme.fontFamily.regular, color: theme.colors.alpha.white[65] },
+  statValue: { fontSize: theme.fontSize.body, fontFamily: theme.fontFamily.bold, color: theme.colors.white },
+  statDivider: { width: 1, height: 28, backgroundColor: theme.colors.alpha.white[30] },
+
+  /* Section headers */
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: theme.space[12] },
+  sectionTitle: { fontSize: 17, fontFamily: theme.fontFamily.extrabold, color: theme.colors.brandInk, letterSpacing: -0.3 },
+
+  /* Quick action */
+  quickActionsRow: { flexDirection: 'row', justifyContent: 'space-between' },
+  quickActionTile: {
+    width: '31.5%',
+    minHeight: 92,
+    backgroundColor: theme.colors.successPale,
+    borderRadius: theme.radius.lg,
+    borderWidth: 1,
+    borderColor: theme.colors.successPaleBorder,
+    paddingVertical: theme.space[14],
+    alignItems: 'center',
+  },
+  quickActionIconCircle: { width: 36, height: 36, borderRadius: 18, backgroundColor: theme.colors.mintPill, alignItems: 'center', justifyContent: 'center', marginBottom: theme.space[8] },
+  quickActionLabel: { fontSize: theme.fontSize.small, fontFamily: theme.fontFamily.bold, color: theme.colors.mintPillText, textAlign: 'center', lineHeight: 15 },
+
+  /* Recipients */
+  recipientsRow: { gap: theme.space[14], paddingVertical: theme.space[4], paddingRight: theme.space[8] },
+  recipientItem: { alignItems: 'center', width: 56 },
+  recipientName: { fontSize: theme.fontSize.caption, fontFamily: theme.fontFamily.medium, color: theme.colors.brandInk, marginTop: theme.space[6], textAlign: 'center' },
+  moreCircle: { width: 50, height: 50, borderRadius: 25, backgroundColor: theme.colors.borderStrong, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: theme.space[4] },
+  moreDot: { width: 7, height: 7, borderRadius: 3.5, backgroundColor: theme.colors.white },
+  recipientsHint: { fontSize: theme.fontSize.caption, fontFamily: theme.fontFamily.regular, color: theme.colors.textMuted, marginTop: theme.space[8] },
+  skeletonRecipients: { flexDirection: 'row', gap: theme.space[14] },
+  skeletonRecipient: { alignItems: 'center' },
+
+  /* Transaction history */
+  rangePill: { flexDirection: 'row', alignItems: 'center', gap: theme.space[4], backgroundColor: theme.colors.mintPill, paddingHorizontal: theme.space[12], paddingVertical: theme.space[6], borderRadius: theme.radius.pill },
+  rangePillText: { fontSize: theme.fontSize.small, fontFamily: theme.fontFamily.semibold, color: theme.colors.gradientEnd },
+  chipRow: { flexDirection: 'row', gap: theme.space[8], marginBottom: theme.space[14] },
+  chip: { height: 28, paddingHorizontal: theme.space[18], justifyContent: 'center', borderRadius: theme.radius.pill, borderWidth: 1, borderColor: theme.colors.successPaleBorder, backgroundColor: theme.colors.successPale },
+  chipActive: { backgroundColor: theme.colors.mintPill, borderColor: theme.colors.dueGreen },
+  chipText: { fontSize: theme.fontSize.tiny, fontFamily: theme.fontFamily.semibold, color: theme.colors.textGray },
+  chipTextActive: { color: theme.colors.gradientEnd },
+  transactionsListContainer: { gap: theme.space[10] },
+  txCardItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: theme.colors.white, padding: theme.space[12], borderRadius: theme.radius.lg, borderWidth: 1, borderColor: theme.colors.border },
+  txIconBox: { width: 40, height: 40, borderRadius: theme.radius.md, justifyContent: 'center', alignItems: 'center' },
+  txDescText: { fontSize: theme.fontSize.body, fontFamily: theme.fontFamily.bold, color: theme.colors.textStrong },
+  txDateText: { fontSize: theme.fontSize.tiny, fontFamily: theme.fontFamily.regular, color: theme.colors.textMuted, marginTop: theme.space[2] },
+  txAmountText: { fontSize: theme.fontSize.body, fontFamily: theme.fontFamily.bold, marginLeft: theme.space[8] },
+
+  /* Period dropdown */
+  menuOverlay: { flex: 1 },
+  menuCard: { position: 'absolute', minWidth: 140, backgroundColor: theme.colors.white, borderRadius: theme.radius.lg, paddingVertical: theme.space[6], ...theme.shadow.lg },
+  menuItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: theme.space[12], paddingHorizontal: theme.space[16], paddingVertical: theme.space[12] },
+  menuItemText: { fontSize: theme.fontSize.body, fontFamily: theme.fontFamily.medium, color: theme.colors.text },
+  menuItemTextActive: { color: theme.colors.mintPillText, fontFamily: theme.fontFamily.bold },
+
+  /* Empty state */
+  emptyState: { alignItems: 'center', justifyContent: 'center', paddingVertical: theme.space[28] },
+  emptyIcon: { width: 48, height: 48, borderRadius: 24, backgroundColor: theme.colors.surfaceAlt, alignItems: 'center', justifyContent: 'center', marginBottom: theme.space[10] },
+  emptyTitle: { fontSize: theme.fontSize.caption, fontFamily: theme.fontFamily.semibold, color: theme.colors.textGray },
+  emptySubtitle: { fontSize: theme.fontSize.small, fontFamily: theme.fontFamily.regular, color: theme.colors.textMuted, textAlign: 'center', marginTop: theme.space[4] },
+
+  /* Sheet (shared modal) */
+  overlay: { flex: 1, backgroundColor: theme.colors.overlay, justifyContent: 'flex-end' },
+  sheet: { width: '100%', maxHeight: '88%', backgroundColor: theme.colors.white, borderTopLeftRadius: theme.radius.xxxl, borderTopRightRadius: theme.radius.xxxl, paddingHorizontal: 22, paddingTop: theme.space[10], paddingBottom: Platform.OS === 'ios' ? 34 : 22 },
+  sheetHandle: { alignSelf: 'center', width: 40, height: 4, borderRadius: 2, backgroundColor: theme.colors.borderStrong, marginBottom: theme.space[14] },
+  sheetHeader: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: theme.space[16], gap: theme.space[12] },
+  sheetTitle: { fontSize: theme.fontSize.title, fontFamily: theme.fontFamily.extrabold, color: theme.colors.textStrong, letterSpacing: -0.3 },
+  sheetSubtitle: { fontSize: theme.fontSize.small, fontFamily: theme.fontFamily.regular, color: theme.colors.textMuted, marginTop: theme.space[3], lineHeight: 17 },
+  sheetClose: { width: 30, height: 30, borderRadius: 15, backgroundColor: theme.colors.surfaceAlt, alignItems: 'center', justifyContent: 'center' },
+  sheetBody: { flexGrow: 0 },
+  sheetFooter: { marginTop: theme.space[16] },
+  actionsRow: { flexDirection: 'row', gap: theme.space[10] },
+  btnSecondary: { flex: 1, height: 48, borderRadius: theme.radius.soft, borderWidth: 1, borderColor: theme.colors.border, backgroundColor: theme.colors.background, alignItems: 'center', justifyContent: 'center' },
+  btnSecondaryText: { fontSize: theme.fontSize.body, fontFamily: theme.fontFamily.semibold, color: theme.colors.textGray },
+  btnPrimary: { flex: 1, height: 48, borderRadius: theme.radius.soft, backgroundColor: theme.colors.gradientEnd, alignItems: 'center', justifyContent: 'center' },
+  btnPrimaryText: { fontSize: theme.fontSize.body, fontFamily: theme.fontFamily.bold, color: theme.colors.white },
+
+  /* Inline banner (submit failures stay inside the sheet so typed values are not lost) */
+  banner: { flexDirection: 'row', alignItems: 'center', gap: theme.space[8], paddingHorizontal: theme.space[12], paddingVertical: theme.space[10], borderRadius: theme.radius.md, marginBottom: theme.space[14], borderWidth: 1 },
+  bannerError: { backgroundColor: theme.colors.dangerBg, borderColor: theme.colors.dangerBorder },
+  bannerSuccess: { backgroundColor: theme.colors.greenBg, borderColor: theme.colors.greenLight },
+  bannerText: { fontSize: theme.fontSize.small, fontFamily: theme.fontFamily.semibold, flex: 1 },
+
+  /* Form fields */
+  field: { marginBottom: theme.space[16] },
+  fieldLabel: { fontSize: theme.fontSize.small, fontFamily: theme.fontFamily.bold, color: theme.colors.textStrong, marginBottom: theme.space[6] },
+  fieldErrorRow: { flexDirection: 'row', alignItems: 'center', gap: theme.space[4], marginTop: theme.space[6] },
+  fieldErrorText: { fontSize: theme.fontSize.small, fontFamily: theme.fontFamily.medium, color: theme.colors.danger, flex: 1 },
+  fieldHint: { fontSize: theme.fontSize.tiny, fontFamily: theme.fontFamily.regular, color: theme.colors.textMuted, marginTop: theme.space[6] },
+  input: { height: 48, borderWidth: 1, borderColor: theme.colors.border, borderRadius: theme.radius.soft, paddingHorizontal: theme.space[14], fontSize: theme.fontSize.body, fontFamily: theme.fontFamily.regular, color: theme.colors.textStrong, backgroundColor: theme.colors.background },
+  inputError: { borderColor: theme.colors.danger, backgroundColor: theme.colors.dangerBg },
+  amountWrapper: { justifyContent: 'center' },
+  currencyPrefix: { position: 'absolute', left: theme.space[14], zIndex: 1, fontSize: theme.fontSize.bodyLg, fontFamily: theme.fontFamily.bold, color: theme.colors.textStrong },
+  amountInput: { paddingLeft: theme.space[30] },
+
+  /* Member selection */
+  selectMemberButton: { height: 52, flexDirection: 'row', alignItems: 'center', gap: theme.space[10], paddingHorizontal: theme.space[14], backgroundColor: theme.colors.background, borderRadius: theme.radius.soft, borderWidth: 1, borderColor: theme.colors.border },
+  selectMemberText: { flex: 1, color: theme.colors.textGray, fontFamily: theme.fontFamily.semibold, fontSize: theme.fontSize.body },
+  selectedCard: { flexDirection: 'row', alignItems: 'center', gap: theme.space[12], padding: theme.space[12], backgroundColor: theme.colors.background, borderRadius: theme.radius.soft, borderWidth: 1, borderColor: theme.colors.border, marginBottom: theme.space[14] },
+  selectedName: { fontSize: theme.fontSize.body, fontFamily: theme.fontFamily.bold, color: theme.colors.textStrong },
+  selectedSub: { fontSize: theme.fontSize.tiny, fontFamily: theme.fontFamily.regular, color: theme.colors.textMuted, marginTop: theme.space[2] },
+  removeButton: { padding: 7, backgroundColor: theme.colors.dangerBg, borderRadius: theme.radius.tight },
+  memberRow: { flexDirection: 'row', alignItems: 'center', gap: theme.space[12], padding: theme.space[12], backgroundColor: theme.colors.background, borderRadius: theme.radius.soft, borderWidth: 1, borderColor: theme.colors.border, marginBottom: theme.space[10] },
+  statusBadge: { paddingHorizontal: theme.space[8], paddingVertical: theme.space[3], borderRadius: theme.radius.sm, backgroundColor: theme.colors.warningBg },
+  statusText: { fontSize: 9, fontFamily: theme.fontFamily.bold, textTransform: 'uppercase', color: theme.colors.warning },
+
+  /* Period selector (coverage) */
+  periodSelectorContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: theme.space[8] },
+  periodPill: { flexBasis: '31%', flexGrow: 1, height: 38, borderRadius: 19, backgroundColor: theme.colors.background, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: theme.colors.border },
+  periodPillActive: { backgroundColor: theme.colors.gradientEnd, borderColor: theme.colors.gradientEnd },
+  periodPillText: { fontSize: theme.fontSize.small, fontFamily: theme.fontFamily.semibold, color: theme.colors.textGray },
+  periodPillTextActive: { color: theme.colors.white },
+  dateRangeIndicator: { flexDirection: 'row', alignItems: 'center', gap: theme.space[6], marginTop: theme.space[12], paddingHorizontal: theme.space[2] },
+  dateRangeIndicatorText: { fontSize: theme.fontSize.small, fontFamily: theme.fontFamily.medium, color: theme.colors.textGray },
+
+  /* Calendar */
+  calendarNavRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: theme.space[12] },
+  calendarMonthTitle: { fontSize: theme.fontSize.bodyLg, fontFamily: theme.fontFamily.bold, color: theme.colors.textStrong },
+  calendarArrowsContainer: { flexDirection: 'row', backgroundColor: theme.colors.background, borderRadius: theme.radius.md, padding: theme.space[2], gap: theme.space[4], borderWidth: 1, borderColor: theme.colors.border },
+  calendarArrowBtn: { width: 30, height: 30, borderRadius: theme.radius.tight, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.colors.white },
+  weekDaysRow: { flexDirection: 'row', marginBottom: theme.space[6] },
+  weekDayText: { width: '14.28%', fontSize: theme.fontSize.tiny, fontFamily: theme.fontFamily.semibold, color: theme.colors.textMuted, textAlign: 'center' },
+  daysGrid: { flexDirection: 'row', flexWrap: 'wrap' },
+  dayCellEmpty: { width: '14.28%', height: 40 },
+  dayCell: { width: '14.28%', height: 40, alignItems: 'center', justifyContent: 'center' },
+  dayCellSelected: { backgroundColor: theme.colors.gradientEnd, borderRadius: 20 },
+  dayCellInRange: { backgroundColor: theme.colors.mintTint },
+  dayCellText: { fontSize: theme.fontSize.caption, fontFamily: theme.fontFamily.semibold, color: theme.colors.textStrong },
+  dayCellToday: { borderWidth: 1.5, borderColor: theme.colors.dueGreen, borderRadius: 20 },
+  dayCellTextToday: { color: theme.colors.dueGreen, fontFamily: theme.fontFamily.extrabold },
+  dayCellTextSelected: { color: theme.colors.white },
+
+  /* Budget allocation */
+  budgetCard: { borderWidth: 1, borderColor: theme.colors.border, backgroundColor: theme.colors.background, borderRadius: theme.radius.lg, padding: theme.space[12] },
+  budgetCardError: { borderColor: theme.colors.danger, backgroundColor: theme.colors.dangerBg },
+  budgetRow: { flexDirection: 'row', alignItems: 'center', gap: theme.space[12] },
+  budgetIcon: { width: 38, height: 38, borderRadius: theme.radius.md, backgroundColor: theme.colors.mintTint, alignItems: 'center', justifyContent: 'center' },
+  budgetTitleRow: { flexDirection: 'row', alignItems: 'center', gap: theme.space[8] },
+  budgetTitle: { fontSize: theme.fontSize.body, fontFamily: theme.fontFamily.bold, color: theme.colors.textStrong },
+  optionalTag: { backgroundColor: theme.colors.surfaceAlt, paddingHorizontal: 7, paddingVertical: theme.space[2], borderRadius: 7 },
+  optionalTagText: { fontSize: 9, fontFamily: theme.fontFamily.bold, color: theme.colors.textGray, textTransform: 'uppercase', letterSpacing: 0.3 },
+  budgetSubtitle: { fontSize: theme.fontSize.tiny, fontFamily: theme.fontFamily.regular, color: theme.colors.textMuted, marginTop: theme.space[3], lineHeight: 15 },
+  budgetSummary: { flexDirection: 'row', alignItems: 'center', gap: theme.space[8], marginTop: theme.space[12], paddingTop: theme.space[12], borderTopWidth: 1, borderTopColor: theme.colors.border },
+  budgetSummaryText: { flex: 1, fontSize: theme.fontSize.small, fontFamily: theme.fontFamily.semibold },
+  budgetEditBtn: { paddingHorizontal: theme.space[12], paddingVertical: theme.space[6], borderRadius: theme.radius.tight, backgroundColor: theme.colors.mintTint },
+  budgetEditText: { fontSize: theme.fontSize.small, fontFamily: theme.fontFamily.bold, color: theme.colors.gradientEnd },
+  budgetHero: { backgroundColor: theme.colors.mintTint, borderRadius: theme.radius.xl, padding: theme.space[16], marginBottom: theme.space[16] },
+  budgetHeroTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  budgetHeroLabel: { fontSize: theme.fontSize.tiny, fontFamily: theme.fontFamily.bold, color: theme.colors.dueGreen, textTransform: 'uppercase', letterSpacing: 0.4 },
+  budgetHeroAmount: { fontSize: theme.fontSize.displayLg, fontFamily: theme.fontFamily.extrabold, color: theme.colors.gradientEnd, letterSpacing: -0.5, marginTop: theme.space[4] },
+  budgetHeroBadge: { paddingHorizontal: theme.space[10], paddingVertical: 5, borderRadius: theme.radius.tight, backgroundColor: theme.colors.white },
+  budgetHeroBadgeText: { fontSize: theme.fontSize.tiny, fontFamily: theme.fontFamily.bold },
+  budgetTrack: { height: 8, borderRadius: theme.radius.xs, backgroundColor: theme.colors.alpha.brand[10], overflow: 'hidden', marginTop: theme.space[14] },
+  budgetFill: { height: '100%', borderRadius: theme.radius.xs },
+  budgetToolsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: theme.space[10] },
+  budgetToolsLabel: { fontSize: theme.fontSize.small, fontFamily: theme.fontFamily.bold, color: theme.colors.textStrong },
+  budgetToolsActions: { flexDirection: 'row', gap: theme.space[8] },
+  toolBtn: { paddingHorizontal: theme.space[12], paddingVertical: theme.space[6], borderRadius: theme.radius.tight, backgroundColor: theme.colors.background, borderWidth: 1, borderColor: theme.colors.border },
+  toolBtnText: { fontSize: theme.fontSize.tiny, fontFamily: theme.fontFamily.bold, color: theme.colors.textGray },
+  budgetItem: { flexDirection: 'row', alignItems: 'center', gap: theme.space[12], backgroundColor: theme.colors.background, borderRadius: theme.radius.soft, padding: theme.space[10], borderWidth: 1, borderColor: theme.colors.border },
+  budgetItemIcon: { width: 36, height: 36, borderRadius: theme.radius.md, backgroundColor: theme.colors.mintTint, alignItems: 'center', justifyContent: 'center' },
+  budgetItemName: { flex: 1, fontSize: theme.fontSize.caption, fontFamily: theme.fontFamily.semibold, color: theme.colors.textStrong },
+  budgetInputWrap: { width: 118, justifyContent: 'center' },
+  budgetPrefix: { position: 'absolute', left: theme.space[10], zIndex: 1, fontSize: theme.fontSize.caption, fontFamily: theme.fontFamily.bold, color: theme.colors.textStrong },
+  budgetInput: { height: 40, borderWidth: 1, borderColor: theme.colors.border, borderRadius: theme.radius.md, paddingLeft: theme.space[24], paddingRight: theme.space[10], fontSize: theme.fontSize.caption, fontFamily: theme.fontFamily.regular, color: theme.colors.textStrong, backgroundColor: theme.colors.white, textAlign: 'right' },
+});
+
+// ======================================================================
+// SPONSOR ALLOWANCES (app/(sponsorTabs)/allowances.tsx)
+export const sponsorAllowancesStyles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: theme.colors.gradientEnd },
+
+  /* Header (gradient is drawn by <GradientBackground /> inside headerGradient) */
+  header: {
+    backgroundColor: theme.colors.gradientEnd,
+    paddingTop: (Platform.OS === 'android' ? StatusBar.currentHeight || 24 : 54) + theme.space[8],
+    paddingBottom: theme.space[40],
+    paddingHorizontal: theme.space[20],
+    overflow: 'hidden',
+  },
+  headerGradient: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
+  headerRow: { flexDirection: 'row', alignItems: 'center', gap: theme.space[14] },
+  backButton: { width: 38, height: 38, borderRadius: 19, backgroundColor: theme.colors.white, alignItems: 'center', justifyContent: 'center' },
+  headerTitle: { fontSize: theme.fontSize.headingLg, fontFamily: theme.fontFamily.bold, color: theme.colors.white, letterSpacing: -0.3 },
+
+  /* Body sheet */
+  bodyContent: {
+    flex: 1,
+    marginTop: -theme.layout.sheetOverlap,
+    borderTopLeftRadius: theme.layout.sheetRadius,
+    borderTopRightRadius: theme.layout.sheetRadius,
+    overflow: 'hidden',
+    backgroundColor: theme.colors.background,
+  },
+  listContent: { paddingHorizontal: theme.space[20], paddingTop: theme.space[24], paddingBottom: theme.layout.tabBarClearance },
+
+  /* Summary card */
+  summaryCard: { backgroundColor: theme.colors.gradientEnd, borderRadius: theme.radius.xxl, padding: theme.space[20], ...theme.shadow.lg },
+  summaryTitle: { fontSize: theme.fontSize.body, fontFamily: theme.fontFamily.semibold, color: theme.colors.alpha.white[82] },
+  summaryAmount: { fontSize: 36, fontFamily: theme.fontFamily.extrabold, color: theme.colors.white, letterSpacing: -0.8, marginTop: theme.space[4], marginBottom: theme.space[16] },
+  summaryInner: { flexDirection: 'row', alignItems: 'center', backgroundColor: theme.colors.alpha.white[15], borderRadius: theme.radius.md, paddingVertical: theme.space[12] },
+  summaryCol: { flex: 1, paddingHorizontal: theme.space[14], gap: theme.space[2] },
+  summaryLabel: { fontSize: theme.fontSize.tiny, fontFamily: theme.fontFamily.regular, color: theme.colors.alpha.white[65] },
+  summaryValue: { fontSize: theme.fontSize.subtitle, fontFamily: theme.fontFamily.bold, color: theme.colors.white },
+  summaryDivider: { width: 1, height: 30, backgroundColor: theme.colors.alpha.white[30] },
+
+  /* Section header */
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: theme.space[24], marginBottom: theme.space[12] },
+  sectionTitle: { fontSize: 17, fontFamily: theme.fontFamily.extrabold, color: theme.colors.brandInk, letterSpacing: -0.3 },
+  addPill: { flexDirection: 'row', alignItems: 'center', gap: theme.space[4], backgroundColor: theme.colors.mintPill, paddingHorizontal: theme.space[12], paddingVertical: theme.space[6], borderRadius: theme.radius.pill },
+  addPillText: { fontSize: theme.fontSize.small, fontFamily: theme.fontFamily.semibold, color: theme.colors.gradientEnd },
+
+  /* Spender card */
+  card: { backgroundColor: theme.colors.white, borderRadius: theme.radius.xl, borderWidth: 1, borderColor: theme.colors.border, padding: theme.space[14], marginBottom: theme.space[14], ...theme.shadow.sm },
+  cardHeader: { flexDirection: 'row', alignItems: 'center', gap: theme.space[12] },
+  cardTitleBlock: { flex: 1 },
+  cardTitle: { fontSize: theme.fontSize.bodyLg, fontFamily: theme.fontFamily.bold, color: theme.colors.textStrong },
+  cardSubtitle: { fontSize: theme.fontSize.small, fontFamily: theme.fontFamily.regular, color: theme.colors.textMuted, marginTop: theme.space[2] },
+
+  /* Health pill */
+  healthPill: { paddingHorizontal: theme.space[10], paddingVertical: theme.space[4], borderRadius: theme.radius.pill },
+  healthPillText: { fontSize: theme.fontSize.tiny, fontFamily: theme.fontFamily.bold },
+  healthGood: { backgroundColor: theme.colors.successBg },
+  healthTextGood: { color: theme.colors.success },
+  healthLow: { backgroundColor: theme.colors.warningBg },
+  healthTextLow: { color: theme.colors.warning },
+  healthCritical: { backgroundColor: theme.colors.dangerBg },
+  healthTextCritical: { color: theme.colors.danger },
+
+  /* Stats */
+  statsRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: theme.colors.background, borderRadius: theme.radius.lg, paddingVertical: theme.space[12], marginTop: theme.space[14] },
+  statCol: { flex: 1, paddingHorizontal: theme.space[10], alignItems: 'center', gap: theme.space[2] },
+  statLabel: { fontSize: theme.fontSize.tiny, fontFamily: theme.fontFamily.regular, color: theme.colors.textMuted },
+  statValue: { fontSize: theme.fontSize.bodyLg, fontFamily: theme.fontFamily.extrabold, color: theme.colors.brandInk },
+  statDivider: { width: 1, height: 28, backgroundColor: theme.colors.border },
+
+  /* Footer */
+  cardFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: theme.space[14], marginTop: theme.space[4] },
+  footerLeft: { flexDirection: 'row', alignItems: 'center', gap: theme.space[8] },
+  footerIconCircle: { width: 26, height: 26, borderRadius: 13, backgroundColor: theme.colors.mintPill, alignItems: 'center', justifyContent: 'center' },
+  footerText: { fontSize: theme.fontSize.caption, fontFamily: theme.fontFamily.semibold, color: theme.colors.textSecondary },
+
+  /* Allowance rows */
+  allowanceRow: { backgroundColor: theme.colors.background, borderRadius: theme.radius.lg, borderWidth: 1, borderColor: theme.colors.border, padding: theme.space[12], marginTop: theme.space[10] },
+  allowanceTop: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: theme.space[10] },
+  allowanceInfo: { flex: 1 },
+  allowanceNameRow: { flexDirection: 'row', alignItems: 'center', gap: theme.space[8] },
+  allowanceName: { flexShrink: 1, fontSize: theme.fontSize.body, fontFamily: theme.fontFamily.bold, color: theme.colors.textStrong },
+  allowanceDateRow: { flexDirection: 'row', alignItems: 'center', gap: theme.space[4], marginTop: theme.space[6] },
+  allowanceDate: { fontSize: theme.fontSize.small, fontFamily: theme.fontFamily.regular, color: theme.colors.textMuted },
+  allowanceAmount: { fontSize: theme.fontSize.bodyLg, fontFamily: theme.fontFamily.extrabold, color: theme.colors.brandInk },
+  rowActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: theme.space[8], marginTop: theme.space[10] },
+  iconBtn: { width: 34, height: 34, borderRadius: theme.radius.tight, backgroundColor: theme.colors.mintTint, alignItems: 'center', justifyContent: 'center' },
+  iconBtnDanger: { backgroundColor: theme.colors.dangerBg },
+
+  /* Status badges */
+  rowBadge: { paddingHorizontal: theme.space[8], paddingVertical: theme.space[2], borderRadius: theme.radius.pill },
+  rowBadgeText: { fontSize: theme.fontSize.micro, fontFamily: theme.fontFamily.bold },
+  rowBadgeActive: { backgroundColor: theme.colors.successBg },
+  rowBadgeTextActive: { color: theme.colors.success },
+  rowBadgeUpcoming: { backgroundColor: theme.colors.warningBg },
+  rowBadgeTextUpcoming: { color: theme.colors.warning },
+  rowBadgeEnded: { backgroundColor: theme.colors.surfaceAlt },
+  rowBadgeTextEnded: { color: theme.colors.textMuted },
+
+  /* Avatar */
+  avatarImageBg: { backgroundColor: theme.colors.surfaceAlt },
+  avatarFallbackBg: { backgroundColor: theme.colors.surfaceAlt, overflow: 'hidden' },
+  avatarSilhouette: { position: 'absolute', backgroundColor: theme.colors.borderStrong },
+
+  /* Skeleton */
+  skeleton: { backgroundColor: theme.colors.border },
+  skeletonSummary: { marginBottom: theme.space[4] },
+  skeletonHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: theme.space[12] },
+  skeletonHeaderText: { flex: 1, gap: theme.space[8] },
+  skeletonGapTop: { marginTop: theme.space[14] },
+
+  /* Toast */
+  toastWrap: { position: 'absolute', left: theme.space[20], right: theme.space[20], bottom: theme.layout.tabBarClearance, alignItems: 'center' },
+  toast: { flexDirection: 'row', alignItems: 'center', gap: theme.space[8], backgroundColor: theme.colors.white, paddingHorizontal: theme.space[16], paddingVertical: theme.space[12], borderRadius: theme.radius.lg, borderWidth: 1, borderColor: theme.colors.successBorder, ...theme.shadow.md },
+  toastText: { flexShrink: 1, fontSize: theme.fontSize.caption, fontFamily: theme.fontFamily.semibold, color: theme.colors.textStrong },
+
+  /* Empty state */
+  emptyState: { alignItems: 'center', justifyContent: 'center', paddingVertical: theme.space[32] },
+  emptyIcon: { width: 48, height: 48, borderRadius: 24, backgroundColor: theme.colors.surfaceAlt, alignItems: 'center', justifyContent: 'center', marginBottom: theme.space[10] },
+  emptyTitle: { fontSize: theme.fontSize.bodyLg, fontFamily: theme.fontFamily.bold, color: theme.colors.textSoft },
+  emptySubtitle: { fontSize: theme.fontSize.small, fontFamily: theme.fontFamily.regular, color: theme.colors.textMuted, textAlign: 'center', marginTop: theme.space[4], paddingHorizontal: theme.space[24] },
+});
+
+
+// ======================================================================
+// MONITORING (app/monitoring.tsx) — a sponsor's view of one spender's allowance:
+// gradient header + hero balance, Top Spendings, Recent Transactions, See All / category drill-down.
+// Values with no matching theme token (22px gutters, rank-bar greens, ...) are kept as literals
+// so the screen looks exactly as it did with its old local StyleSheet.
+const MONITORING_STATUS_TOP = (Platform.OS === 'android' ? StatusBar.currentHeight || 24 : 50) + theme.space[10];
+
+export const monitoringStyles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: theme.colors.white },
+
+  /* Header (gradient is drawn by <GradientBackground /> inside headerGradient) */
+  header: {
+    backgroundColor: theme.colors.gradientEnd,
+    paddingTop: MONITORING_STATUS_TOP,
+    paddingHorizontal: 22,
+    paddingBottom: 22,
+    borderBottomLeftRadius: theme.layout.sheetRadius,
+    borderBottomRightRadius: theme.layout.sheetRadius,
+    overflow: 'hidden',
+  },
+  headerGradient: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
+  headerTop: { flexDirection: 'row', alignItems: 'center', gap: theme.space[14] },
+  backButton: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.88)', alignItems: 'center', justifyContent: 'center' },
+  headerTitleBlock: { flex: 1 },
+  headerTitle: { fontSize: theme.fontSize.heading, fontFamily: theme.fontFamily.extrabold, color: theme.colors.white, letterSpacing: -0.3 },
+  headerSubtitle: { fontSize: theme.fontSize.bodyLg, fontFamily: theme.fontFamily.semibold, color: theme.colors.alpha.white[82], marginTop: theme.space[2] },
+
+  /* Hero (remaining allowance) */
+  hero: { marginTop: 22 },
+  heroLabelRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  heroLabel: { fontSize: theme.fontSize.caption, fontFamily: theme.fontFamily.semibold, color: theme.colors.alpha.white[82] },
+  healthPill: { flexDirection: 'row', alignItems: 'center', gap: theme.space[4], paddingHorizontal: theme.space[10], paddingVertical: theme.space[5], borderRadius: theme.radius.pill },
+  healthPillText: { fontSize: theme.fontSize.tiny, fontFamily: theme.fontFamily.bold },
+  heroAmountRow: { flexDirection: 'row', alignItems: 'flex-end', gap: theme.space[10], marginTop: theme.space[2] },
+  heroAmount: { flexShrink: 1, fontSize: 38, fontFamily: theme.fontFamily.extrabold, color: theme.colors.white, letterSpacing: -0.8 },
+  heroPct: { fontSize: theme.fontSize.tiny, fontFamily: theme.fontFamily.semibold, color: theme.colors.alpha.white[65], marginBottom: 9 },
+  heroTrack: { height: theme.space[16], borderRadius: theme.radius.sm, backgroundColor: theme.colors.progressTrack, overflow: 'hidden', marginTop: theme.space[12] },
+  heroFill: { height: '100%', borderRadius: theme.radius.sm, backgroundColor: theme.colors.progressFill },
+  heroCaption: { fontSize: theme.fontSize.tiny, fontFamily: theme.fontFamily.regular, color: theme.colors.alpha.white[82], textAlign: 'center', marginTop: theme.space[10] },
+
+  /* Body */
+  bodyContent: { flex: 1 },
+  listContent: { paddingHorizontal: 22, paddingTop: 22, paddingBottom: theme.layout.tabBarClearance },
+
+  /* Section headers */
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: theme.space[12] },
+  sectionHeaderSpaced: { marginTop: 26 },
+  sectionTitle: { fontSize: theme.fontSize.title, fontFamily: theme.fontFamily.extrabold, color: theme.colors.brandInk, letterSpacing: -0.3 },
+  seeAll: { fontSize: theme.fontSize.caption, fontFamily: theme.fontFamily.bold, color: theme.colors.mintPillText },
+  periodPill: { flexDirection: 'row', alignItems: 'center', gap: theme.space[4], backgroundColor: theme.colors.mintPill, paddingHorizontal: theme.space[14], paddingVertical: 7, borderRadius: theme.radius.pill },
+  periodPillText: { fontSize: theme.fontSize.caption, fontFamily: theme.fontFamily.semibold, color: theme.colors.mintPillText },
+
+  /* Top spendings card */
+  spendCard: { backgroundColor: theme.colors.white, borderRadius: theme.radius.xxl, borderWidth: 1, borderColor: theme.colors.border, paddingHorizontal: theme.space[14], paddingVertical: theme.space[8], ...theme.shadow.sm },
+  spendRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 9 },
+  spendRank: { width: theme.space[16], fontSize: theme.fontSize.body, fontFamily: theme.fontFamily.extrabold },
+  spendIconBox: { width: 42, height: 42, borderRadius: 13, alignItems: 'center', justifyContent: 'center', marginHorizontal: theme.space[10] },
+  spendBody: { flex: 1 },
+  spendTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  spendName: { flexShrink: 1, fontSize: theme.fontSize.body, fontFamily: theme.fontFamily.semibold, color: theme.colors.brandInk, marginRight: theme.space[8] },
+  spendAmount: { fontSize: theme.fontSize.body, fontFamily: theme.fontFamily.extrabold, color: theme.colors.brandInk },
+  spendBarRow: { flexDirection: 'row', alignItems: 'center', gap: theme.space[10], marginTop: 7 },
+  spendTrack: { flex: 1, height: 7, borderRadius: theme.radius.xs, backgroundColor: '#E5ECE7', overflow: 'hidden' },
+  spendFill: { height: '100%', borderRadius: theme.radius.xs },
+  spendPct: { width: theme.space[32], fontSize: theme.fontSize.tiny, fontFamily: theme.fontFamily.semibold, color: theme.colors.textMuted, textAlign: 'right' },
+  spendEmpty: { fontSize: theme.fontSize.caption, fontFamily: theme.fontFamily.regular, color: theme.colors.textMuted, textAlign: 'center', paddingVertical: theme.space[24] },
+
+  /* Transactions */
+  txRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: theme.space[12], borderBottomWidth: 1, borderBottomColor: theme.colors.surfaceAlt },
+  txRowLast: { borderBottomWidth: 0 },
+  txIconBox: { width: 46, height: 46, borderRadius: theme.radius.soft, alignItems: 'center', justifyContent: 'center' },
+  txBody: { flex: 1, marginLeft: theme.space[12], marginRight: theme.space[8] },
+  txNameRow: { flexDirection: 'row', alignItems: 'center', gap: theme.space[6] },
+  txName: { flexShrink: 1, fontSize: theme.fontSize.bodyLg, fontFamily: theme.fontFamily.semibold, color: theme.colors.brandInk },
+  txMetaRow: { flexDirection: 'row', alignItems: 'center', gap: theme.space[6], marginTop: theme.space[3] },
+  txDot: { width: 6, height: 6, borderRadius: 3 },
+  txMeta: { flexShrink: 1, fontSize: theme.fontSize.small, fontFamily: theme.fontFamily.regular, color: theme.colors.textMuted },
+  txAmount: { fontSize: theme.fontSize.bodyLg, fontFamily: theme.fontFamily.extrabold, color: theme.colors.danger },
+  photoBadge: { width: 22, height: 22, borderRadius: 7, backgroundColor: theme.colors.mintPill, alignItems: 'center', justifyContent: 'center' },
+
+  /* Sub views (See All / category detail) */
+  subHeader: { flexDirection: 'row', alignItems: 'center', gap: theme.space[12], marginBottom: theme.space[14] },
+  subHeaderText: { flex: 1 },
+  subBack: { width: 34, height: 34, borderRadius: 17, backgroundColor: theme.colors.surfaceAlt, alignItems: 'center', justifyContent: 'center' },
+  subTitle: { fontSize: 17, fontFamily: theme.fontFamily.extrabold, color: theme.colors.brandInk, letterSpacing: -0.3 },
+  subSubtitle: { fontSize: theme.fontSize.small, fontFamily: theme.fontFamily.regular, color: theme.colors.textMuted, marginTop: theme.space[2] },
+  subTotal: { fontSize: theme.fontSize.subtitle, fontFamily: theme.fontFamily.extrabold, color: theme.colors.danger },
+
+  /* Search + filters */
+  searchContainer: { flexDirection: 'row', alignItems: 'center', gap: theme.space[8], height: 46, backgroundColor: theme.colors.white, borderRadius: theme.radius.soft, borderWidth: 1, borderColor: theme.colors.border, paddingHorizontal: theme.space[14], marginBottom: theme.space[12] },
+  searchInput: { flex: 1, fontSize: theme.fontSize.body, fontFamily: theme.fontFamily.regular, color: theme.colors.textStrong, paddingVertical: 0 },
+  filterScroll: { flexGrow: 0 },
+  filterRow: { gap: theme.space[8], paddingBottom: theme.space[12], paddingRight: theme.space[8] },
+  filterChip: { paddingHorizontal: theme.space[16], height: 36, borderRadius: 18, backgroundColor: theme.colors.white, borderWidth: 1, borderColor: theme.colors.border, alignItems: 'center', justifyContent: 'center' },
+  filterChipActive: { backgroundColor: theme.colors.gradientEnd, borderColor: theme.colors.gradientEnd },
+  filterChipText: { fontSize: theme.fontSize.small, fontFamily: theme.fontFamily.semibold, color: theme.colors.textGray },
+  filterChipTextActive: { color: theme.colors.white, fontFamily: theme.fontFamily.bold },
+
+  /* Period menu */
+  menuOverlay: { flex: 1, backgroundColor: theme.colors.overlay, alignItems: 'center', justifyContent: 'center', paddingHorizontal: theme.space[40] },
+  menuCard: { width: '100%', maxWidth: 260, backgroundColor: theme.colors.white, borderRadius: 18, paddingVertical: theme.space[6], ...theme.shadow.lg },
+  menuItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 18, paddingVertical: 13 },
+  menuItemText: { fontSize: theme.fontSize.body, fontFamily: theme.fontFamily.medium, color: theme.colors.text },
+  menuItemTextActive: { color: theme.colors.mintPillText, fontFamily: theme.fontFamily.bold },
+
+  /* Empty */
+  emptyState: { alignItems: 'center', paddingVertical: 36, paddingHorizontal: theme.space[24], backgroundColor: theme.colors.background, borderRadius: 22, borderWidth: 1, borderColor: theme.colors.border },
+  emptyIcon: { width: 48, height: 48, borderRadius: 24, backgroundColor: '#EBEFF4', alignItems: 'center', justifyContent: 'center', marginBottom: theme.space[10] },
+  emptyTitle: { fontSize: theme.fontSize.body, fontFamily: theme.fontFamily.bold, color: theme.colors.textStrong },
+  emptySubtitle: { fontSize: theme.fontSize.small, fontFamily: theme.fontFamily.regular, color: theme.colors.textMuted, textAlign: 'center', marginTop: theme.space[4], lineHeight: 17 },
+
+  /* Image viewer */
+  imageOverlay: { flex: 1, backgroundColor: 'rgba(15, 23, 42, 0.92)', justifyContent: 'center', alignItems: 'center' },
+  fullScreenImage: { width: '92%', height: '80%', borderRadius: theme.radius.lg },
+  closeImageButton: { position: 'absolute', top: MONITORING_STATUS_TOP, right: theme.space[20], zIndex: 10, width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.16)', alignItems: 'center', justifyContent: 'center' },
+
+  /* Skeleton */
+  skeletonBlock: { backgroundColor: '#DFE5EC' },
+  skeletonBlockLight: { backgroundColor: theme.colors.alpha.white[30] },
+  skeletonSectionTitle: { marginTop: theme.space[24], marginBottom: theme.space[14] },
+  skeletonRowBody: { marginLeft: theme.space[12], flex: 1, gap: theme.space[8] },
+  skeletonSubtitle: { marginTop: theme.space[8] },
+});

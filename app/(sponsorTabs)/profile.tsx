@@ -5,73 +5,79 @@ import { StatusBar } from 'expo-status-bar';
 import { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Image,
-  Modal,
-  Platform,
   RefreshControl,
   ScrollView,
-  StyleSheet,
   Text,
   TouchableOpacity,
-  View
+  View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import GradientBackground from '../../components/GradientBackground';
+import { AlertConfig, PaytonAlertDialog } from '../../components/PaytonAlert';
+import { theme } from '../../constants/theme';
+import { profileStyles as styles } from '../../constants/ui.styles';
 import { supabase } from '../../lib/supabase';
 
-export const colors = {
-  headerDark: '#1F4F59',  
-  headerDarker: '#173D45', 
-  primary: '#3AA39F',      
-  primaryTint: '#e9fcfb',
-  cyan: '#9be5d9',
-  olive: '#7EA00E',
-  oliveTint: '#F3F6E4',    
-  yellowGreen: '#DCD964',
-  positive: '#0E7C5A',
-  positiveBg: '#E1F5EC',
-  danger: '#DC2626',
-  textDark: '#0F172A',
-  textMuted: '#64748B',
-  textFaint: '#94A3B8',
-  border: '#E2E8F0',
-  surface: '#FFFFFF',
-  surfaceMuted: '#F8FAFC',
-  background: '#F8FAFC',
-  overlay: 'rgba(9, 20, 19, 0.5)',
-};
+type MenuItem = { id: string; label: string; icon: keyof typeof Ionicons.glyphMap; route: string };
+type MenuGroup = { title: string; items: MenuItem[] };
+
+const MENU: MenuGroup[] = [
+  {
+    title: 'Account & Security',
+    items: [
+      { id: 'personal', label: 'Personal Details', icon: 'person-outline', route: '/profile/personal' },
+      { id: 'password', label: 'Change Password', icon: 'shield-checkmark-outline', route: '/profile/change-password' },
+      { id: 'logs', label: 'Activity Logs', icon: 'list-outline', route: '/profile/logs' },
+    ],
+  },
+  {
+    title: 'Data Ledger',
+    items: [
+      { id: 'archive', label: 'Archive Data', icon: 'archive-outline', route: '/profile/archive' },
+      { id: 'export', label: 'Export Data', icon: 'cloud-download-outline', route: '/profile/export' },
+    ],
+  },
+  {
+    title: 'Support & Info',
+    items: [
+      { id: 'help', label: 'Help Desk', icon: 'chatbubbles-outline', route: '/profile/help' },
+      { id: 'feedback', label: 'Send Feedback', icon: 'chatbox-ellipses-outline', route: '/profile/feedback' },
+      { id: 'terms', label: 'Terms of Use', icon: 'document-attach-outline', route: '/profile/terms' },
+      { id: 'about', label: 'App Version', icon: 'information-circle-outline', route: '/profile/about' },
+    ],
+  },
+];
+
+const ALERT_CLOSED: AlertConfig = { visible: false, title: '' };
 
 export default function SponsorProfileScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
+
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  
-  // State for controlling the custom sign-out modal visibility
-  const [showLogoutModal, setShowLogoutModal] = useState(false);
 
   const [fullName, setFullName] = useState('');
   const [role, setRole] = useState('');
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
-  // Automatically fetch profile data every time the screen gains focus
-  useFocusEffect(
-    useCallback(() => {
-      fetchProfile();
-    }, [])
-  );
+  // single local-state alert (PaytonAlertDialog local-state API)
+  const [alert, setAlert] = useState<AlertConfig>(ALERT_CLOSED);
+  const closeAlert = useCallback(() => setAlert((p) => ({ ...p, visible: false })), []);
 
-  const fetchProfile = async () => {
+  const fetchProfile = useCallback(async () => {
     try {
       const { data: { user }, error: userError } = await supabase.auth.getUser();
-      if (userError || !user) throw userError || new Error("No active user session found.");
+      if (userError || !user) throw userError || new Error('No active user session found.');
 
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('full_name, role, avatar_url')
         .eq('id', user.id)
         .single();
-
       if (profileError) throw profileError;
 
       if (profile) {
@@ -80,12 +86,25 @@ export default function SponsorProfileScreen() {
         setAvatarUrl(profile.avatar_url || null);
       }
     } catch (error: any) {
-      Alert.alert("Profile Error", error.message);
+      setAlert({
+        visible: true,
+        type: 'error',
+        title: 'Profile Error',
+        message: error?.message ?? 'Could not load your profile.',
+        buttons: [{ text: 'Got it', onPress: closeAlert }],
+      });
     } finally {
       setIsLoadingProfile(false);
       setIsRefreshing(false);
     }
-  };
+  }, [closeAlert]);
+
+  // refetch every time the screen gains focus
+  useFocusEffect(
+    useCallback(() => {
+      fetchProfile();
+    }, [fetchProfile])
+  );
 
   const onRefresh = () => {
     setIsRefreshing(true);
@@ -96,31 +115,44 @@ export default function SponsorProfileScreen() {
     setIsLoggingOut(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
-
       if (user) {
-        await supabase.from('logs').insert({
-          user_id: user.id,
-          details: `signed out successfully.`,
-        });
+        await supabase.from('logs').insert({ user_id: user.id, details: 'signed out successfully.' });
       }
-
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
 
-      setShowLogoutModal(false);
+      closeAlert();
       router.replace('/');
     } catch (error: any) {
-      Alert.alert("Error", error.message);
+      setAlert({
+        visible: true,
+        type: 'error',
+        title: 'Sign Out Failed',
+        message: error?.message ?? 'Something went wrong. Please try again.',
+        buttons: [{ text: 'Got it', onPress: closeAlert }],
+      });
     } finally {
       setIsLoggingOut(false);
     }
   };
 
+  const confirmLogout = () =>
+    setAlert({
+      visible: true,
+      type: 'warning',
+      title: 'Sign Out',
+      message: 'Are you sure you want to end your session? You will need to log back in to access your data.',
+      buttons: [
+        { text: 'Cancel', style: 'cancel', onPress: closeAlert },
+        { text: 'Sign Out', style: 'destructive', onPress: executeLogout },
+      ],
+    });
+
   if (isLoadingProfile) {
     return (
       <View style={[styles.container, styles.centerLoading]}>
         <StatusBar style="light" />
-        <ActivityIndicator size="small" color="#3AA39F" />
+        <ActivityIndicator size="small" color={theme.colors.accent} />
       </View>
     );
   }
@@ -128,324 +160,78 @@ export default function SponsorProfileScreen() {
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
-      <View style={styles.modernHeader}>
-        <TouchableOpacity style={styles.backBtnTouchable} onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={20} color="#ffffff" />
+
+      {/* gradient header */}
+      <View style={[styles.modernHeader, { paddingTop: insets.top + theme.space[12] }]}>
+        <View style={styles.headerGradientFill} pointerEvents="none">
+          <GradientBackground />
+        </View>
+        <TouchableOpacity style={styles.backBtnTouchable} onPress={() => router.back()} hitSlop={12}>
+          <Ionicons name="arrow-back" size={20} color={theme.colors.white} />
         </TouchableOpacity>
         <Text style={styles.headerTitleCentered}>Account</Text>
         <View style={{ width: 20 }} />
       </View>
 
-      <ScrollView 
-        showsVerticalScrollIndicator={false} 
-        contentContainerStyle={styles.scrollContent}
-        refreshControl={
-          <RefreshControl 
-            refreshing={isRefreshing} 
-            onRefresh={onRefresh} 
-            tintColor="#3AA39F" 
-            colors={['#3AA39F']} 
-          />
-        }
-      >
-        <View style={styles.modernHeroBlock}>
-          {avatarUrl ? (
-            <Image source={{ uri: avatarUrl }} style={styles.heroAvatar} />
-          ) : (
-            <View style={styles.heroAvatarPlaceholder}>
-              <Text style={styles.avatarInitials}>{fullName ? fullName.charAt(0).toUpperCase() : 'U'}</Text>
-            </View>
-          )}
-          <Text style={styles.heroName}>{fullName || "User Account"}</Text>
-          <View style={styles.badgeContainer}>
-            <Text style={styles.badgeText}>{role ? role.toUpperCase() : "USER"}</Text>
-          </View>
-        </View>
-
-        <View style={styles.modernCardGroup}>
-          <Text style={styles.groupContextLabel}>Account & Security</Text>
-          <View style={styles.groupCard}>
-            {[
-              { id: 'personal', label: 'Personal Details', icon: 'person-outline', action: () => router.push('/profile/personal' as any) },
-              { id: 'password', label: 'Change Password', icon: 'shield-checkmark-outline', action: () => router.push('/profile/change-password' as any) },
-              { id: 'logs', label: 'Activity Logs', icon: 'list-outline', action: () => router.push('/profile/logs' as any) },
-            ].map((item, index, arr) => (
-              <TouchableOpacity
-                key={item.id}
-                style={[styles.rowItemFlat, index !== arr.length - 1 && styles.rowDivider]}
-                onPress={item.action}
-              >
-                <View style={styles.modernRowLeft}>
-                  <View style={styles.iconWrapperSquare}>
-                    <Ionicons name={item.icon as any} size={18} color="#000000" />
-                  </View>
-                  <Text style={styles.rowPrimaryLabel}>{item.label}</Text>
-                </View>
-                <Ionicons name="chevron-forward" size={16} color="#173D45" />
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-
-        <View style={styles.modernCardGroup}>
-          <Text style={styles.groupContextLabel}>Data Ledger</Text>
-          <View style={styles.groupCard}>
-            {[
-              { id: 'archive', label: 'Archive Data', icon: 'archive-outline', action: () => router.push('/profile/archive' as any) },
-              { id: 'export', label: 'Export Data', icon: 'cloud-download-outline', action: () => router.push('/profile/export' as any) },
-            ].map((item, index, arr) => (
-              <TouchableOpacity
-                key={item.id}
-                style={[styles.rowItemFlat, index !== arr.length - 1 && styles.rowDivider]}
-                onPress={item.action}
-              >
-                <View style={styles.modernRowLeft}>
-                  <View style={styles.iconWrapperSquare}>
-                    <Ionicons name={item.icon as any} size={18} color="#000000" />
-                  </View>
-                  <Text style={styles.rowPrimaryLabel}>{item.label}</Text>
-                </View>
-                <Ionicons name="chevron-forward" size={16} color="#173D45" />
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-
-        <View style={styles.modernCardGroup}>
-          <Text style={styles.groupContextLabel}>Support & Info</Text>
-          <View style={styles.groupCard}>
-            {[
-              { id: 'help', label: 'Help Desk', icon: 'chatbubbles-outline', action: () => router.push('/profile/help' as any) },
-              { id: 'feedback', label: 'Send Feedback', icon: 'chatbox-ellipses-outline', action: () => router.push('/profile/feedback' as any) },
-              { id: 'terms', label: 'Terms of Use', icon: 'document-attach-outline', action: () => router.push('/profile/terms' as any) },
-              { id: 'about', label: 'App Version', icon: 'information-circle-outline', action: () => router.push('/profile/about' as any) },
-            ].map((item, index, arr) => (
-              <TouchableOpacity
-                key={item.id}
-                style={[styles.rowItemFlat, index !== arr.length - 1 && styles.rowDivider]}
-                onPress={item.action}
-              >
-                <View style={styles.modernRowLeft}>
-                  <View style={styles.iconWrapperSquare}>
-                    <Ionicons name={item.icon as any} size={18} color="#000000" />
-                  </View>
-                  <Text style={styles.rowPrimaryLabel}>{item.label}</Text>
-                </View>
-                <Ionicons name="chevron-forward" size={16} color="#173D45" />
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-
-        <TouchableOpacity 
-          style={styles.modernLogoutBtn} 
-          onPress={() => setShowLogoutModal(true)} 
+      {/* content sheet sliding over the header */}
+      <View style={styles.sheet}>
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContent}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={onRefresh}
+              tintColor={theme.colors.accent}
+              colors={[theme.colors.accent]}
+            />
+          }
         >
-          <Ionicons name="log-out-outline" size={18} color="#EF4444" style={{ marginRight: 8 }} />
-          <Text style={styles.modernLogoutText}>Log Out</Text>
-        </TouchableOpacity>
-
-      </ScrollView>
-
-      {/* Modern Professional Custom Sign Out Modal */}
-      <Modal
-        visible={showLogoutModal}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => !isLoggingOut && setShowLogoutModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContentCard}>
-            
-            {/* Top Icon Badge */}
-            <View style={styles.modalIconContainer}>
-              <Ionicons name="log-out-outline" size={26} color="#EF4444" />
+          <View style={styles.modernHeroBlock}>
+            {avatarUrl ? (
+              <Image source={{ uri: avatarUrl }} style={styles.heroAvatar} />
+            ) : (
+              <View style={styles.heroAvatarPlaceholder}>
+                <Text style={styles.avatarInitials}>{fullName ? fullName.charAt(0).toUpperCase() : 'U'}</Text>
+              </View>
+            )}
+            <Text style={styles.heroName}>{fullName || 'User Account'}</Text>
+            <View style={styles.badgeContainer}>
+              <Text style={styles.badgeText}>{role ? role.toUpperCase() : 'USER'}</Text>
             </View>
-
-            {/* Title & Subtitle */}
-            <Text style={styles.modalTitle}>Sign Out</Text>
-            <Text style={styles.modalSubtitle}>
-              Are you sure you want to end your session? You will need to log back in to access your data.
-            </Text>
-
-            {/* Actions */}
-            <View style={styles.modalActionsRow}>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.modalCancelButton]}
-                onPress={() => setShowLogoutModal(false)}
-                disabled={isLoggingOut}
-              >
-                <Text style={styles.modalCancelButtonText}>Cancel</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.modalButton, styles.modalConfirmButton, isLoggingOut && styles.disabledButton]}
-                onPress={executeLogout}
-                disabled={isLoggingOut}
-              >
-                {isLoggingOut ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
-                ) : (
-                  <Text style={styles.modalConfirmButtonText}>Sign Out</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-
           </View>
-        </View>
-      </Modal>
 
+          {MENU.map((group) => (
+            <View key={group.title} style={styles.modernCardGroup}>
+              <Text style={styles.groupContextLabel}>{group.title}</Text>
+              <View style={styles.groupCard}>
+                {group.items.map((item, index) => (
+                  <TouchableOpacity
+                    key={item.id}
+                    style={[styles.rowItemFlat, index !== group.items.length - 1 && styles.rowDivider]}
+                    onPress={() => router.push(item.route as any)}
+                  >
+                    <View style={styles.modernRowLeft}>
+                      <View style={styles.iconWrapperSquare}>
+                        <Ionicons name={item.icon} size={18} color={theme.colors.brand} />
+                      </View>
+                      <Text style={styles.rowPrimaryLabel}>{item.label}</Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={16} color={theme.colors.textSubtle} />
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          ))}
+
+          <TouchableOpacity style={styles.modernLogoutBtn} onPress={confirmLogout}>
+            <Ionicons name="log-out-outline" size={18} color={theme.colors.dangerBright} style={{ marginRight: theme.space[8] }} />
+            <Text style={styles.modernLogoutText}>Log Out</Text>
+          </TouchableOpacity>
+        </ScrollView>
+      </View>
+
+      <PaytonAlertDialog {...alert} busy={isLoggingOut} onDismiss={closeAlert} />
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { 
-    flex: 1, 
-    backgroundColor: '#f5fcfa',
-    borderRadius: 12,
-  },
-  centerLoading: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  scrollContent: { paddingBottom: 110 },
-  modernHeader: { 
-    flexDirection: 'row', 
-    justifyContent: 'center', 
-    alignItems: 'center', 
-    paddingHorizontal: 24,
-    paddingTop: Platform.OS === 'android' ? 44 : 20,
-    paddingBottom: 20,
-    backgroundColor: colors.headerDark,
-    borderBottomLeftRadius: 32,
-    borderBottomRightRadius: 32,
-  },
-  backBtnTouchable: { width: 20 },
-  headerTitleCentered: { flex: 1, textAlign: 'center', fontSize: 20, fontWeight: '800', color: '#ffffff', letterSpacing: -0.5 },
-  modernHeroBlock: { alignItems: 'center', marginTop: 30, marginBottom: 15 },
-  heroAvatar: { width: 88, height: 88, borderRadius: 28, backgroundColor: '#E2E8F0' },
-  heroAvatarPlaceholder: { width: 88, height: 88, borderRadius: 28, backgroundColor: '#F1F5F9', justifyContent: 'center', alignItems: 'center' },
-  avatarInitials: { fontSize: 26, fontWeight: '600', color: '#475569' },
-  heroName: { fontSize: 22, fontWeight: '700', color: '#1E293B', marginTop: 14, letterSpacing: -0.5 },
-  badgeContainer: { backgroundColor: '#ffffff', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 11, marginTop: 8, borderWidth: 1, borderColor: '#0E7C5A' },
-  badgeText: { fontSize: 11, fontWeight: '700', color: '#0E7C5A', letterSpacing: 0.5 },
-  modernCardGroup: { paddingHorizontal: 20, marginTop: 24 },
-  groupContextLabel: { fontSize: 12, fontWeight: '600', color: '#94A3B8', textTransform: 'uppercase', marginBottom: 10, letterSpacing: 0.5, paddingLeft: 4 },
-  modernRowLeft: { flexDirection: 'row', alignItems: 'center', flex: 1, paddingRight: 10 },
-  iconWrapperSquare: { width: 36, height: 36, justifyContent: 'center', alignItems: 'center', marginRight: 14 },
-  rowPrimaryLabel: { fontSize: 14, fontWeight: '600', color: '#1E293B' },
-  groupCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 22,
-    borderColor: '#E2E8F0',
-    borderWidth: 1,
-    shadowColor: '#0F172A',
-    overflow: 'hidden',
-  },
-  rowItemFlat: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-  },
-  rowDivider: {
-    borderBottomWidth: 3,
-    borderBottomColor: '#F1F5F9',
-  },
-  modernLogoutBtn: {
-    backgroundColor: '#FEF2F2', 
-    borderRadius: 24,                             
-    padding: 18,                     
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#ffb8b8',       
-    marginTop: 30,            
-    marginHorizontal: 24,      
-  },
-  modernLogoutText: {
-    color: '#EF4444',            
-    fontSize: 15,
-    fontWeight: '700',
-    letterSpacing: 0.5,
-  },
-  disabledButton: { 
-    backgroundColor: '#F1F5F9', 
-    borderColor: '#E2E8F0' 
-  },
-
-  // Modal Styles
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: colors.overlay,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 24,
-  },
-  modalContentCard: {
-    width: '100%',
-    maxWidth: 340,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 28,
-    padding: 24,
-    alignItems: 'center',
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.25,
-    shadowRadius: 15,
-    elevation: 8,
-  },
-  modalIconContainer: {
-    width: 56,
-    height: 56,
-    borderRadius: 20,
-    backgroundColor: '#FEF2F2',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#0F172A',
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  modalSubtitle: {
-    fontSize: 14,
-    color: '#64748B',
-    textAlign: 'center',
-    lineHeight: 20,
-    marginBottom: 24,
-  },
-  modalActionsRow: {
-    flexDirection: 'row',
-    gap: 12,
-    width: '100%',
-  },
-  modalButton: {
-    flex: 1,
-    paddingVertical: 14,
-    borderRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalCancelButton: {
-    backgroundColor: '#F1F5F9',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  modalCancelButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#475569',
-  },
-  modalConfirmButton: {
-    backgroundColor: '#EF4444',
-  },
-  modalConfirmButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
-});

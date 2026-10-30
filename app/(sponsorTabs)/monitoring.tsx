@@ -9,8 +9,6 @@ import {
   FlatList,
   Image,
   Modal,
-  StatusBar as NativeStatusBar,
-  Platform,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -23,6 +21,9 @@ import {
   ViewStyle,
 } from 'react-native';
 
+import { theme } from '@/constants/theme';
+import { monitoringStyles as styles } from '@/constants/ui.styles';
+import { GradientBackground } from '../../components/GradientBackground';
 import { supabase } from '../../lib/supabase';
 
 /* ---------- Types ---------- */
@@ -40,7 +41,7 @@ interface ExpenseItem {
 }
 
 type ExpenseFilter = 'all' | 'today' | 'week' | 'month' | 'year';
-type MonitoringTab = 'all' | 'categories';
+type ScreenView = 'overview' | 'all' | 'category';
 
 interface CategoryGroup {
   key: string;
@@ -50,14 +51,18 @@ interface CategoryGroup {
   count: number;
 }
 
-type CategoryGridItem = CategoryGroup | { key: string; placeholder: true };
-
-const TABS: { key: MonitoringTab; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
-  { key: 'all', label: 'All Expenses', icon: 'list-outline' },
-  { key: 'categories', label: 'Categories', icon: 'grid-outline' },
-];
+interface SpendRow {
+  key: string;
+  name: string;
+  icon: string;
+  total: number;
+  pct: number;
+  color: string;
+  group?: CategoryGroup;
+}
 
 const UNCATEGORIZED_KEY = '__uncategorized__';
+const OTHER_KEY = '__other__';
 const getCategoryKey = (exp: ExpenseItem) =>
   exp.category_id || exp.categories?.name || UNCATEGORIZED_KEY;
 
@@ -69,23 +74,12 @@ const FILTERS: { key: ExpenseFilter; label: string; caption: string }[] = [
   { key: 'year', label: 'This Year', caption: 'This year' },
 ];
 
-/* ---------- Design Tokens ---------- */
-const COLORS = {
-  bg: '#F5F7FA',
-  card: '#FFFFFF',
-  white: '#FFFFFF',
-  primary: '#0F3D2E',
-  primarySoft: '#E6F3EB',
-  primaryMid: '#2F7D5B',
-  accentGreen: '#C1F038',
-  textPrimary: '#111827',
-  textMuted: '#8E9BAE',
-  textSubtle: '#6B7280',
-  danger: '#E53E3E',
-  dangerSoft: '#FEF2F2',
-  border: '#E8ECF1',
-  borderLight: '#F0F2F5',
-};
+// rank 1, 2, 3 and "Other" (same order as the reference design)
+const RANK_COLORS = ['#F2B84B', '#4C9AE0', '#E0608A', '#8E9BAE'];
+const RECENT_LIMIT = 5;
+
+const C = theme.colors;
+const F = theme.fontFamily;
 
 /* ---------- Helpers ---------- */
 const formatPeso = (n: number, fixed = true) =>
@@ -115,119 +109,65 @@ const getFilterStart = (filter: ExpenseFilter): Date | null => {
   }
 };
 
-const formatDateTime = (dateStr: string) => {
-  try {
-    if (!dateStr) return '';
-    const d = new Date(dateStr);
-    return (
-      d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) +
-      ' at ' +
-      d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
-    );
-  } catch {
-    return dateStr;
-  }
-};
-
 const isInPeriod = (dateStr: string, filter: ExpenseFilter) => {
   const start = getFilterStart(filter);
   return !start || new Date(dateStr) >= start;
 };
 
-/* ---------- Reusable UI ---------- */
-function FilterChips({
-  value,
-  onChange,
-}: {
-  value: ExpenseFilter;
-  onChange: (f: ExpenseFilter) => void;
-}) {
-  return (
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      style={styles.filterScroll}
-      contentContainerStyle={styles.filterRow}
-      keyboardShouldPersistTaps="handled"
-    >
-      {FILTERS.map((f) => {
-        const active = value === f.key;
-        return (
-          <TouchableOpacity
-            key={f.key}
-            style={[styles.filterChip, active && styles.filterChipActive]}
-            activeOpacity={0.8}
-            onPress={() => onChange(f.key)}
-          >
-            <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>{f.label}</Text>
-          </TouchableOpacity>
-        );
-      })}
-    </ScrollView>
-  );
-}
+const formatTime = (d: Date) =>
+  d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }).toLowerCase();
 
-function Avatar({ uri, size = 42 }: { uri?: string | null; size?: number }) {
-  const [failed, setFailed] = useState(false);
+/** "Today, 12:40 pm" · "Yesterday" · "Oct 28" */
+const formatRelative = (dateStr: string) => {
+  try {
+    if (!dateStr) return '';
+    const d = new Date(dateStr);
+    const now = new Date();
+    const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const startYesterday = new Date(startToday);
+    startYesterday.setDate(startYesterday.getDate() - 1);
 
-  if (uri && !failed) {
-    return (
-      <Image
-        source={{ uri }}
-        onError={() => setFailed(true)}
-        style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: '#E2E8F0' }}
-      />
-    );
+    if (d >= startToday) return `Today, ${formatTime(d)}`;
+    if (d >= startYesterday) return `Yesterday, ${formatTime(d)}`;
+    return `${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}, ${formatTime(d)}`;
+  } catch {
+    return dateStr;
   }
+};
 
-  const head = size * 0.32;
-  const body = size * 0.74;
-  return (
-    <View
-      style={{
-        width: size,
-        height: size,
-        borderRadius: size / 2,
-        backgroundColor: '#DDF0E5',
-        overflow: 'hidden',
-      }}
-    >
-      <View
-        style={{
-          position: 'absolute',
-          width: head,
-          height: head,
-          borderRadius: head / 2,
-          backgroundColor: '#86C4A2',
-          top: size * 0.2,
-          left: (size - head) / 2,
-        }}
-      />
-      <View
-        style={{
-          position: 'absolute',
-          width: body,
-          height: body,
-          borderRadius: body / 2,
-          backgroundColor: '#86C4A2',
-          top: size * 0.6,
-          left: (size - body) / 2,
-        }}
-      />
-    </View>
-  );
-}
+const formatShortDate = (s?: string) => {
+  try {
+    if (!s) return '';
+    const d = new Date(s.includes('T') ? s : `${s}T00:00:00`);
+    if (isNaN(d.getTime())) return '';
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  } catch {
+    return '';
+  }
+};
 
+// Same thresholds as the Allowances screen (>50 healthy, >20 warning, otherwise critical)
+const getHealth = (pct: number) => {
+  if (pct > 50) return { label: 'On Track', bg: C.mintPill, fg: C.mintPillText };
+  if (pct > 20) return { label: 'Running Low', bg: '#F8C95C', fg: '#6B4300' };
+  return { label: 'Almost Out', bg: '#FECACA', fg: C.dangerDeep };
+};
+
+const tint = (hex: string) => `${hex}26`;
+
+/* ---------- Reusable UI ---------- */
 function Skeleton({
   width,
   height,
   radius = 10,
   style,
+  light = false,
 }: {
   width: DimensionValue;
   height: number;
   radius?: number;
   style?: StyleProp<ViewStyle>;
+  light?: boolean;
 }) {
   const opacity = useRef(new Animated.Value(0.45)).current;
 
@@ -244,7 +184,11 @@ function Skeleton({
 
   return (
     <Animated.View
-      style={[{ width, height, borderRadius: radius, backgroundColor: '#DFE5EC', opacity }, style]}
+      style={[
+        light ? styles.skeletonBlockLight : styles.skeletonBlock,
+        { width, height, borderRadius: radius, opacity },
+        style,
+      ]}
     />
   );
 }
@@ -252,25 +196,18 @@ function Skeleton({
 function MonitoringSkeleton() {
   return (
     <View style={styles.listContent}>
-      <Skeleton width="100%" height={46} radius={16} />
-      <View style={{ flexDirection: 'row', gap: 8, marginTop: 20 }}>
-        {[64, 84, 96, 100, 96].map((w, i) => (
-          <Skeleton key={i} width={w} height={38} radius={19} />
-        ))}
-      </View>
-      <Skeleton width="100%" height={48} radius={14} style={{ marginTop: 14, marginBottom: 16 }} />
-      <View style={{ gap: 10 }}>
-        {[0, 1, 2, 3, 4].map((i) => (
-          <View key={i} style={styles.expenseCard}>
-            <Skeleton width={42} height={42} radius={14} />
-            <View style={{ marginLeft: 12, flex: 1, gap: 8 }}>
-              <Skeleton width="60%" height={12} radius={6} />
-              <Skeleton width="45%" height={10} radius={5} />
-            </View>
-            <Skeleton width={64} height={14} radius={7} />
+      <Skeleton width="100%" height={230} radius={24} />
+      <Skeleton width={190} height={18} radius={9} style={styles.skeletonSectionTitle} />
+      {[0, 1, 2].map((i) => (
+        <View key={i} style={[styles.txRow, styles.txRowLast]}>
+          <Skeleton width={44} height={44} radius={14} />
+          <View style={styles.skeletonRowBody}>
+            <Skeleton width="55%" height={12} radius={6} />
+            <Skeleton width="40%" height={10} radius={5} />
           </View>
-        ))}
-      </View>
+          <Skeleton width={60} height={14} radius={7} />
+        </View>
+      ))}
     </View>
   );
 }
@@ -278,7 +215,13 @@ function MonitoringSkeleton() {
 /* ---------- Screen ---------- */
 export default function MonitoringScreen() {
   const router = useRouter();
-  const { spenderId } = useLocalSearchParams<{ spenderId: string }>();
+  // allocated / allowanceName / endDate are optional display params sent by the Allowances screen
+  const { spenderId, allocated, allowanceName, endDate } = useLocalSearchParams<{
+    spenderId: string;
+    allocated?: string;
+    allowanceName?: string;
+    endDate?: string;
+  }>();
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -286,13 +229,14 @@ export default function MonitoringScreen() {
   const [spenderAvatar, setSpenderAvatar] = useState<string | null>(null);
   const [expenses, setExpenses] = useState<ExpenseItem[]>([]);
 
-  const [activeTab, setActiveTab] = useState<MonitoringTab>('all');
-  // Each tab keeps its own period filter
+  const [view, setView] = useState<ScreenView>('overview');
+  // "All transactions" list keeps its own period filter; Top Spendings uses categoryFilter
   const [allFilter, setAllFilter] = useState<ExpenseFilter>('all');
-  const [categoryFilter, setCategoryFilter] = useState<ExpenseFilter>('all');
+  const [categoryFilter, setCategoryFilter] = useState<ExpenseFilter>('month');
   const [selectedCategory, setSelectedCategory] = useState<CategoryGroup | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedImageUri, setSelectedImageUri] = useState<string | null>(null);
+  const [periodMenuOpen, setPeriodMenuOpen] = useState(false);
 
   /* ---------- Data ---------- */
   const fetchMonitoringData = async (isRefreshing = false) => {
@@ -356,13 +300,28 @@ export default function MonitoringScreen() {
     );
   }, []);
 
-  // Tab 1: all expenses
+  // Header: remaining allowance (needs the allocated total passed in by the Allowances screen)
+  const totalSpentAll = useMemo(
+    () => expenses.reduce((sum, e) => sum + Number(e.amount), 0),
+    [expenses],
+  );
+  const allocatedNum = allocated !== undefined && allocated !== '' ? Number(allocated) : NaN;
+  const hasBudget = Number.isFinite(allocatedNum) && allocatedNum > 0;
+  const remaining = hasBudget ? Math.max(0, allocatedNum - totalSpentAll) : 0;
+  const remainingPct = hasBudget ? Math.min(100, Math.round((remaining / allocatedNum) * 100)) : 0;
+  const health = getHealth(remainingPct);
+  const endLabel = formatShortDate(endDate);
+
+  // Recent transactions (latest first)
+  const recentExpenses = useMemo(() => expenses.slice(0, RECENT_LIMIT), [expenses]);
+
+  // Full list ("See All")
   const allTabExpenses = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
     return expenses.filter((exp) => isInPeriod(exp.spent_at, allFilter) && matchesSearch(exp, query));
   }, [expenses, allFilter, searchQuery, matchesSearch]);
 
-  // Tab 2: category cards (respect the category tab's period filter)
+  // Top spendings (respect the period dropdown)
   const categoryGroups = useMemo<CategoryGroup[]>(() => {
     const map = new Map<string, CategoryGroup>();
     expenses.forEach((exp) => {
@@ -385,15 +344,39 @@ export default function MonitoringScreen() {
     return Array.from(map.values()).sort((a, b) => b.total - a.total);
   }, [expenses, categoryFilter]);
 
-  const categoryGridData = useMemo<CategoryGridItem[]>(
-    () =>
-      categoryGroups.length % 2 === 1
-        ? [...categoryGroups, { key: '__placeholder__', placeholder: true }]
-        : categoryGroups,
-    [categoryGroups],
-  );
+  // Top 3 + "Other" (or all of them when there are 4 or fewer)
+  const spendRows = useMemo<SpendRow[]>(() => {
+    const total = categoryGroups.reduce((s, g) => s + g.total, 0);
+    const pctOf = (v: number) => (total > 0 ? Math.round((v / total) * 100) : 0);
+    const collapse = categoryGroups.length > 4;
+    const top = collapse ? categoryGroups.slice(0, 3) : categoryGroups;
+    const rest = collapse ? categoryGroups.slice(3) : [];
 
-  // Tab 2 drill-down: expenses for the tapped category
+    const rows: SpendRow[] = top.map((g, i) => ({
+      key: g.key,
+      name: g.name,
+      icon: g.icon,
+      total: g.total,
+      pct: pctOf(g.total),
+      color: RANK_COLORS[i],
+      group: g,
+    }));
+
+    if (rest.length) {
+      const restTotal = rest.reduce((s, g) => s + g.total, 0);
+      rows.push({
+        key: OTHER_KEY,
+        name: 'Other',
+        icon: 'ellipsis-horizontal',
+        total: restTotal,
+        pct: pctOf(restTotal),
+        color: RANK_COLORS[3],
+      });
+    }
+    return rows;
+  }, [categoryGroups]);
+
+  // Drill-down: expenses for the tapped category
   const categoryExpenses = useMemo(() => {
     if (!selectedCategory) return [];
     const query = searchQuery.trim().toLowerCase();
@@ -410,276 +393,363 @@ export default function MonitoringScreen() {
     [categoryExpenses],
   );
 
+  const monthName = new Date().toLocaleDateString('en-US', { month: 'long' });
   const categoryCaption = FILTERS.find((f) => f.key === categoryFilter)?.caption ?? 'All time';
+  const periodLabel = categoryFilter === 'month' ? monthName : categoryCaption;
   const showSkeleton = loading && !refreshing;
-  const inCategoryDetail = activeTab === 'categories' && !!selectedCategory;
 
-  const handleTabPress = (tab: MonitoringTab) => {
+  const goOverview = () => {
     setSearchQuery('');
     setSelectedCategory(null);
-    setActiveTab(tab);
+    setView('overview');
   };
-
+  const openAll = () => {
+    setSearchQuery('');
+    setView('all');
+  };
   const openCategory = (category: CategoryGroup) => {
     setSearchQuery('');
     setSelectedCategory(category);
-  };
-
-  const closeCategory = () => {
-    setSearchQuery('');
-    setSelectedCategory(null);
+    setView('category');
   };
 
   /* ---------- Render ---------- */
-  const renderTabs = () => (
-    <View style={styles.tabBar}>
-      {TABS.map((tab) => {
-        const active = activeTab === tab.key;
-        return (
-          <TouchableOpacity
-            key={tab.key}
-            style={[styles.tabButton, active && styles.tabButtonActive]}
-            activeOpacity={0.85}
-            onPress={() => handleTabPress(tab.key)}
-          >
-            <Ionicons
-              name={tab.icon}
-              size={16}
-              color={active ? COLORS.white : COLORS.textSubtle}
-            />
-            <Text style={[styles.tabText, active && styles.tabTextActive]}>{tab.label}</Text>
-          </TouchableOpacity>
-        );
-      })}
+  const renderHeader = () => (
+    <View style={styles.header}>
+      <View style={styles.headerGradient}>
+        <GradientBackground />
+      </View>
+
+      <View style={styles.headerTop}>
+        <TouchableOpacity style={styles.backButton} onPress={() => router.back()} activeOpacity={0.7}>
+          <Ionicons name="arrow-back" size={20} color={C.gradientEnd} />
+        </TouchableOpacity>
+
+        <View style={styles.headerTitleBlock}>
+          {showSkeleton ? (
+            <>
+              <Skeleton light width={140} height={16} radius={8} />
+              <Skeleton light width={90} height={12} radius={6} style={styles.skeletonSubtitle} />
+            </>
+          ) : (
+            <>
+              <Text style={styles.headerTitle} numberOfLines={1}>
+                {allowanceName || 'Allowance'}
+              </Text>
+              <Text style={styles.headerSubtitle} numberOfLines={1}>{spenderName}</Text>
+            </>
+          )}
+        </View>
+      </View>
+
+      {!showSkeleton && (
+        <View style={styles.hero}>
+          <View style={styles.heroLabelRow}>
+            <Text style={styles.heroLabel}>{hasBudget ? 'Remaining Allowance' : 'Total Spent'}</Text>
+            {hasBudget && (
+              <View style={[styles.healthPill, { backgroundColor: health.bg }]}>
+                <Ionicons name="timer-outline" size={12} color={health.fg} />
+                <Text style={[styles.healthPillText, { color: health.fg }]}>{health.label}</Text>
+              </View>
+            )}
+          </View>
+
+          <View style={styles.heroAmountRow}>
+            <Text style={styles.heroAmount} numberOfLines={1} adjustsFontSizeToFit>
+              {formatPeso(hasBudget ? remaining : totalSpentAll)}
+            </Text>
+            {hasBudget && <Text style={styles.heroPct}>{remainingPct}% left</Text>}
+          </View>
+
+          {hasBudget && (
+            <View style={styles.heroTrack}>
+              <View style={[styles.heroFill, { width: `${remainingPct}%` }]} />
+            </View>
+          )}
+
+          {!!endLabel && <Text style={styles.heroCaption}>Allowance ends on {endLabel}</Text>}
+        </View>
+      )}
     </View>
   );
 
   const renderSearch = () =>
     expenses.length > 0 ? (
       <View style={styles.searchContainer}>
-        <Ionicons name="search-outline" size={18} color={COLORS.textMuted} />
+        <Ionicons name="search-outline" size={18} color={C.textMuted} />
         <TextInput
           style={styles.searchInput}
           placeholder="Search by description or category"
-          placeholderTextColor={COLORS.textMuted}
+          placeholderTextColor={C.textMuted}
           value={searchQuery}
           onChangeText={setSearchQuery}
           autoCorrect={false}
         />
         {searchQuery.length > 0 && (
           <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-            <Ionicons name="close-circle" size={18} color={COLORS.textMuted} />
+            <Ionicons name="close-circle" size={18} color={C.textMuted} />
           </TouchableOpacity>
         )}
       </View>
     ) : null;
 
-  const renderCategoryDetailHeader = () => (
-    <View>
-      <View style={styles.detailHeader}>
-        <TouchableOpacity
-          style={styles.detailBack}
-          onPress={closeCategory}
-          activeOpacity={0.7}
-          hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-        >
-          <Ionicons name="chevron-back" size={18} color={COLORS.textPrimary} />
-        </TouchableOpacity>
-        <View style={styles.categoryIconBox}>
-          <Ionicons
-            name={(selectedCategory?.icon as any) || 'pricetag-outline'}
-            size={19}
-            color={COLORS.primaryMid}
-          />
+  const renderSpendRow = (row: SpendRow, index: number) => {
+    const body = (
+      <View style={styles.spendRow}>
+        <Text style={[styles.spendRank, { color: row.color }]}>{index + 1}</Text>
+        <View style={[styles.spendIconBox, { backgroundColor: tint(row.color) }]}>
+          <Ionicons name={(row.icon as any) || 'pricetag-outline'} size={18} color={row.color} />
         </View>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.detailTitle} numberOfLines={1}>{selectedCategory?.name}</Text>
-          <Text style={styles.detailSubtitle}>
+        <View style={styles.spendBody}>
+          <View style={styles.spendTop}>
+            <Text style={styles.spendName} numberOfLines={1}>{row.name}</Text>
+            <Text style={styles.spendAmount}>{formatPeso(row.total, false)}</Text>
+          </View>
+          <View style={styles.spendBarRow}>
+            <View style={styles.spendTrack}>
+              <View
+                style={[
+                  styles.spendFill,
+                  { width: `${Math.max(row.pct, row.total > 0 ? 3 : 0)}%`, backgroundColor: row.color },
+                ]}
+              />
+            </View>
+            <Text style={styles.spendPct}>{row.pct}%</Text>
+          </View>
+        </View>
+      </View>
+    );
+
+    if (!row.group) return <View key={row.key}>{body}</View>;
+    return (
+      <TouchableOpacity key={row.key} activeOpacity={0.7} onPress={() => openCategory(row.group!)}>
+        {body}
+      </TouchableOpacity>
+    );
+  };
+
+  const renderOverviewHeader = () => (
+    <View>
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionTitle}>Top Spendings</Text>
+        <TouchableOpacity
+          style={styles.periodPill}
+          activeOpacity={0.8}
+          onPress={() => setPeriodMenuOpen(true)}
+        >
+          <Text style={styles.periodPillText}>{periodLabel}</Text>
+          <Ionicons name="chevron-down" size={13} color={C.mintPillText} />
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.spendCard}>
+        {spendRows.length === 0 ? (
+          <Text style={styles.spendEmpty}>
+            {expenses.length === 0 ? 'No expenses logged yet.' : 'No spending in this period.'}
+          </Text>
+        ) : (
+          spendRows.map(renderSpendRow)
+        )}
+      </View>
+
+      <View style={[styles.sectionHeader, styles.sectionHeaderSpaced]}>
+        <Text style={styles.sectionTitle}>Recent Transactions</Text>
+        {expenses.length > RECENT_LIMIT && (
+          <TouchableOpacity onPress={openAll} activeOpacity={0.7} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <Text style={styles.seeAll}>See All</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+    </View>
+  );
+
+  const renderAllHeader = () => (
+    <View>
+      <View style={styles.subHeader}>
+        <TouchableOpacity style={styles.subBack} onPress={goOverview} activeOpacity={0.7}>
+          <Ionicons name="chevron-back" size={18} color={C.textStrong} />
+        </TouchableOpacity>
+        <View style={styles.subHeaderText}>
+          <Text style={styles.subTitle}>All Transactions</Text>
+          <Text style={styles.subSubtitle}>
+            {allTabExpenses.length} {allTabExpenses.length === 1 ? 'entry' : 'entries'}
+          </Text>
+        </View>
+      </View>
+
+      {renderSearch()}
+
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.filterScroll}
+        contentContainerStyle={styles.filterRow}
+        keyboardShouldPersistTaps="handled"
+      >
+        {FILTERS.map((f) => {
+          const active = allFilter === f.key;
+          return (
+            <TouchableOpacity
+              key={f.key}
+              style={[styles.filterChip, active && styles.filterChipActive]}
+              activeOpacity={0.8}
+              onPress={() => setAllFilter(f.key)}
+            >
+              <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>{f.label}</Text>
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
+    </View>
+  );
+
+  const renderCategoryHeader = () => (
+    <View>
+      <View style={styles.subHeader}>
+        <TouchableOpacity style={styles.subBack} onPress={goOverview} activeOpacity={0.7}>
+          <Ionicons name="chevron-back" size={18} color={C.textStrong} />
+        </TouchableOpacity>
+        <View style={styles.subHeaderText}>
+          <Text style={styles.subTitle} numberOfLines={1}>{selectedCategory?.name}</Text>
+          <Text style={styles.subSubtitle}>
             {categoryExpenses.length} {categoryExpenses.length === 1 ? 'entry' : 'entries'} • {categoryCaption}
           </Text>
         </View>
-        <Text style={styles.detailTotal}>{formatPeso(categoryDetailTotal)}</Text>
+        <Text style={styles.subTotal}>{formatPeso(categoryDetailTotal)}</Text>
       </View>
       {renderSearch()}
     </View>
   );
 
-  const renderCategoryCard = ({ item }: { item: CategoryGridItem }) => {
-    if ('placeholder' in item) return <View style={styles.categoryCardSpacer} />;
+  const renderTransaction = ({ item: exp, index }: { item: ExpenseItem; index: number }) => {
+    // colour the row by the category's rank in Top Spendings (falls back to gray)
+    const rank = spendRows.findIndex((r) => r.key === getCategoryKey(exp));
+    const color = rank >= 0 ? spendRows[rank].color : RANK_COLORS[3];
+    const list = view === 'overview' ? recentExpenses : view === 'all' ? allTabExpenses : categoryExpenses;
+    const isLast = index === list.length - 1;
+
     return (
-      <TouchableOpacity
-        style={styles.categoryCard}
-        activeOpacity={0.8}
-        onPress={() => openCategory(item)}
-      >
-        <View style={styles.categoryCardTop}>
-          <View style={styles.categoryIconBox}>
-            <Ionicons name={(item.icon as any) || 'pricetag-outline'} size={19} color={COLORS.primaryMid} />
-          </View>
-          <Ionicons name="chevron-forward" size={16} color={COLORS.textMuted} />
+      <View style={[styles.txRow, isLast && styles.txRowLast]}>
+        <View style={[styles.txIconBox, { backgroundColor: tint(color) }]}>
+          <Ionicons name={(exp.categories?.icon as any) || 'pricetag-outline'} size={19} color={color} />
         </View>
-        <Text style={styles.categoryName} numberOfLines={1}>{item.name}</Text>
-        <Text style={styles.categoryTotal} numberOfLines={1} adjustsFontSizeToFit>
-          {formatPeso(item.total)}
-        </Text>
-        <Text style={styles.categoryCount}>
-          {item.count} {item.count === 1 ? 'entry' : 'entries'}
-        </Text>
-      </TouchableOpacity>
+
+        <View style={styles.txBody}>
+          <View style={styles.txNameRow}>
+            <Text style={styles.txName} numberOfLines={1}>{exp.description}</Text>
+            {exp.photo_url ? (
+              <TouchableOpacity
+                style={styles.photoBadge}
+                onPress={() => setSelectedImageUri(exp.photo_url!)}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="image" size={11} color={C.mintPillText} />
+              </TouchableOpacity>
+            ) : null}
+          </View>
+          <View style={styles.txMetaRow}>
+            <View style={[styles.txDot, { backgroundColor: color }]} />
+            <Text style={styles.txMeta} numberOfLines={1}>
+              {exp.categories?.name ? `${exp.categories.name} · ` : ''}
+              {formatRelative(exp.spent_at)}
+            </Text>
+          </View>
+        </View>
+
+        <Text style={styles.txAmount}>-{formatPeso(Number(exp.amount))}</Text>
+      </View>
     );
   };
-
-  const renderExpense = ({ item: exp }: { item: ExpenseItem }) => (
-    <View style={styles.expenseCard}>
-      <View style={styles.expenseIconBox}>
-        <Ionicons
-          name={(exp.categories?.icon as any) || 'pricetag-outline'}
-          size={19}
-          color={COLORS.primaryMid}
-        />
-      </View>
-
-      <View style={{ flex: 1, marginLeft: 12, marginRight: 8 }}>
-        <View style={styles.expenseNameRow}>
-          <Text style={styles.expenseName} numberOfLines={1}>{exp.description}</Text>
-          {exp.photo_url ? (
-            <TouchableOpacity
-              style={styles.photoBadge}
-              onPress={() => setSelectedImageUri(exp.photo_url!)}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="image" size={11} color={COLORS.primaryMid} />
-            </TouchableOpacity>
-          ) : null}
-        </View>
-        <Text style={styles.expenseTime} numberOfLines={1}>
-          {exp.categories?.name ? `${exp.categories.name} • ` : ''}
-          {formatDateTime(exp.spent_at)}
-        </Text>
-      </View>
-
-      <Text style={styles.expenseAmount}>-{formatPeso(Number(exp.amount))}</Text>
-    </View>
-  );
 
   const refreshControl = (
     <RefreshControl
       refreshing={refreshing}
       onRefresh={onRefresh}
-      colors={[COLORS.primary]}
-      tintColor={COLORS.primary}
+      colors={[C.brand]}
+      tintColor={C.brand}
     />
   );
 
+  const listData = view === 'overview' ? recentExpenses : view === 'all' ? allTabExpenses : categoryExpenses;
+  const listHeader =
+    view === 'overview' ? renderOverviewHeader() : view === 'all' ? renderAllHeader() : renderCategoryHeader();
+
   return (
     <View style={styles.container}>
-      <StatusBar style="dark" />
+      <StatusBar style="light" />
 
-      {/* HEADER */}
-      <View style={styles.topBar}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()} activeOpacity={0.7}>
-          <Ionicons name="arrow-back" size={20} color={COLORS.textPrimary} />
-        </TouchableOpacity>
-
-        <View style={styles.headerCenter}>
-          {showSkeleton ? (
-            <>
-              <Skeleton width={120} height={16} radius={8} />
-              <Skeleton width={70} height={10} radius={5} style={{ marginTop: 6 }} />
-            </>
-          ) : (
-            <>
-              <Text style={styles.headerTitle} numberOfLines={1}>{spenderName}</Text>
-              <Text style={styles.headerSubtitle}>Expense log</Text>
-            </>
-          )}
-        </View>
-
-        {showSkeleton ? <Skeleton width={40} height={40} radius={20} /> : <Avatar uri={spenderAvatar} size={40} />}
-      </View>
+      {renderHeader()}
 
       {/* BODY */}
       <View style={styles.bodyContent}>
         {showSkeleton ? (
           <MonitoringSkeleton />
         ) : (
-          <>
-            {/* Tabs + period filter (fixed above the list) */}
-            <View style={styles.controls}>
-              {renderTabs()}
-              <FilterChips
-                value={activeTab === 'all' ? allFilter : categoryFilter}
-                onChange={activeTab === 'all' ? setAllFilter : setCategoryFilter}
-              />
-            </View>
-
-            {activeTab === 'categories' && !selectedCategory ? (
-              <FlatList
-                key="category-grid"
-                data={categoryGridData}
-                keyExtractor={(item) => item.key}
-                renderItem={renderCategoryCard}
-                numColumns={2}
-                columnWrapperStyle={styles.categoryRow}
-                showsVerticalScrollIndicator={false}
-                contentContainerStyle={styles.listContent}
-                refreshControl={refreshControl}
-                ListEmptyComponent={
-                  <View style={styles.emptyState}>
-                    <View style={styles.emptyIcon}>
-                      <Ionicons
-                        name={expenses.length === 0 ? 'receipt-outline' : 'grid-outline'}
-                        size={22}
-                        color={COLORS.textMuted}
-                      />
-                    </View>
-                    <Text style={styles.emptyTitle}>
-                      {expenses.length === 0 ? 'No expenses logged yet' : 'No categories found'}
-                    </Text>
-                    <Text style={styles.emptySubtitle}>
-                      {expenses.length === 0
-                        ? 'Expenses logged by this spender will appear here.'
-                        : 'No expenses in this time period. Try a different filter.'}
-                    </Text>
-                  </View>
-                }
-              />
-            ) : (
-              <FlatList
-                key="expense-list"
-                data={inCategoryDetail ? categoryExpenses : allTabExpenses}
-                keyExtractor={(item) => item.id}
-                renderItem={renderExpense}
-                showsVerticalScrollIndicator={false}
-                keyboardShouldPersistTaps="handled"
-                contentContainerStyle={styles.listContent}
-                ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
-                refreshControl={refreshControl}
-                ListHeaderComponent={inCategoryDetail ? renderCategoryDetailHeader() : renderSearch()}
-                ListEmptyComponent={
-                  <View style={styles.emptyState}>
-                    <View style={styles.emptyIcon}>
-                      <Ionicons
-                        name={expenses.length === 0 ? 'receipt-outline' : 'search-outline'}
-                        size={22}
-                        color={COLORS.textMuted}
-                      />
-                    </View>
-                    <Text style={styles.emptyTitle}>
-                      {expenses.length === 0 ? 'No expenses logged yet' : 'No expenses found'}
-                    </Text>
-                    <Text style={styles.emptySubtitle}>
-                      {expenses.length === 0
-                        ? 'Expenses logged by this spender will appear here.'
-                        : 'Try a different time period or search.'}
-                    </Text>
-                  </View>
-                }
-              />
-            )}
-          </>
+          <FlatList
+            key={view}
+            data={listData}
+            keyExtractor={(item) => item.id}
+            renderItem={renderTransaction}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={styles.listContent}
+            refreshControl={refreshControl}
+            ListHeaderComponent={listHeader}
+            ListEmptyComponent={
+              <View style={styles.emptyState}>
+                <View style={styles.emptyIcon}>
+                  <Ionicons
+                    name={expenses.length === 0 ? 'receipt-outline' : 'search-outline'}
+                    size={22}
+                    color={C.textMuted}
+                  />
+                </View>
+                <Text style={styles.emptyTitle}>
+                  {expenses.length === 0 ? 'No expenses logged yet' : 'No expenses found'}
+                </Text>
+                <Text style={styles.emptySubtitle}>
+                  {expenses.length === 0
+                    ? 'Expenses logged by this spender will appear here.'
+                    : 'Try a different time period or search.'}
+                </Text>
+              </View>
+            }
+          />
         )}
       </View>
+
+      {/* PERIOD MENU (Top Spendings) */}
+      <Modal
+        visible={periodMenuOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setPeriodMenuOpen(false)}
+        statusBarTranslucent
+      >
+        <Pressable style={styles.menuOverlay} onPress={() => setPeriodMenuOpen(false)}>
+          <View style={styles.menuCard}>
+            {FILTERS.map((f) => {
+              const active = categoryFilter === f.key;
+              return (
+                <TouchableOpacity
+                  key={f.key}
+                  style={styles.menuItem}
+                  activeOpacity={0.7}
+                  onPress={() => {
+                    setCategoryFilter(f.key);
+                    setPeriodMenuOpen(false);
+                  }}
+                >
+                  <Text style={[styles.menuItemText, active && styles.menuItemTextActive]}>
+                    {f.key === 'month' ? monthName : f.caption}
+                  </Text>
+                  {active && <Ionicons name="checkmark" size={16} color={C.mintPillText} />}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </Pressable>
+      </Modal>
 
       {/* IMAGE VIEWER */}
       <Modal
@@ -696,7 +766,7 @@ export default function MonitoringScreen() {
             onPress={() => setSelectedImageUri(null)}
             activeOpacity={0.8}
           >
-            <Ionicons name="close" size={22} color={COLORS.white} />
+            <Ionicons name="close" size={22} color={C.white} />
           </TouchableOpacity>
           {selectedImageUri ? (
             <Image source={{ uri: selectedImageUri }} style={styles.fullScreenImage} resizeMode="contain" />
@@ -706,229 +776,3 @@ export default function MonitoringScreen() {
     </View>
   );
 }
-
-/* ---------- Styles ---------- */
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.bg },
-
-  /* Header */
-  topBar: {
-    paddingTop: (Platform.OS === 'android' ? NativeStatusBar.currentHeight || 24 : 44) + 12,
-    paddingHorizontal: 20,
-    paddingBottom: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: COLORS.bg,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: COLORS.white,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  headerCenter: { flex: 1, alignItems: 'center', paddingHorizontal: 12 },
-  headerTitle: { fontSize: 17, fontWeight: '800', color: COLORS.textPrimary, letterSpacing: -0.3 },
-  headerSubtitle: { fontSize: 11, color: COLORS.textMuted, marginTop: 2 },
-
-  bodyContent: { flex: 1 },
-  listContent: { paddingHorizontal: 20, paddingBottom: 40 },
-
-  /* Controls (tabs + filters) */
-  controls: { paddingHorizontal: 20 },
-  tabBar: {
-    flexDirection: 'row',
-    backgroundColor: COLORS.white,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    padding: 4,
-  },
-  tabButton: {
-    flex: 1,
-    height: 40,
-    borderRadius: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-  },
-  tabButtonActive: { backgroundColor: COLORS.primary },
-  tabText: { fontSize: 13, fontWeight: '600', color: COLORS.textSubtle },
-  tabTextActive: { color: COLORS.white, fontWeight: '700' },
-
-  /* Filters */
-  filterScroll: { flexGrow: 0 },
-  filterRow: { gap: 8, paddingTop: 16, paddingBottom: 16, paddingRight: 8 },
-  filterChip: {
-    paddingHorizontal: 16,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: COLORS.white,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  filterChipActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
-  filterChipText: { fontSize: 12, fontWeight: '600', color: COLORS.textSubtle },
-  filterChipTextActive: { color: COLORS.white, fontWeight: '700' },
-
-  /* Category cards */
-  categoryRow: { gap: 12, marginBottom: 12 },
-  categoryCard: {
-    flex: 1,
-    backgroundColor: COLORS.card,
-    borderRadius: 20,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  categoryCardSpacer: { flex: 1 },
-  categoryCardTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 14,
-  },
-  categoryIconBox: {
-    width: 42,
-    height: 42,
-    borderRadius: 14,
-    backgroundColor: COLORS.primarySoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  categoryName: { fontSize: 13, fontWeight: '600', color: COLORS.textSubtle },
-  categoryTotal: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: COLORS.textPrimary,
-    letterSpacing: -0.4,
-    marginTop: 4,
-  },
-  categoryCount: { fontSize: 11, color: COLORS.textMuted, marginTop: 4 },
-
-  /* Category detail */
-  detailHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    backgroundColor: COLORS.card,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    padding: 12,
-    marginBottom: 12,
-  },
-  detailBack: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: COLORS.bg,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  detailTitle: { fontSize: 15, fontWeight: '800', color: COLORS.textPrimary },
-  detailSubtitle: { fontSize: 11, color: COLORS.textMuted, marginTop: 2 },
-  detailTotal: { fontSize: 15, fontWeight: '800', color: COLORS.danger },
-
-  /* Search */
-  searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    height: 48,
-    backgroundColor: COLORS.white,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    paddingHorizontal: 14,
-    marginBottom: 16,
-  },
-  searchInput: { flex: 1, fontSize: 14, color: COLORS.textPrimary, paddingVertical: 0 },
-
-  /* Expenses */
-  expenseCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.card,
-    borderRadius: 18,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  expenseIconBox: {
-    width: 42,
-    height: 42,
-    borderRadius: 14,
-    backgroundColor: COLORS.primarySoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  expenseNameRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  expenseName: { fontSize: 14, fontWeight: '700', color: COLORS.textPrimary, flexShrink: 1 },
-  expenseTime: { fontSize: 11, color: COLORS.textMuted, marginTop: 3 },
-  expenseAmount: { fontSize: 14, fontWeight: '700', color: COLORS.danger },
-  photoBadge: {
-    width: 22,
-    height: 22,
-    borderRadius: 7,
-    backgroundColor: COLORS.primarySoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  /* Empty */
-  emptyState: {
-    alignItems: 'center',
-    paddingVertical: 48,
-    paddingHorizontal: 24,
-    backgroundColor: COLORS.card,
-    borderRadius: 22,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  emptyIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#EBEFF4',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 10,
-  },
-  emptyTitle: { fontSize: 14, fontWeight: '700', color: COLORS.textPrimary },
-  emptySubtitle: {
-    fontSize: 12,
-    color: COLORS.textMuted,
-    textAlign: 'center',
-    marginTop: 4,
-    lineHeight: 17,
-  },
-
-  /* Image viewer */
-  imageOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.92)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  fullScreenImage: { width: '92%', height: '80%', borderRadius: 16 },
-  closeImageButton: {
-    position: 'absolute',
-    top: (Platform.OS === 'android' ? NativeStatusBar.currentHeight || 24 : 44) + 12,
-    right: 20,
-    zIndex: 10,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.16)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});

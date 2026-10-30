@@ -4,25 +4,26 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   Animated,
   DimensionValue,
   FlatList,
   Image,
-  Modal,
-  StatusBar as NativeStatusBar,
-  Platform,
-  Pressable,
   RefreshControl,
   StyleProp,
-  StyleSheet,
   Text,
   TouchableOpacity,
   View,
   ViewStyle,
 } from 'react-native';
 
+import { theme } from '@/constants/theme';
+import { GradientBackground } from '../../components/GradientBackground';
+import { PaytonAlertDialog } from '../../components/PaytonAlert';
+import * as uiStyles from '../../constants/ui.styles';
 import { supabase } from '../../lib/supabase';
+
+// Support the exported singular/plural style name used across app revisions.
+const styles = (uiStyles as any).sponsorAllowancesStyles ?? (uiStyles as any).sponsorAllowanceStyles;
 
 /* ---------- Types ---------- */
 interface AllowanceGroupItem {
@@ -56,32 +57,7 @@ interface DialogState {
 }
 
 type AllowanceStatus = 'active' | 'upcoming' | 'ended';
-
-/* ---------- Design Tokens ---------- */
-const COLORS = {
-  bg: '#F5F7FA',
-  card: '#FFFFFF',
-  white: '#FFFFFF',
-  primary: '#0F3D2E',
-  primarySoft: '#E6F3EB',
-  primaryMid: '#2F7D5B',
-  accentGreen: '#C1F038',
-  textPrimary: '#111827',
-  textMuted: '#8E9BAE',
-  textSubtle: '#6B7280',
-  danger: '#E53E3E',
-  dangerSoft: '#FEF2F2',
-  dangerBorder: '#FECACA',
-  success: '#2E7D32',
-  successSoft: '#F0FDF4',
-  successBorder: '#BBF7D0',
-  border: '#E8ECF1',
-  borderLight: '#F0F2F5',
-  track: '#E8EDF3',
-  warning: '#F59E0B',
-  pendingSoft: '#FEF9C3',
-  pendingText: '#A16207',
-};
+type Health = 'good' | 'low' | 'critical';
 
 /* ---------- Helpers ---------- */
 const formatPeso = (n: number, fixed = true) =>
@@ -104,16 +80,24 @@ const getAllowanceStatus = (start: string, end: string): AllowanceStatus => {
   return 'active';
 };
 
-const STATUS_STYLES: Record<AllowanceStatus, { label: string; bg: string; color: string }> = {
-  active: { label: 'Active', bg: COLORS.primarySoft, color: COLORS.primary },
-  upcoming: { label: 'Upcoming', bg: COLORS.pendingSoft, color: COLORS.pendingText },
-  ended: { label: 'Ended', bg: '#EEF1F5', color: COLORS.textSubtle },
+// Visual variants (colours live in ui.styles.ts)
+const STATUS_VARIANTS: Record<AllowanceStatus, { label: string; badge: StyleProp<ViewStyle>; text: StyleProp<any> }> = {
+  active: { label: 'Active', badge: styles.rowBadgeActive, text: styles.rowBadgeTextActive },
+  upcoming: { label: 'Upcoming', badge: styles.rowBadgeUpcoming, text: styles.rowBadgeTextUpcoming },
+  ended: { label: 'Ended', badge: styles.rowBadgeEnded, text: styles.rowBadgeTextEnded },
 };
 
-const progressColor = (pct: number) => {
-  if (pct > 50) return COLORS.primaryMid;
-  if (pct > 20) return COLORS.warning;
-  return COLORS.danger;
+// Same thresholds as before (>50 healthy, >20 warning, otherwise critical)
+const getHealth = (pct: number): Health => {
+  if (pct > 50) return 'good';
+  if (pct > 20) return 'low';
+  return 'critical';
+};
+
+const HEALTH_VARIANTS: Record<Health, { label: string; pill: StyleProp<ViewStyle>; text: StyleProp<any> }> = {
+  good: { label: 'On Track', pill: styles.healthGood, text: styles.healthTextGood },
+  low: { label: 'Running Low', pill: styles.healthLow, text: styles.healthTextLow },
+  critical: { label: 'Almost Out', pill: styles.healthCritical, text: styles.healthTextCritical },
 };
 
 const parseDate = (s: string) => new Date(s.includes('T') ? s : `${s}T00:00:00`);
@@ -158,7 +142,7 @@ const formatAllowanceDateRange = (startDate: string, endDate: string, receivedAt
 };
 
 /* ---------- Reusable UI ---------- */
-function Avatar({ uri, size = 42 }: { uri?: string | null; size?: number }) {
+function Avatar({ uri, size = 46 }: { uri?: string | null; size?: number }) {
   const [failed, setFailed] = useState(false);
 
   if (uri && !failed) {
@@ -166,7 +150,7 @@ function Avatar({ uri, size = 42 }: { uri?: string | null; size?: number }) {
       <Image
         source={{ uri }}
         onError={() => setFailed(true)}
-        style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: '#E2E8F0' }}
+        style={[styles.avatarImageBg, { width: size, height: size, borderRadius: size / 2 }]}
       />
     );
   }
@@ -174,36 +158,30 @@ function Avatar({ uri, size = 42 }: { uri?: string | null; size?: number }) {
   const head = size * 0.32;
   const body = size * 0.74;
   return (
-    <View
-      style={{
-        width: size,
-        height: size,
-        borderRadius: size / 2,
-        backgroundColor: '#DDF0E5',
-        overflow: 'hidden',
-      }}
-    >
+    <View style={[styles.avatarFallbackBg, { width: size, height: size, borderRadius: size / 2 }]}>
       <View
-        style={{
-          position: 'absolute',
-          width: head,
-          height: head,
-          borderRadius: head / 2,
-          backgroundColor: '#86C4A2',
-          top: size * 0.2,
-          left: (size - head) / 2,
-        }}
+        style={[
+          styles.avatarSilhouette,
+          {
+            width: head,
+            height: head,
+            borderRadius: head / 2,
+            top: size * 0.2,
+            left: (size - head) / 2,
+          },
+        ]}
       />
       <View
-        style={{
-          position: 'absolute',
-          width: body,
-          height: body,
-          borderRadius: body / 2,
-          backgroundColor: '#86C4A2',
-          top: size * 0.6,
-          left: (size - body) / 2,
-        }}
+        style={[
+          styles.avatarSilhouette,
+          {
+            width: body,
+            height: body,
+            borderRadius: body / 2,
+            top: size * 0.6,
+            left: (size - body) / 2,
+          },
+        ]}
       />
     </View>
   );
@@ -234,37 +212,30 @@ function Skeleton({
   }, [opacity]);
 
   return (
-    <Animated.View
-      style={[{ width, height, borderRadius: radius, backgroundColor: '#DFE5EC', opacity }, style]}
-    />
+    <Animated.View style={[styles.skeleton, { width, height, borderRadius: radius, opacity }, style]} />
   );
 }
 
 function AllowancesSkeleton() {
   return (
     <View style={styles.listContent}>
-      <Skeleton width="100%" height={168} radius={26} style={{ marginBottom: 24 }} />
+      <Skeleton width="100%" height={150} radius={24} style={styles.skeletonSummary} />
       <View style={styles.sectionHeader}>
-        <Skeleton width={90} height={16} radius={8} />
-        <Skeleton width={28} height={20} radius={10} />
+        <Skeleton width={150} height={18} radius={9} />
+        <Skeleton width={120} height={30} radius={15} />
       </View>
       {[0, 1].map((i) => (
         <View key={i} style={styles.card}>
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <View style={styles.skeletonHeaderRow}>
             <Skeleton width={46} height={46} radius={23} />
-            <View style={{ marginLeft: 12, flex: 1, gap: 8 }}>
+            <View style={styles.skeletonHeaderText}>
               <Skeleton width="55%" height={14} radius={7} />
-              <Skeleton width="35%" height={10} radius={5} />
+              <Skeleton width="35%" height={11} radius={5} />
             </View>
-            <Skeleton width={84} height={30} radius={15} />
+            <Skeleton width={84} height={26} radius={13} />
           </View>
-          <View style={{ flexDirection: 'row', gap: 10, marginTop: 16 }}>
-            {[0, 1, 2].map((j) => (
-              <Skeleton key={j} width="31%" height={52} radius={14} />
-            ))}
-          </View>
-          <Skeleton width="100%" height={8} radius={4} style={{ marginTop: 16 }} />
-          <Skeleton width="100%" height={72} radius={14} style={{ marginTop: 16 }} />
+          <Skeleton width="100%" height={64} radius={16} style={styles.skeletonGapTop} />
+          <Skeleton width="45%" height={14} radius={7} style={styles.skeletonGapTop} />
         </View>
       ))}
     </View>
@@ -276,76 +247,10 @@ function Toast({ message }: { message: string | null }) {
   return (
     <View pointerEvents="none" style={styles.toastWrap}>
       <View style={styles.toast}>
-        <Ionicons name="checkmark-circle" size={18} color={COLORS.success} />
+        <Ionicons name="checkmark-circle" size={18} color={theme.colors.success} />
         <Text style={styles.toastText}>{message}</Text>
       </View>
     </View>
-  );
-}
-
-function AlertDialog({
-  visible,
-  type,
-  title,
-  message,
-  loading,
-  onConfirm,
-  onCancel,
-}: {
-  visible: boolean;
-  type: DialogType;
-  title: string;
-  message: string;
-  loading: boolean;
-  onConfirm: () => void;
-  onCancel: () => void;
-}) {
-  const danger = type !== 'archive';
-  const iconName = type === 'archive' ? 'archive-outline' : type === 'delete' ? 'trash-outline' : 'alert-circle-outline';
-  const confirmLabel = type === 'archive' ? 'Archive' : type === 'delete' ? 'Delete' : 'Okay';
-
-  return (
-    <Modal transparent visible={visible} animationType="fade" onRequestClose={onCancel} statusBarTranslucent>
-      <View style={styles.dialogOverlay}>
-        <Pressable style={StyleSheet.absoluteFill} onPress={loading ? undefined : onCancel} />
-        <View style={styles.dialog}>
-          <View style={[styles.dialogIcon, { backgroundColor: danger ? COLORS.dangerSoft : COLORS.primarySoft }]}>
-            <Ionicons name={iconName} size={24} color={danger ? COLORS.danger : COLORS.primaryMid} />
-          </View>
-          <Text style={styles.dialogTitle}>{title}</Text>
-          <Text style={styles.dialogMessage}>{message}</Text>
-
-          <View style={styles.actionsRow}>
-            {type !== 'error' && (
-              <TouchableOpacity
-                style={styles.btnSecondary}
-                onPress={onCancel}
-                disabled={loading}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.btnSecondaryText}>Cancel</Text>
-              </TouchableOpacity>
-            )}
-            <TouchableOpacity
-              style={[
-                styles.btnPrimary,
-                type === 'delete' && { backgroundColor: COLORS.danger },
-                loading && { opacity: 0.6 },
-              ]}
-              onPress={onConfirm}
-              disabled={loading}
-              activeOpacity={0.85}
-            >
-              {loading ? (
-                <ActivityIndicator size="small" color={COLORS.white} />
-              ) : (
-                <Text style={styles.btnPrimaryText}>{confirmLabel}</Text>
-              )}
-            </TouchableOpacity>
-          </View>
-        </View>
-      </View>
-    </Modal>
   );
 }
 
@@ -355,7 +260,8 @@ export default function AllowancesScreen() {
   const [spenderCards, setSpenderCards] = useState<SpenderAllowanceCardData[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  // cards start collapsed (like the design); tap the footer row to show the allowance list
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
   const [toast, setToast] = useState<string | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -551,55 +457,49 @@ export default function AllowancesScreen() {
     router.push({ pathname: '/monitoring', params: { spenderId } });
   };
 
-  const toggleCollapsed = (id: string) => setCollapsed((p) => ({ ...p, [id]: !p[id] }));
+  const toggleExpanded = (id: string) => setExpanded((p) => ({ ...p, [id]: !p[id] }));
+
+  // "+ Add Allowance" opens the Sponsor Home, where allowances are created (no creation logic lives here)
+  const handleAddAllowance = () => {
+    router.navigate('/(sponsorTabs)/home' as never);
+  };
 
   const showSkeleton = loading && !refreshing;
 
   /* ---------- Render ---------- */
-  const heroPercent =
-    totals.allocated > 0
-      ? Math.min(100, Math.max(0, Math.round((totals.remaining / totals.allocated) * 100)))
-      : 0;
-  const heroBarColor = progressColor(heroPercent);
-
   const renderHeaderBlock = () => (
     <View>
-      <View style={styles.heroCard}>
-        <View style={styles.heroLabelRow}>
-          <View style={styles.heroLabelLeft}>
-            <View style={styles.heroIconChip}>
-              <Ionicons name="layers-outline" size={15} color={COLORS.primaryMid} />
-            </View>
-            <Text style={styles.heroLabel}>Remaining Allowance</Text>
+      {/* Total allocated */}
+      <View style={styles.summaryCard}>
+        <Text style={styles.summaryTitle}>Total Allocated</Text>
+        <Text style={styles.summaryAmount} numberOfLines={1} adjustsFontSizeToFit>
+          {formatPeso(totals.allocated)}
+        </Text>
+
+        <View style={styles.summaryInner}>
+          <View style={styles.summaryCol}>
+            <Text style={styles.summaryLabel}>Spent so far</Text>
+            <Text style={styles.summaryValue} numberOfLines={1} adjustsFontSizeToFit>
+              {formatPeso(totals.spent)}
+            </Text>
           </View>
-          <View style={[styles.heroPercentBadge, { backgroundColor: heroBarColor + '1F' }]}>
-            <Text style={[styles.heroPercentText, { color: heroBarColor }]}>{heroPercent}%</Text>
+          <View style={styles.summaryDivider} />
+          <View style={styles.summaryCol}>
+            <Text style={styles.summaryLabel}>Left to spend</Text>
+            <Text style={styles.summaryValue} numberOfLines={1} adjustsFontSizeToFit>
+              {formatPeso(totals.remaining)}
+            </Text>
           </View>
         </View>
-
-        <View style={styles.heroAmountRow}>
-          <Text style={styles.heroAmount} numberOfLines={1} adjustsFontSizeToFit>
-            {formatPeso(totals.remaining)}
-          </Text>
-          <Text style={styles.heroAmountOf} numberOfLines={1}>
-            / {formatPeso(totals.allocated, false)}
-          </Text>
-        </View>
-
-        <View style={styles.heroTrack}>
-          <View
-            style={[styles.heroFill, { width: `${heroPercent}%`, backgroundColor: heroBarColor }]}
-          />
-        </View>
-
-        
       </View>
 
+      {/* Section header */}
       <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>Spenders</Text>
-        <View style={styles.countPill}>
-          <Text style={styles.countPillText}>{spenderCards.length}</Text>
-        </View>
+        <Text style={styles.sectionTitle}>Active Allowances</Text>
+        <TouchableOpacity style={styles.addPill} onPress={handleAddAllowance} activeOpacity={0.8}>
+          <Ionicons name="add" size={14} color={theme.colors.gradientEnd} />
+          <Text style={styles.addPillText}>Add Allowance</Text>
+        </TouchableOpacity>
       </View>
     </View>
   );
@@ -609,89 +509,83 @@ export default function AllowancesScreen() {
       item.totalAllocated > 0
         ? Math.min(100, Math.round((item.totalRemaining / item.totalAllocated) * 100))
         : 0;
-    const barColor = progressColor(remainingPercent);
-    const expanded = !collapsed[item.spender_id];
+    const health = HEALTH_VARIANTS[getHealth(remainingPercent)];
+    const isOpen = !!expanded[item.spender_id];
+    const count = item.allowances.length;
+    const primary = item.allowances[0];
 
     return (
       <View style={styles.card}>
-        {/* Spender header */}
-        <TouchableOpacity
-          style={styles.cardHeader}
-          activeOpacity={0.7}
-          onPress={() => handleCardPress(item.spender_id)}
-        >
-          <Avatar uri={item.spender_avatar_url} size={46} />
-          <View style={{ flex: 1, marginLeft: 12 }}>
-            <Text style={styles.cardTitle} numberOfLines={1}>{item.spender_name}</Text>
-            <View style={styles.cardSubRow}>
-              <Ionicons name="layers-outline" size={12} color={COLORS.textMuted} />
-              <Text style={styles.cardSubText}>
-                {item.allowances.length} allowance{item.allowances.length === 1 ? '' : 's'}
+        {/* Spender + totals: tap to open the spender's monitoring screen */}
+        <TouchableOpacity activeOpacity={0.8} onPress={() => handleCardPress(item.spender_id)}>
+          <View style={styles.cardHeader}>
+            <Avatar uri={item.spender_avatar_url} size={46} />
+            <View style={styles.cardTitleBlock}>
+              <Text style={styles.cardTitle} numberOfLines={1}>{primary?.allowance_name ?? 'Allowance'}</Text>
+              <Text style={styles.cardSubtitle} numberOfLines={1}>{item.spender_name}</Text>
+            </View>
+            <View style={[styles.healthPill, health.pill]}>
+              <Text style={[styles.healthPillText, health.text]}>{health.label}</Text>
+            </View>
+          </View>
+
+          <View style={styles.statsRow}>
+            <View style={styles.statCol}>
+              <Text style={styles.statLabel}>Allocated</Text>
+              <Text style={styles.statValue} numberOfLines={1} adjustsFontSizeToFit>
+                {formatPeso(item.totalAllocated, false)}
+              </Text>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.statCol}>
+              <Text style={styles.statLabel}>Spent</Text>
+              <Text style={styles.statValue} numberOfLines={1} adjustsFontSizeToFit>
+                {formatPeso(item.totalSpent, false)}
+              </Text>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.statCol}>
+              <Text style={styles.statLabel}>Remaining</Text>
+              <Text style={styles.statValue} numberOfLines={1} adjustsFontSizeToFit>
+                {formatPeso(item.totalRemaining, false)}
               </Text>
             </View>
           </View>
-          <View style={styles.viewBtn}>
-            <Text style={styles.viewBtnText}>Expenses</Text>
-            <Ionicons name="chevron-forward" size={13} color={COLORS.primary} />
-          </View>
         </TouchableOpacity>
 
-        {/* Totals */}
-        <View style={styles.statsRow}>
-          <View style={styles.statBox}>
-            <Text style={styles.statBoxLabel}>Allocated</Text>
-            <Text style={styles.statBoxValue} numberOfLines={1} adjustsFontSizeToFit>
-              {formatPeso(item.totalAllocated, false)}
-            </Text>
-          </View>
-          <View style={styles.statBox}>
-            <Text style={styles.statBoxLabel}>Spent</Text>
-            <Text style={[styles.statBoxValue, { color: COLORS.danger }]} numberOfLines={1} adjustsFontSizeToFit>
-              {formatPeso(item.totalSpent, false)}
-            </Text>
-          </View>
-          <View style={styles.statBox}>
-            <Text style={styles.statBoxLabel}>Remaining</Text>
-            <Text style={[styles.statBoxValue, { color: COLORS.primaryMid }]} numberOfLines={1} adjustsFontSizeToFit>
-              {formatPeso(item.totalRemaining, false)}
-            </Text>
-          </View>
-        </View>
-
-        <View style={styles.progressTrack}>
-          <View style={[styles.progressFill, { width: `${remainingPercent}%`, backgroundColor: barColor }]} />
-        </View>
-        <View style={styles.progressCaptionRow}>
-          <Text style={styles.progressCaption}>Remaining balance</Text>
-          <Text style={[styles.progressPercent, { color: barColor }]}>{remainingPercent}%</Text>
-        </View>
-
-        {/* Allowance list */}
+        {/* Footer: count + expand / collapse the allowance list */}
         <TouchableOpacity
-          style={styles.listToggle}
+          style={styles.cardFooter}
           activeOpacity={0.7}
-          onPress={() => toggleCollapsed(item.spender_id)}
+          onPress={() => toggleExpanded(item.spender_id)}
         >
-          <Text style={styles.listToggleText}>Allowances</Text>
-          <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={16} color={COLORS.textSubtle} />
+          <View style={styles.footerLeft}>
+            <View style={styles.footerIconCircle}>
+              <Ionicons name="wallet" size={14} color={theme.colors.gradientEnd} />
+            </View>
+            <Text style={styles.footerText}>
+              {count} Active Allowance{count === 1 ? '' : 's'}
+            </Text>
+          </View>
+          <Ionicons name={isOpen ? 'chevron-up' : 'chevron-forward'} size={18} color={theme.colors.textGray} />
         </TouchableOpacity>
 
-        {expanded &&
+        {isOpen &&
           item.allowances.map((a) => {
-            const status = STATUS_STYLES[getAllowanceStatus(a.start_date, a.end_date)];
+            const status = STATUS_VARIANTS[getAllowanceStatus(a.start_date, a.end_date)];
 
             return (
               <View key={a.id} style={styles.allowanceRow}>
                 <View style={styles.allowanceTop}>
-                  <View style={{ flex: 1, marginRight: 10 }}>
+                  <View style={styles.allowanceInfo}>
                     <View style={styles.allowanceNameRow}>
                       <Text style={styles.allowanceName} numberOfLines={1}>{a.allowance_name}</Text>
-                      <View style={[styles.statusBadge, { backgroundColor: status.bg }]}>
-                        <Text style={[styles.statusBadgeText, { color: status.color }]}>{status.label}</Text>
+                      <View style={[styles.rowBadge, status.badge]}>
+                        <Text style={[styles.rowBadgeText, status.text]}>{status.label}</Text>
                       </View>
                     </View>
                     <View style={styles.allowanceDateRow}>
-                      <Ionicons name="calendar-outline" size={12} color={COLORS.textMuted} />
+                      <Ionicons name="calendar-outline" size={12} color={theme.colors.textMuted} />
                       <Text style={styles.allowanceDate}>
                         {formatAllowanceDateRange(a.start_date, a.end_date, a.received_at)}
                       </Text>
@@ -700,23 +594,13 @@ export default function AllowancesScreen() {
                   <Text style={styles.allowanceAmount}>{formatPeso(a.amount)}</Text>
                 </View>
 
-                <View style={styles.allowanceBottom}>
-                  <View style={styles.rowActions}>
-                    <TouchableOpacity
-                      onPress={() => askArchive(a)}
-                      style={styles.iconBtn}
-                      activeOpacity={0.7}
-                    >
-                      <Ionicons name="archive-outline" size={18} color={COLORS.primaryMid} />
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      onPress={() => askDelete(a)}
-                      style={[styles.iconBtn, { backgroundColor: COLORS.dangerSoft }]}
-                      activeOpacity={0.7}
-                    >
-                      <Ionicons name="trash-outline" size={18} color={COLORS.danger} />
-                    </TouchableOpacity>
-                  </View>
+                <View style={styles.rowActions}>
+                  <TouchableOpacity onPress={() => askArchive(a)} style={styles.iconBtn} activeOpacity={0.7}>
+                    <Ionicons name="archive-outline" size={18} color={theme.colors.dueGreen} />
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => askDelete(a)} style={[styles.iconBtn, styles.iconBtnDanger]} activeOpacity={0.7}>
+                    <Ionicons name="trash-outline" size={18} color={theme.colors.danger} />
+                  </TouchableOpacity>
                 </View>
               </View>
             );
@@ -727,18 +611,19 @@ export default function AllowancesScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar style="dark" />
+      <StatusBar style="light" />
 
       {/* HEADER */}
-      <View style={styles.topBar}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton} activeOpacity={0.7}>
-          <Ionicons name="arrow-back" size={20} color={COLORS.textPrimary} />
-        </TouchableOpacity>
-        <View style={styles.headerCenter}>
-          <Text style={styles.headerTitle}>Allowances</Text>
-          <Text style={styles.headerSubtitle}>Manage and track every allowance</Text>
+      <View style={styles.header}>
+        <View style={styles.headerGradient}>
+          <GradientBackground />
         </View>
-        <View style={{ width: 40 }} />
+        <View style={styles.headerRow}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backButton} activeOpacity={0.7}>
+            <Ionicons name="arrow-back" size={20} color={theme.colors.gradientEnd} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Allowances</Text>
+        </View>
       </View>
 
       {/* BODY */}
@@ -755,15 +640,15 @@ export default function AllowancesScreen() {
               <RefreshControl
                 refreshing={refreshing}
                 onRefresh={onRefresh}
-                colors={[COLORS.primary]}
-                tintColor={COLORS.primary}
+                colors={[theme.colors.brand]}
+                tintColor={theme.colors.brand}
               />
             }
             ListHeaderComponent={renderHeaderBlock()}
             ListEmptyComponent={
               <View style={styles.emptyState}>
                 <View style={styles.emptyIcon}>
-                  <Ionicons name="wallet-outline" size={22} color={COLORS.textMuted} />
+                  <Ionicons name="wallet-outline" size={22} color={theme.colors.textMuted} />
                 </View>
                 <Text style={styles.emptyTitle}>No allowances found</Text>
                 <Text style={styles.emptySubtitle}>
@@ -778,315 +663,27 @@ export default function AllowancesScreen() {
 
       <Toast message={toast} />
 
-      <AlertDialog
+      {/* Confirmation / error dialog (shared Payton alert, driven by local state) */}
+      <PaytonAlertDialog
         visible={dialog.visible}
-        type={dialog.type}
+        type={dialog.type === 'archive' ? 'info' : 'error'}
         title={dialog.title}
         message={dialog.message}
-        loading={actionLoading}
-        onConfirm={dialog.onConfirm}
-        onCancel={closeDialog}
+        busy={actionLoading}
+        buttons={
+          dialog.type === 'error'
+            ? [{ text: 'Okay', onPress: dialog.onConfirm }]
+            : [
+                { text: 'Cancel', style: 'cancel', onPress: closeDialog },
+                {
+                  text: dialog.type === 'archive' ? 'Archive' : 'Delete',
+                  style: dialog.type === 'delete' ? 'destructive' : 'default',
+                  onPress: dialog.onConfirm,
+                },
+              ]
+        }
+        onDismiss={closeDialog}
       />
     </View>
   );
 }
-
-/* ---------- Styles ---------- */
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.bg },
-
-  /* Header */
-  topBar: {
-    paddingTop: (Platform.OS === 'android' ? NativeStatusBar.currentHeight || 24 : 44) + 12,
-    paddingHorizontal: 20,
-    paddingBottom: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: COLORS.bg,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: COLORS.white,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  headerCenter: { flex: 1, alignItems: 'center' },
-  headerTitle: { fontSize: 17, fontWeight: '800', color: COLORS.textPrimary, letterSpacing: -0.3 },
-  headerSubtitle: { fontSize: 11, color: COLORS.textMuted, marginTop: 2 },
-
-  bodyContent: { flex: 1 },
-  listContent: { paddingHorizontal: 20, paddingBottom: 40 },
-
-  /* Hero card */
-  heroCard: {
-    backgroundColor: COLORS.white,
-    borderRadius: 26,
-    padding: 22,
-    marginBottom: 24,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    shadowColor: '#0F3D2E',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.08,
-    shadowRadius: 14,
-    elevation: 4,
-  },
-  heroLabelRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  heroLabelLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  heroIconChip: {
-    width: 28,
-    height: 28,
-    borderRadius: 10,
-    backgroundColor: COLORS.primarySoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  heroLabel: { color: COLORS.textSubtle, fontSize: 14, fontWeight: '600', letterSpacing: 0.2 },
-  heroPercentBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10 },
-  heroPercentText: { fontSize: 12, fontWeight: '800' },
-  heroAmountRow: { flexDirection: 'row', alignItems: 'baseline', gap: 8, marginTop: 16 },
-  heroAmount: {
-    flexShrink: 1,
-    color: COLORS.textPrimary,
-    fontSize: 36,
-    fontWeight: '800',
-    letterSpacing: -0.8,
-  },
-  heroAmountOf: { fontSize: 15, fontWeight: '600', color: COLORS.textMuted },
-  heroTrack: {
-    height: 18,
-    backgroundColor: COLORS.track,
-    borderRadius: 9,
-    overflow: 'hidden',
-    marginTop: 18,
-  },
-  heroFill: { height: '100%', borderRadius: 9 },
-  heroCaptionRow: { marginTop: 10 },
-  heroCaption: { fontSize: 12, color: COLORS.textMuted, fontWeight: '500' },
-
-  /* Section header */
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  sectionTitle: { fontSize: 16, fontWeight: '700', color: COLORS.textPrimary, letterSpacing: -0.2 },
-  countPill: {
-    backgroundColor: COLORS.primarySoft,
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-    borderRadius: 10,
-  },
-  countPillText: { fontSize: 12, fontWeight: '700', color: COLORS.primary },
-
-  /* Spender card */
-  card: {
-    backgroundColor: COLORS.card,
-    borderRadius: 22,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    padding: 16,
-    marginBottom: 14,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  cardHeader: { flexDirection: 'row', alignItems: 'center' },
-  cardTitle: { fontSize: 16, fontWeight: '700', color: COLORS.textPrimary },
-  cardSubRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 3 },
-  cardSubText: { fontSize: 12, color: COLORS.textMuted, fontWeight: '500' },
-  viewBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 2,
-    backgroundColor: COLORS.primarySoft,
-    paddingLeft: 12,
-    paddingRight: 8,
-    paddingVertical: 7,
-    borderRadius: 14,
-  },
-  viewBtnText: { fontSize: 12, fontWeight: '700', color: COLORS.primary },
-
-  statsRow: { flexDirection: 'row', gap: 8, marginTop: 16 },
-  statBox: {
-    flex: 1,
-    backgroundColor: COLORS.bg,
-    borderRadius: 14,
-    paddingVertical: 10,
-    paddingHorizontal: 10,
-  },
-  statBoxLabel: { fontSize: 10, fontWeight: '600', color: COLORS.textMuted, marginBottom: 4 },
-  statBoxValue: { fontSize: 14, fontWeight: '800', color: COLORS.textPrimary },
-
-  progressTrack: {
-    height: 8,
-    backgroundColor: COLORS.track,
-    borderRadius: 4,
-    overflow: 'hidden',
-    marginTop: 14,
-  },
-  progressFill: { height: '100%', borderRadius: 4 },
-  progressCaptionRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 6,
-  },
-  progressCaption: { fontSize: 11, color: COLORS.textMuted, fontWeight: '500' },
-  progressPercent: { fontSize: 12, fontWeight: '800' },
-
-  listToggle: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 14,
-    paddingTop: 14,
-    paddingBottom: 6,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.borderLight,
-  },
-  listToggleText: { fontSize: 13, fontWeight: '700', color: COLORS.textPrimary },
-
-  /* Allowance rows */
-  allowanceRow: {
-    backgroundColor: COLORS.bg,
-    borderRadius: 16,
-    padding: 14,
-    marginTop: 10,
-  },
-  allowanceTop: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
-  allowanceNameRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  allowanceName: { fontSize: 15, fontWeight: '700', color: COLORS.textPrimary, flexShrink: 1 },
-  statusBadge: { paddingHorizontal: 9, paddingVertical: 3, borderRadius: 8 },
-  statusBadgeText: { fontSize: 10, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.3 },
-  allowanceDateRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 6 },
-  allowanceDate: { fontSize: 12, color: COLORS.textMuted },
-  allowanceAmount: { fontSize: 17, fontWeight: '800', color: COLORS.textPrimary, letterSpacing: -0.3 },
-  allowanceBottom: { marginTop: 12 },
-  rowActions: { flexDirection: 'row', gap: 10 },
-  iconBtn: {
-    flex: 1,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: COLORS.primarySoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  /* Empty */
-  emptyState: {
-    alignItems: 'center',
-    paddingVertical: 48,
-    paddingHorizontal: 24,
-    backgroundColor: COLORS.card,
-    borderRadius: 22,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  emptyIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#EBEFF4',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 10,
-  },
-  emptyTitle: { fontSize: 14, fontWeight: '700', color: COLORS.textPrimary },
-  emptySubtitle: {
-    fontSize: 12,
-    color: COLORS.textMuted,
-    textAlign: 'center',
-    marginTop: 4,
-    lineHeight: 17,
-  },
-
-  /* Toast */
-  toastWrap: { position: 'absolute', left: 20, right: 20, bottom: 28 },
-  toast: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: COLORS.successSoft,
-    borderWidth: 1,
-    borderColor: COLORS.successBorder,
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
-    elevation: 6,
-  },
-  toastText: { fontSize: 13, fontWeight: '600', color: COLORS.success, flex: 1 },
-
-  /* Alert dialog */
-  dialogOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.45)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-  },
-  dialog: {
-    width: '100%',
-    maxWidth: 360,
-    backgroundColor: COLORS.white,
-    borderRadius: 26,
-    padding: 24,
-    alignItems: 'center',
-  },
-  dialogIcon: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 14,
-  },
-  dialogTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: COLORS.textPrimary,
-    textAlign: 'center',
-    letterSpacing: -0.3,
-  },
-  dialogMessage: {
-    fontSize: 13,
-    color: COLORS.textSubtle,
-    textAlign: 'center',
-    lineHeight: 19,
-    marginTop: 8,
-    marginBottom: 22,
-  },
-  actionsRow: { flexDirection: 'row', gap: 10, width: '100%' },
-  btnSecondary: {
-    flex: 1,
-    height: 48,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    backgroundColor: COLORS.bg,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  btnSecondaryText: { fontSize: 14, fontWeight: '600', color: COLORS.textSubtle },
-  btnPrimary: {
-    flex: 1,
-    height: 48,
-    borderRadius: 14,
-    backgroundColor: COLORS.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  btnPrimaryText: { fontSize: 14, fontWeight: '700', color: COLORS.white },
-});
