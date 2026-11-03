@@ -4137,3 +4137,38 @@ export const monitoringStyles = StyleSheet.create({
   skeletonRowBody: { marginLeft: theme.space[12], flex: 1, gap: theme.space[8] },
   skeletonSubtitle: { marginTop: theme.space[8] },
 });
+
+// ======================================================================
+// TERMS OF USE (app/terms.tsx) — gradient header (drawn by <GradientBackground /> inside headerGradient)
+// + a white card holding the numbered sections.
+const TERMS_STATUS_TOP = (Platform.OS === 'android' ? StatusBar.currentHeight || 24 : 50) + theme.space[10];
+
+export const termsStyles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: theme.colors.mintWash },
+
+  /* Header */
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: theme.colors.gradientEnd,
+    paddingTop: TERMS_STATUS_TOP,
+    paddingHorizontal: theme.space[24],
+    paddingBottom: theme.space[20],
+    borderBottomLeftRadius: theme.layout.sheetRadius,
+    borderBottomRightRadius: theme.layout.sheetRadius,
+    overflow: 'hidden',
+  },
+  headerGradient: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
+  backButton: { width: 20 },
+  headerSpacer: { width: 20 },
+  headerTitle: { flex: 1, textAlign: 'center', fontSize: theme.fontSize.heading, fontFamily: theme.fontFamily.extrabold, color: theme.colors.white, letterSpacing: -0.5 },
+
+  /* Body */
+  scrollContent: { paddingHorizontal: theme.space[24], paddingTop: theme.space[24], paddingBottom: theme.layout.tabBarClearance },
+  card: { backgroundColor: theme.colors.white, padding: theme.space[24], borderRadius: theme.radius.xxl, borderWidth: 1, borderColor: theme.colors.border, ...theme.shadow.sm },
+  lastUpdated: { fontSize: theme.fontSize.small, fontFamily: theme.fontFamily.medium, color: theme.colors.textSubtle, marginBottom: theme.space[20] },
+  heading: { fontSize: theme.fontSize.subtitle, fontFamily: theme.fontFamily.bold, color: theme.colors.text, marginTop: theme.space[16], marginBottom: theme.space[6] },
+  paragraph: { fontSize: theme.fontSize.body, fontFamily: theme.fontFamily.regular, color: theme.colors.textMuted, lineHeight: 22, marginBottom: theme.space[12] },
+  paragraphEmphasis: { fontFamily: theme.fontFamily.bold, color: theme.colors.textSecondary },
+});

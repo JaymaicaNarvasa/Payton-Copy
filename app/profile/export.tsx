@@ -1,18 +1,27 @@
+// app/profile/export.tsx
+// Built ONLY from existing exports of constants/ui.styles.ts:
+//   profileStyles (gradient header + mint sheet), incomeStyles (card, option rows, badges, empty text),
+//   resetPasswordStyles (primary button). Messages are shown with the shared PaytonAlertDialog.
+// All Supabase / CSV / sharing logic below is unchanged.
 import { Ionicons } from '@expo/vector-icons';
 import { File, Paths } from 'expo-file-system';
 import { useRouter } from 'expo-router';
 import * as Sharing from 'expo-sharing';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { colors } from '../(spenderTabs)/profile';
+import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+
+import GradientBackground from '../../components/GradientBackground';
+import { AlertType, PaytonAlertDialog } from '../../components/PaytonAlert';
+import { theme } from '../../constants/theme';
+import { incomeStyles, profileStyles, resetPasswordStyles } from '../../constants/ui.styles';
 import { supabase } from '../../lib/supabase';
 
 export default function ExportScreen() {
   const router = useRouter();
   const [isExporting, setIsExporting] = useState(false);
   const [loadingMeta, setLoadingMeta] = useState(true);
-  
+
   const [userRole, setUserRole] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
 
@@ -27,8 +36,17 @@ export default function ExportScreen() {
   const [incomePeriods, setIncomePeriods] = useState<any[]>([]);
   const [selectedIncomeId, setSelectedIncomeId] = useState<string | null>(null);
 
-  // Modern Inline Alert State: { type: 'error' | 'success' | 'info', message: string } | null
-  const [inlineAlert, setInlineAlert] = useState<{ type: 'error' | 'success' | 'info'; message: string } | null>(null);
+  // Shared alert dialog (local-state API) - replaces the old inline banner
+  const [alert, setAlert] = useState<{ visible: boolean; type: AlertType; title: string; message: string }>({
+    visible: false,
+    type: 'info',
+    title: '',
+    message: '',
+  });
+
+  const showAlert = (type: AlertType, title: string, message: string) =>
+    setAlert({ visible: true, type, title, message });
+  const hideAlert = () => setAlert((prev) => ({ ...prev, visible: false }));
 
   useEffect(() => {
     fetchUserRoleAndOptions();
@@ -38,10 +56,10 @@ export default function ExportScreen() {
   const fetchUserRoleAndOptions = async () => {
     try {
       setLoadingMeta(true);
-      setInlineAlert(null);
+      hideAlert();
       const { data: { user }, error: authError } = await supabase.auth.getUser();
       if (authError || !user) throw new Error("No authenticated user found.");
-      
+
       setUserId(user.id);
 
       const { data: profileData, error: profileError } = await supabase
@@ -101,7 +119,7 @@ export default function ExportScreen() {
       }
     } catch (error: any) {
       console.error("Error fetching export metadata:", error.message);
-      setInlineAlert({ type: 'error', message: "Failed to load export options based on your role." });
+      showAlert('error', 'Could Not Load Options', "Failed to load export options based on your role.");
     } finally {
       setLoadingMeta(false);
     }
@@ -111,7 +129,7 @@ export default function ExportScreen() {
     try {
       setLoadingAllowances(true);
       setSelectedAllowanceId(null);
-      
+
       const { data: allowancesData, error } = await supabase
         .from('allowances')
         .select('id, allowance_name, amount, start_date, end_date')
@@ -135,7 +153,7 @@ export default function ExportScreen() {
   const handleExport = async () => {
     if (!userId) return;
     setIsExporting(true);
-    setInlineAlert(null);
+    hideAlert();
 
     try {
       let csvContent = "";
@@ -146,21 +164,21 @@ export default function ExportScreen() {
         if (!dateString) return "";
         const date = new Date(dateString);
         if (isNaN(date.getTime())) return dateString;
-        
+
         const months = [
-          "January", "February", "March", "April", "May", "June", 
+          "January", "February", "March", "April", "May", "June",
           "July", "August", "September", "October", "November", "December"
         ];
-        
+
         const month = months[date.getMonth()];
         const day = date.getDate();
         const year = date.getFullYear();
-        
+
         let hours = date.getHours();
         const minutes = String(date.getMinutes()).padStart(2, '0');
         const seconds = String(date.getSeconds()).padStart(2, '0');
         const ampm = hours >= 12 ? 'PM' : 'AM';
-        
+
         hours = hours % 12 || 12;
         const formattedHours = String(hours).padStart(2, '0');
 
@@ -173,12 +191,12 @@ export default function ExportScreen() {
 
       if (userRole === 'Sponsor') {
         if (!selectedSpenderId) {
-          setInlineAlert({ type: 'error', message: "Please select a spender first before exporting." });
+          showAlert('warning', 'Select a Spender', "Please select a spender first before exporting.");
           setIsExporting(false);
           return;
         }
         if (!selectedAllowanceId) {
-          setInlineAlert({ type: 'error', message: "Please select an allowance period to export." });
+          showAlert('warning', 'Select an Allowance Period', "Please select an allowance period to export.");
           setIsExporting(false);
           return;
         }
@@ -215,7 +233,7 @@ export default function ExportScreen() {
 
       } else if (userRole === 'Spender') {
         if (!selectedAllowanceId) {
-          setInlineAlert({ type: 'error', message: "Please select an allowance period to export." });
+          showAlert('warning', 'Select an Allowance Period', "Please select an allowance period to export.");
           setIsExporting(false);
           return;
         }
@@ -252,7 +270,7 @@ export default function ExportScreen() {
 
       } else {
         if (!selectedIncomeId) {
-          setInlineAlert({ type: 'error', message: "Please select an income period to export." });
+          showAlert('warning', 'Select an Income Period', "Please select an income period to export.");
           setIsExporting(false);
           return;
         }
@@ -297,9 +315,9 @@ export default function ExportScreen() {
 
       if (await Sharing.isAvailableAsync()) {
         await Sharing.shareAsync(file.uri);
-        setInlineAlert({ type: 'success', message: "File generated successfully!" });
+        showAlert('success', 'Export Ready', "File generated successfully!");
       } else {
-        setInlineAlert({ type: 'success', message: `File generated successfully at: ${file.uri}` });
+        showAlert('success', 'Export Ready', `File generated successfully at: ${file.uri}`);
       }
 
       // Insert log into the Supabase 'logs' table
@@ -312,330 +330,188 @@ export default function ExportScreen() {
 
     } catch (error: any) {
       console.error("Export error:", error.message);
-      setInlineAlert({ type: 'error', message: error.message || "An error occurred while generating your report." });
+      showAlert('error', 'Export Failed', error.message || "An error occurred while generating your report.");
     } finally {
       setIsExporting(false);
     }
   };
 
+  // One selectable row (radio for spenders, checkbox for periods), built from incomeStyles.toggleRow
+  const renderOption = (
+    key: string,
+    title: string,
+    amount: number | null,
+    isSelected: boolean,
+    onPress: () => void,
+    iconOn: 'radio-button-on' | 'checkbox',
+    iconOff: 'radio-button-off' | 'square-outline',
+  ) => (
+    <TouchableOpacity
+      key={key}
+      style={[
+        incomeStyles.toggleRow,
+        { marginVertical: theme.space[6] },
+        isSelected && { backgroundColor: theme.colors.brandWash, borderColor: theme.colors.brand },
+      ]}
+      onPress={onPress}
+      activeOpacity={0.8}
+    >
+      <View style={incomeStyles.toggleTextContainer}>
+        <Text style={[incomeStyles.toggleLabel, isSelected && { color: theme.colors.brand }]}>{title}</Text>
+        {amount !== null && (
+          <View style={[incomeStyles.countBadge, { alignSelf: 'flex-start', marginTop: theme.space[6] }]}>
+            <Text style={incomeStyles.countBadgeText}>₱{Number(amount).toLocaleString()}</Text>
+          </View>
+        )}
+      </View>
+      <Ionicons
+        name={isSelected ? iconOn : iconOff}
+        size={20}
+        color={isSelected ? theme.colors.brandDark : theme.colors.borderStrong}
+      />
+    </TouchableOpacity>
+  );
+
   if (loadingMeta) {
     return (
-      <View style={[styles.container, styles.centered]}>
-        <ActivityIndicator size="large" color="#173D45" />
-        <Text style={{ marginTop: 12, color: '#64748B' }}>Loading export settings...</Text>
+      <View style={[profileStyles.container, profileStyles.centerLoading]}>
+        <ActivityIndicator size="large" color={theme.colors.brandDark} />
+        <Text style={[incomeStyles.emptyText, { marginTop: theme.space[12] }]}>Loading export settings...</Text>
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <View style={profileStyles.container}>
       <StatusBar style="light" />
-      
-      <View style={styles.modernHeader}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtnTouchable}>
-          <Ionicons name="arrow-back" size={20} color="#ffffff" />
+
+      {/* Gradient header (same as Profile / About) */}
+      <View style={profileStyles.modernHeader}>
+        <View style={profileStyles.headerGradientFill} pointerEvents="none">
+          <GradientBackground />
+        </View>
+        <TouchableOpacity onPress={() => router.back()} style={profileStyles.backBtnTouchable} hitSlop={12}>
+          <Ionicons name="chevron-back" size={22} color={theme.colors.white} />
         </TouchableOpacity>
-        <Text style={styles.headerTitleCentered}>Export Data</Text>
-        <View style={{ width: 20 }} />
+        <Text style={profileStyles.headerTitleCentered}>Export Data</Text>
+        <View style={profileStyles.backBtnTouchable} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.card}>
-          <View style={styles.iconCircle}>
-            <Ionicons name="cloud-download-outline" size={32} color="#173D45" />
-          </View>
-          <Text style={styles.cardTitle}>Data CSV Ledger</Text>
-          <View style={styles.roleBadge}>
-            <Text style={styles.roleBadgeText}>Role: {userRole}</Text>
-          </View>
+      {/* Mint sheet over the gradient */}
+      <View style={profileStyles.sheet}>
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={[profileStyles.scrollContent, { paddingBottom: theme.space[24] }]}
+        >
+          <View style={profileStyles.modernCardGroup}>
+            <View style={incomeStyles.incomeCard}>
+              {/* Title block */}
+              <View style={{ alignItems: 'center', marginBottom: theme.space[16] }}>
+                <View style={incomeStyles.emptyIconBox}>
+                  <Ionicons name="cloud-download-outline" size={28} color={theme.colors.brand} />
+                </View>
+                <Text style={incomeStyles.emptyTitle}>Data CSV Ledger</Text>
+                <View style={incomeStyles.countBadge}>
+                  <Text style={incomeStyles.countBadgeText}>Role: {userRole}</Text>
+                </View>
+              </View>
 
-          {/* INLINE ALERT BANNER */}
-          {inlineAlert && (
-            <View style={[
-              styles.inlineAlertContainer, 
-              inlineAlert.type === 'error' ? styles.alertError : styles.alertSuccess
-            ]}>
-              <Ionicons 
-                name={inlineAlert.type === 'error' ? "alert-circle-outline" : "checkmark-circle-outline"} 
-                size={18} 
-                color={inlineAlert.type === 'error' ? "#DC2626" : "#059669"} 
-                style={{ marginRight: 8, marginTop: 1 }}
-              />
-              <Text style={[
-                styles.inlineAlertText,
-                inlineAlert.type === 'error' ? styles.alertTextError : styles.alertTextSuccess
-              ]}>
-                {inlineAlert.message}
-              </Text>
-              <TouchableOpacity onPress={() => setInlineAlert(null)} style={{ marginLeft: 8 }}>
-                <Ionicons name="close" size={16} color="#64748B" />
+              {/* SPONSOR FLOW: Select Spender First */}
+              {userRole === 'Sponsor' && (
+                <View style={{ marginBottom: theme.space[16] }}>
+                  <Text style={profileStyles.groupContextLabel}>1. Select Spender</Text>
+                  {linkedSpenders.length === 0 ? (
+                    <Text style={incomeStyles.allocationEmptyText}>No linked spenders found.</Text>
+                  ) : (
+                    linkedSpenders.map((spender) =>
+                      renderOption(
+                        spender.id,
+                        spender.full_name || spender.email,
+                        null,
+                        selectedSpenderId === spender.id,
+                        () => {
+                          setSelectedSpenderId(spender.id);
+                          if (userId) fetchAllowancesForSpender(spender.id, userId);
+                        },
+                        'radio-button-on',
+                        'radio-button-off',
+                      )
+                    )
+                  )}
+                </View>
+              )}
+
+              {/* ALLOWANCE SELECTION (For Spender or Sponsor) */}
+              {(userRole === 'Spender' || userRole === 'Sponsor') ? (
+                <View style={{ marginBottom: theme.space[16] }}>
+                  <Text style={profileStyles.groupContextLabel}>
+                    {userRole === 'Sponsor' ? '2. Select Allowance Period' : 'Select Allowance Period'}
+                  </Text>
+                  {loadingAllowances ? (
+                    <ActivityIndicator color={theme.colors.brandDark} style={{ marginVertical: theme.space[12] }} />
+                  ) : allowanceOptions.length === 0 ? (
+                    <Text style={incomeStyles.allocationEmptyText}>No allowance periods found for this selection.</Text>
+                  ) : (
+                    allowanceOptions.map((item) =>
+                      renderOption(
+                        item.id,
+                        item.allowance_name,
+                        item.amount,
+                        selectedAllowanceId === item.id,
+                        () => setSelectedAllowanceId(item.id),
+                        'checkbox',
+                        'square-outline',
+                      )
+                    )
+                  )}
+                </View>
+              ) : (
+                // PERSONAL FLOW: Select Income Period
+                <View style={{ marginBottom: theme.space[16] }}>
+                  <Text style={profileStyles.groupContextLabel}>Select Income Period</Text>
+                  {incomePeriods.length === 0 ? (
+                    <Text style={incomeStyles.allocationEmptyText}>No income sources found.</Text>
+                  ) : (
+                    incomePeriods.map((item) =>
+                      renderOption(
+                        item.id,
+                        item.source_name,
+                        item.amount,
+                        selectedIncomeId === item.id,
+                        () => setSelectedIncomeId(item.id),
+                        'checkbox',
+                        'square-outline',
+                      )
+                    )
+                  )}
+                </View>
+              )}
+
+              <TouchableOpacity
+                style={[resetPasswordStyles.primaryButton, { marginTop: theme.space[8] }, isExporting && profileStyles.disabledButton]}
+                onPress={handleExport}
+                disabled={isExporting}
+                activeOpacity={0.85}
+              >
+                {isExporting ? (
+                  <ActivityIndicator color={theme.colors.white} />
+                ) : (
+                  <Text style={resetPasswordStyles.buttonText}>GENERATE & DOWNLOAD CSV</Text>
+                )}
               </TouchableOpacity>
             </View>
-          )}
+          </View>
+        </ScrollView>
+      </View>
 
-          {/* SPONSOR FLOW: Select Spender First */}
-          {userRole === 'Sponsor' && (
-            <View style={styles.sectionContainer}>
-              <Text style={styles.label}>1. Select Spender</Text>
-              {linkedSpenders.length === 0 ? (
-                <Text style={styles.noDataText}>No linked spenders found.</Text>
-              ) : (
-                linkedSpenders.map((spender) => {
-                  const isSelected = selectedSpenderId === spender.id;
-                  return (
-                    <TouchableOpacity
-                      key={spender.id}
-                      style={[styles.optionCard, isSelected && styles.selectedChip]}
-                      onPress={() => {
-                        setSelectedSpenderId(spender.id);
-                        if (userId) fetchAllowancesForSpender(spender.id, userId);
-                      }}
-                      activeOpacity={0.8}
-                    >
-                      <View style={styles.optionContent}>
-                        <Text style={[styles.optionTitle, isSelected && styles.selectedOptionText]}>
-                          {spender.full_name || spender.email}
-                        </Text>
-                      </View>
-                      <Ionicons 
-                        name={isSelected ? "radio-button-on" : "radio-button-off"} 
-                        size={20} 
-                        color={isSelected ? "#173D45" : "#CBD5E1"} 
-                      />
-                    </TouchableOpacity>
-                  );
-                })
-              )}
-            </View>
-          )}
-
-          {/* ALLOWANCE SELECTION (For Spender or Sponsor) */}
-          {(userRole === 'Spender' || userRole === 'Sponsor') ? (
-            <View style={styles.sectionContainer}>
-              <Text style={styles.label}>
-                {userRole === 'Sponsor' ? '2. Select Allowance Period' : 'Select Allowance Period'}
-              </Text>
-              {loadingAllowances ? (
-                <ActivityIndicator color="#173D45" style={{ marginVertical: 12 }} />
-              ) : allowanceOptions.length === 0 ? (
-                <Text style={styles.noDataText}>No allowance periods found for this selection.</Text>
-              ) : (
-                allowanceOptions.map((item) => {
-                  const isSelected = selectedAllowanceId === item.id;
-                  return (
-                    <TouchableOpacity
-                      key={item.id}
-                      style={[styles.optionCard, isSelected && styles.selectedChip]}
-                      onPress={() => setSelectedAllowanceId(item.id)}
-                      activeOpacity={0.8}
-                    >
-                      <View style={styles.optionContent}>
-                        <Text style={[styles.optionTitle, isSelected && styles.selectedOptionText]}>
-                          {item.allowance_name}
-                        </Text>
-                        <View style={[styles.amountBadge, isSelected && styles.selectedAmountBadge]}>
-                          <Text style={[styles.amountText, isSelected && styles.selectedAmountText]}>
-                            ₱{Number(item.amount).toLocaleString()}
-                          </Text>
-                        </View>
-                      </View>
-                      <Ionicons 
-                        name={isSelected ? "checkbox" : "square-outline"} 
-                        size={20} 
-                        color={isSelected ? "#173D45" : "#CBD5E1"} 
-                      />
-                    </TouchableOpacity>
-                  );
-                })
-              )}
-            </View>
-          ) : (
-            // PERSONAL FLOW: Select Income Period
-            <View style={styles.sectionContainer}>
-              <Text style={styles.label}>Select Income Period</Text>
-              {incomePeriods.length === 0 ? (
-                <Text style={styles.noDataText}>No income sources found.</Text>
-              ) : (
-                incomePeriods.map((item) => {
-                  const isSelected = selectedIncomeId === item.id;
-                  return (
-                    <TouchableOpacity
-                      key={item.id}
-                      style={[styles.optionCard, isSelected && styles.selectedChip]}
-                      onPress={() => setSelectedIncomeId(item.id)}
-                      activeOpacity={0.8}
-                    >
-                      <View style={styles.optionContent}>
-                        <Text style={[styles.optionTitle, isSelected && styles.selectedOptionText]}>
-                          {item.source_name}
-                        </Text>
-                        <View style={[styles.amountBadge, isSelected && styles.selectedAmountBadge]}>
-                          <Text style={[styles.amountText, isSelected && styles.selectedAmountText]}>
-                            ₱{Number(item.amount).toLocaleString()}
-                          </Text>
-                        </View>
-                      </View>
-                      <Ionicons 
-                        name={isSelected ? "checkbox" : "square-outline"} 
-                        size={20} 
-                        color={isSelected ? "#173D45" : "#CBD5E1"} 
-                      />
-                    </TouchableOpacity>
-                  );
-                })
-              )}
-            </View>
-          )}
-
-          <TouchableOpacity 
-            style={[styles.pillPrimaryActionBtn, isExporting && styles.disabledButton]} 
-            onPress={handleExport}
-            disabled={isExporting}
-            activeOpacity={0.85}
-          >
-            {isExporting ? (
-              <ActivityIndicator color="#FFFFFF" />
-            ) : (
-              <Text style={styles.pillPrimaryActionBtnText}>GENERATE & DOWNLOAD CSV</Text>
-            )}
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
+      {/* Shared Payton alert (validation, errors, success) */}
+      <PaytonAlertDialog
+        visible={alert.visible}
+        type={alert.type}
+        title={alert.title}
+        message={alert.message}
+        onDismiss={hideAlert}
+      />
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5fcfa' },
-  centered: { justifyContent: 'center', alignItems: 'center' },
-  modernHeader: { 
-    flexDirection: 'row', 
-    justifyContent: 'center', 
-    alignItems: 'center', 
-    paddingHorizontal: 24,
-    paddingTop: Platform.OS === 'android' ? 44 : 20,
-    paddingBottom: 20,
-    backgroundColor: colors?.headerDark || '#173D45',
-    borderBottomLeftRadius: 32,
-    borderBottomRightRadius: 32,
-  },
-  backBtnTouchable: { width: 20 },
-  headerTitleCentered: { 
-    flex: 1, 
-    textAlign: 'center', 
-    fontSize: 20, 
-    fontWeight: '800', 
-    color: '#ffffff', 
-    letterSpacing: -0.5 
-  },
-  content: { paddingHorizontal: 20, paddingVertical: 24 },
-  card: { 
-    backgroundColor: '#FFFFFF', 
-    padding: 24, 
-    borderRadius: 24, 
-    borderWidth: 1, 
-    borderColor: '#E2E8F0', 
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.03,
-    shadowRadius: 8,
-  },
-  iconCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 20,
-    backgroundColor: '#EBF6F5',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  cardTitle: { fontSize: 18, fontWeight: '700', color: '#1E293B', marginBottom: 6 },
-  roleBadge: {
-    backgroundColor: '#F1F5F9',
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 20,
-    marginBottom: 20,
-  },
-  roleBadgeText: { fontSize: 12, fontWeight: '600', color: '#475569' },
-  
-  /* Modern Inline Alert Styles */
-  inlineAlertContainer: {
-    width: '100%',
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    borderRadius: 12,
-    marginBottom: 20,
-    borderWidth: 1,
-  },
-  alertError: {
-    backgroundColor: '#FEF2F2',
-    borderColor: '#FCA5A5',
-  },
-  alertSuccess: {
-    backgroundColor: '#ECFDF5',
-    borderColor: '#A7F3D0',
-  },
-  inlineAlertText: {
-    flex: 1,
-    fontSize: 13,
-    fontWeight: '500',
-  },
-  alertTextError: {
-    color: '#991B1B',
-  },
-  alertTextSuccess: {
-    color: '#065F46',
-  },
-
-  sectionContainer: { width: '100%', marginBottom: 20 },
-  label: { fontSize: 14, fontWeight: '600', color: '#334155', marginBottom: 10 },
-  noDataText: { fontSize: 13, color: '#94A3B8', fontStyle: 'italic', marginBottom: 12 },
-  optionCard: {
-    backgroundColor: '#F8FAFC',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    padding: 14,
-    borderRadius: 16,
-    marginBottom: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  selectedChip: {
-    backgroundColor: '#EBF6F5',
-    borderColor: '#173D45',
-  },
-  optionContent: {
-    flex: 1,
-    marginRight: 12,
-  },
-  optionTitle: { fontSize: 15, fontWeight: '600', color: '#334155', marginBottom: 6 },
-  selectedOptionText: { color: '#173D45' },
-  amountBadge: {
-    alignSelf: 'flex-start',
-    backgroundColor: '#F1F5F9',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-  },
-  selectedAmountBadge: {
-    backgroundColor: '#D1E8E4',
-  },
-  amountText: { fontSize: 12, fontWeight: '600', color: '#64748B' },
-  selectedAmountText: { color: '#173D45' },
-  pillPrimaryActionBtn: {
-    backgroundColor: '#173D45',
-    borderRadius: 30,
-    paddingVertical: 16,
-    width: '100%',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 8,
-  },
-  pillPrimaryActionBtnText: { color: '#FFFFFF', fontSize: 15, fontWeight: '700', letterSpacing: 0.5 },
-  disabledButton: { backgroundColor: '#CBD5E1' }
-});

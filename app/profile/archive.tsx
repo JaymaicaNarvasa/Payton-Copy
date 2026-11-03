@@ -1,9 +1,18 @@
+// app/(...)/archive.tsx
+// Built ONLY from existing exports of constants/ui.styles.ts:
+//   profileStyles (gradient header + mint sheet), incomeStyles (cards, banners, empty state, buttons),
+//   monitoringStyles (search, transaction rows, progress bar, photo viewer). Confirm dialog = PaytonAlertDialog.
+// All Supabase / business logic below is unchanged.
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, Image, Modal, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { colors } from '../(spenderTabs)/profile';
+import { ActivityIndicator, FlatList, Image, Modal, Text, TextInput, TouchableOpacity, View } from 'react-native';
+
+import GradientBackground from '../../components/GradientBackground';
+import { PaytonAlertDialog } from '../../components/PaytonAlert';
+import { theme } from '../../constants/theme';
+import { incomeStyles, monitoringStyles, profileStyles } from '../../constants/ui.styles';
 import { supabase } from '../../lib/supabase';
 
 export default function ArchiveScreen() {
@@ -15,14 +24,14 @@ export default function ArchiveScreen() {
   const [loadingExpenses, setLoadingExpenses] = useState(false);
   const [userRole, setUserRole] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  
+
   // Search state for associated expenses
   const [searchQuery, setSearchQuery] = useState('');
-  
+
   // Fullscreen photo modal state
   const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
 
-  // Modern Inline Alert Message State
+  // Inline alert banner state
   const [alertBanner, setAlertBanner] = useState<{
     visible: boolean;
     type: 'success' | 'error' | 'info' | 'warning';
@@ -33,7 +42,7 @@ export default function ArchiveScreen() {
     message: '',
   });
 
-  // Modern Custom Action Dialog State (Now used strictly for destructive/restoration confirmation choices)
+  // Confirmation dialog state (delete / restore) -> rendered with PaytonAlertDialog
   const [dialogConfig, setDialogConfig] = useState<{
     visible: boolean;
     type: 'delete' | 'unarchive';
@@ -303,7 +312,7 @@ export default function ArchiveScreen() {
   const totalSpent = expenses.reduce((sum, item) => sum + Number(item.amount || 0), 0);
   const totalAmount = Number(selectedItem?.amount || 0);
   const totalRemaining = totalAmount - totalSpent;
-  
+
   const remainingRatio = totalAmount > 0 ? Math.max(0, Math.min(totalRemaining / totalAmount, 1)) : 0;
   const isOverBudget = totalSpent > totalAmount;
 
@@ -314,702 +323,306 @@ export default function ArchiveScreen() {
     return desc.includes(query) || categoryName.includes(query);
   });
 
-  const getAlertStyles = (type: string) => {
+  // Banner look per type, built from the shared theme tokens / incomeStyles banners
+  const getBannerLook = (type: string) => {
     switch (type) {
       case 'success':
-        return { bg: '#ecfdf5', border: '#10b981', text: '#065f46', icon: 'checkmark-circle-outline' };
+        return { box: incomeStyles.bannerSuccess, text: incomeStyles.bannerTextSuccess, color: theme.colors.green, icon: 'checkmark-circle-outline' };
       case 'error':
-        return { bg: '#fef2f2', border: '#ef4444', text: '#991b1b', icon: 'alert-circle-outline' };
+        return { box: incomeStyles.bannerError, text: incomeStyles.bannerTextError, color: theme.colors.danger, icon: 'alert-circle-outline' };
       case 'warning':
-        return { bg: '#fffbeb', border: '#f59e0b', text: '#92400e', icon: 'warning-outline' };
+        return {
+          box: { backgroundColor: theme.colors.warningBg, borderColor: theme.colors.warningBorder },
+          text: { color: theme.colors.warningDeep },
+          color: theme.colors.warningMid,
+          icon: 'warning-outline',
+        };
       default:
-        return { bg: '#f0fdf4', border: '#3b82f6', text: '#1e40af', icon: 'information-circle-outline' };
+        return {
+          box: { backgroundColor: theme.colors.accentTint, borderColor: theme.colors.accentSoft },
+          text: { color: theme.colors.brand },
+          color: theme.colors.accent,
+          icon: 'information-circle-outline',
+        };
     }
   };
 
-  const currentAlertStyle = getAlertStyles(alertBanner.type);
+  const bannerLook = getBannerLook(alertBanner.type);
 
-  return (
-    <View style={styles.container}>
-      <StatusBar style="light" />
-      
-      <View style={styles.modernHeader}>
-        <TouchableOpacity 
-          onPress={selectedItem ? handleBackToArchiveList : () => router.back()} 
-          style={styles.backBtnTouchable}
-        >
-          <Ionicons name="arrow-back" size={20} color="#ffffff" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitleCentered} numberOfLines={1}>
-          {selectedItem ? (selectedItem.allowance_name || selectedItem.source_name) : 'Archive Data'}
+  /* ---------- Detail view pieces ---------- */
+  const detailHeader = selectedItem ? (
+    <View>
+      <View style={incomeStyles.incomeCard}>
+        <View style={incomeStyles.cardHeaderRow}>
+          <View style={incomeStyles.titleWrapper}>
+            <Text style={incomeStyles.dateText}>Total Allocation</Text>
+            <Text style={[incomeStyles.amountText, { fontSize: theme.fontSize.display, color: theme.colors.brandInk }]}>
+              ₱{totalAmount.toLocaleString()}
+            </Text>
+          </View>
+        </View>
+
+        <View style={[incomeStyles.previewDateBox, { marginTop: theme.space[12] }]}>
+          <Ionicons name="calendar-outline" size={14} color={theme.colors.brand} />
+          <Text style={incomeStyles.previewDateText} numberOfLines={1}>
+            {formatDateRange(selectedItem.start_date, selectedItem.end_date)}
+          </Text>
+        </View>
+
+        <View style={incomeStyles.cardDivider} />
+
+        <View style={incomeStyles.cardFooterRow}>
+          <View style={[incomeStyles.amountContainer, { alignItems: 'flex-start' }]}>
+            <Text style={incomeStyles.dateText}>Total Spent</Text>
+            <Text style={[incomeStyles.amountText, { color: theme.colors.danger }]}>₱{totalSpent.toLocaleString()}</Text>
+          </View>
+          <View style={incomeStyles.amountContainer}>
+            <Text style={incomeStyles.dateText}>Remaining</Text>
+            <Text style={[incomeStyles.amountText, { color: isOverBudget ? theme.colors.danger : theme.colors.success }]}>
+              ₱{totalRemaining.toLocaleString()}
+            </Text>
+          </View>
+        </View>
+
+        <View style={monitoringStyles.heroTrack}>
+          <View
+            style={[
+              monitoringStyles.heroFill,
+              {
+                width: `${remainingRatio * 100}%`,
+                backgroundColor: isOverBudget ? theme.colors.danger : theme.colors.progressFill,
+              },
+            ]}
+          />
+        </View>
+        <Text style={[incomeStyles.dateText, { textAlign: 'center', marginTop: theme.space[8] }]}>
+          {(remainingRatio * 100).toFixed(0)}% remaining
         </Text>
-        <View style={{ width: 20 }} />
       </View>
 
-      {/* Modern Inline Alert Banner */}
-      {alertBanner.visible && (
-        <View style={[styles.inlineAlertContainer, { backgroundColor: currentAlertStyle.bg, borderColor: currentAlertStyle.border }]}>
-          <Ionicons name={currentAlertStyle.icon as any} size={18} color={currentAlertStyle.border} style={{ marginRight: 8 }} />
-          <Text style={[styles.inlineAlertText, { color: currentAlertStyle.text }]}>{alertBanner.message}</Text>
-          <TouchableOpacity onPress={() => setAlertBanner((prev) => ({ ...prev, visible: false }))} style={{ marginLeft: 'auto', padding: 2 }}>
-            <Ionicons name="close" size={16} color={currentAlertStyle.text} />
-          </TouchableOpacity>
+      <Text style={[incomeStyles.sectionTitle, { marginTop: theme.space[8], marginBottom: theme.space[12] }]}>
+        Associated Expenses
+      </Text>
+
+      {!loadingExpenses && expenses.length > 0 && (
+        <View style={monitoringStyles.searchContainer}>
+          <Ionicons name="search" size={16} color={theme.colors.textSubtle} />
+          <TextInput
+            style={monitoringStyles.searchInput}
+            placeholder="Search description or category..."
+            placeholderTextColor={theme.colors.textSubtle}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => setSearchQuery('')}>
+              <Ionicons name="close-circle" size={16} color={theme.colors.textSubtle} />
+            </TouchableOpacity>
+          )}
         </View>
       )}
+    </View>
+  ) : null;
 
-      {loading ? (
-        <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color="#173D45" />
+  const detailEmpty = loadingExpenses ? (
+    <ActivityIndicator size="small" color={theme.colors.brandDark} style={{ marginTop: theme.space[20] }} />
+  ) : (
+    <View style={incomeStyles.emptyContainer}>
+      <View style={incomeStyles.emptyIconBox}>
+        <Ionicons name={expenses.length === 0 ? 'receipt-outline' : 'search-outline'} size={26} color={theme.colors.brand} />
+      </View>
+      <Text style={incomeStyles.emptyText}>
+        {expenses.length === 0 ? 'No expenses recorded under this record.' : 'No matching expenses found.'}
+      </Text>
+    </View>
+  );
+
+  return (
+    <View style={profileStyles.container}>
+      <StatusBar style="light" />
+
+      {/* Gradient header (same as Profile / About) */}
+      <View style={profileStyles.modernHeader}>
+        <View style={profileStyles.headerGradientFill} pointerEvents="none">
+          <GradientBackground />
         </View>
-      ) : selectedItem ? (
-        <View style={styles.detailContainer}>
-          
-          <View style={styles.cardDetail}>
-            <View style={styles.cardTopRow}>
-              <View>
-                <Text style={styles.cardLabel}>Total Allocation</Text>
-                <Text style={styles.cardAmount}>₱{totalAmount.toLocaleString()}</Text>
-              </View>
-              <View style={styles.validityBadge}>
-                <Ionicons name="calendar-outline" size={12} color="#64748b" style={{ marginRight: 4 }} />
-                <Text style={styles.cardDates}>
-                  {formatDateRange(selectedItem.start_date, selectedItem.end_date)}
-                </Text>
-              </View>
-            </View>
+        <TouchableOpacity
+          onPress={selectedItem ? handleBackToArchiveList : () => router.back()}
+          style={profileStyles.backBtnTouchable}
+          hitSlop={12}
+        >
+          <Ionicons name="chevron-back" size={22} color={theme.colors.white} />
+        </TouchableOpacity>
+        <Text style={profileStyles.headerTitleCentered} numberOfLines={1}>
+          {selectedItem ? (selectedItem.allowance_name || selectedItem.source_name) : 'Archive Data'}
+        </Text>
+        <View style={profileStyles.backBtnTouchable} />
+      </View>
 
-            <View style={styles.metricsGrid}>
-              <View style={styles.metricBox}>
-                <Text style={styles.metricTitle}>Total Spent</Text>
-                <Text style={[styles.metricValue, { color: '#ef4444' }]}>₱{totalSpent.toLocaleString()}</Text>
-              </View>
-              <View style={styles.metricDivider} />
-              <View style={styles.metricBox}>
-                <Text style={styles.metricTitle}>Remaining</Text>
-                <Text style={[styles.metricValue, { color: isOverBudget ? '#ef4444' : '#10b981' }]}>
-                  ₱{totalRemaining.toLocaleString()}
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.progressSection}>
-              <View style={styles.progressHeaderRow}>
-                <Text style={styles.progressLabel}>Remaining</Text>
-                <Text style={styles.progressPercent}>{(remainingRatio * 100).toFixed(0)}%</Text>
-              </View>
-              <View style={styles.progressBarBackground}>
-                <View 
-                  style={[
-                    styles.progressBarFill, 
-                    { 
-                      width: `${remainingRatio * 100}%`,
-                      backgroundColor: isOverBudget ? '#ef4444' : '#10b981' 
-                    }
-                  ]} 
-                />
-              </View>
+      {/* Mint sheet over the gradient */}
+      <View style={profileStyles.sheet}>
+        {/* Inline alert banner */}
+        {alertBanner.visible && (
+          <View style={profileStyles.modernCardGroup}>
+            <View style={[incomeStyles.inlineBanner, bannerLook.box]}>
+              <Ionicons name={bannerLook.icon as any} size={18} color={bannerLook.color} />
+              <Text style={[incomeStyles.bannerText, bannerLook.text]}>{alertBanner.message}</Text>
+              <TouchableOpacity onPress={() => setAlertBanner((prev) => ({ ...prev, visible: false }))} hitSlop={8}>
+                <Ionicons name="close" size={16} color={bannerLook.color} />
+              </TouchableOpacity>
             </View>
           </View>
+        )}
 
-          <Text style={styles.sectionHeader}>Associated Expenses</Text>
-          
-          {!loadingExpenses && expenses.length > 0 && (
-            <View style={styles.searchContainer}>
-              <Ionicons name="search" size={16} color="#94a3b8" style={styles.searchIcon} />
-              <TextInput
-                style={styles.searchInput}
-                placeholder="Search description or category..."
-                placeholderTextColor="#94a3b8"
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-              />
-              {searchQuery.length > 0 && (
-                <TouchableOpacity onPress={() => setSearchQuery('')}>
-                  <Ionicons name="close-circle" size={16} color="#94a3b8" />
-                </TouchableOpacity>
-              )}
-            </View>
-          )}
+        {loading ? (
+          <View style={profileStyles.centerLoading}>
+            <ActivityIndicator size="large" color={theme.colors.brandDark} />
+          </View>
+        ) : selectedItem ? (
+          <FlatList
+            data={loadingExpenses ? [] : filteredExpenses}
+            keyExtractor={(item) => item.id}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={monitoringStyles.listContent}
+            ListHeaderComponent={detailHeader}
+            ListEmptyComponent={detailEmpty}
+            renderItem={({ item }) => {
+              const category = item.categories;
+              const iconName = (category?.icon || 'pricetag-outline') as any;
+              const iconBgColor = category?.color || theme.colors.border;
 
-          {loadingExpenses ? (
-            <ActivityIndicator size="small" color="#173D45" style={{ marginTop: 20 }} />
-          ) : expenses.length === 0 ? (
-            <View style={styles.emptyExpenses}>
-              <Ionicons name="receipt-outline" size={32} color="#cbd5e1" style={{ marginBottom: 8 }} />
-              <Text style={styles.subTitle}>No expenses recorded under this record.</Text>
-            </View>
-          ) : filteredExpenses.length === 0 ? (
-            <View style={styles.emptyExpenses}>
-              <Ionicons name="search-outline" size={32} color="#cbd5e1" style={{ marginBottom: 8 }} />
-              <Text style={styles.subTitle}>No matching expenses found.</Text>
-            </View>
-          ) : (
-            <FlatList
-              data={filteredExpenses}
-              keyExtractor={(item) => item.id}
-              showsVerticalScrollIndicator={false}
-              renderItem={({ item }) => {
-                const category = item.categories;
-                const iconName = (category?.icon || 'pricetag-outline') as any;
-                const iconBgColor = category?.color || '#e2e8f0';
-
-                return (
-                  <View style={styles.expenseItem}>
-                    <View style={[styles.expenseIconContainer, { backgroundColor: iconBgColor }]}>
-                      <Ionicons name={iconName} size={16} color="#173D45" />
-                    </View>
-
-                    <View style={{ flex: 1, marginRight: 12 }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap' }}>
-                        <Text style={styles.expenseDesc}>{item.description || 'No Description'}</Text>
-                        {item.photo_url ? (
-                          <TouchableOpacity 
-                            onPress={() => setSelectedPhoto(item.photo_url)} 
-                            style={styles.photoIconButton}
-                          >
-                            <Ionicons name="image-outline" size={14} color="#0f766e" />
-                          </TouchableOpacity>
-                        ) : null}
-                      </View>
-                      <Text style={styles.expenseDate}>{formatDateTimeString(item.spent_at)}</Text>
-                    </View>
-                    <Text style={styles.expenseAmount}>-₱{Number(item.amount).toLocaleString()}</Text>
+              return (
+                <View style={monitoringStyles.txRow}>
+                  <View style={[monitoringStyles.txIconBox, { backgroundColor: iconBgColor }]}>
+                    <Ionicons name={iconName} size={18} color={theme.colors.brandDark} />
                   </View>
-                );
-              }}
-              contentContainerStyle={{ paddingBottom: 30 }}
-            />
-          )}
-        </View>
-      ) : inactiveItems.length === 0 ? (
-        <View style={styles.centerContainer}>
-          <View style={styles.iconCircle}>
-            <Ionicons name="archive-outline" size={40} color="#173D45" />
+
+                  <View style={monitoringStyles.txBody}>
+                    <View style={monitoringStyles.txNameRow}>
+                      <Text style={monitoringStyles.txName} numberOfLines={1}>
+                        {item.description || 'No Description'}
+                      </Text>
+                      {item.photo_url ? (
+                        <TouchableOpacity onPress={() => setSelectedPhoto(item.photo_url)} style={monitoringStyles.photoBadge}>
+                          <Ionicons name="image-outline" size={13} color={theme.colors.mintPillText} />
+                        </TouchableOpacity>
+                      ) : null}
+                    </View>
+                    <Text style={monitoringStyles.txMeta}>{formatDateTimeString(item.spent_at)}</Text>
+                  </View>
+                  <Text style={monitoringStyles.txAmount}>-₱{Number(item.amount).toLocaleString()}</Text>
+                </View>
+              );
+            }}
+          />
+        ) : inactiveItems.length === 0 ? (
+          <View style={[profileStyles.centerLoading, { paddingHorizontal: theme.space[24] }]}>
+            <View style={[incomeStyles.emptyContainer, { alignSelf: 'stretch' }]}>
+              <View style={incomeStyles.emptyIconBox}>
+                <Ionicons name="archive-outline" size={26} color={theme.colors.brand} />
+              </View>
+              <Text style={incomeStyles.emptyTitle}>Archive Empty</Text>
+              <Text style={incomeStyles.emptyText}>You have no inactive records at this moment.</Text>
+            </View>
           </View>
-          <Text style={styles.mainTitle}>Archive Empty</Text>
-          <Text style={styles.subTitle}>You have no inactive records at this moment.</Text>
-        </View>
-      ) : (
-        <FlatList
-          data={inactiveItems}
-          keyExtractor={(item) => item.id}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.listContainer}
-          renderItem={({ item }) => (
-            <View style={styles.archiveCard}>
-              <TouchableOpacity style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }} onPress={() => handleSelectItem(item)}>
-                <View style={{ flex: 1, marginRight: 12 }}>
-                  <Text style={styles.itemTitle}>{item.allowance_name || item.source_name}</Text>
-                  <View style={styles.itemSubtitleRow}>
-                    <Ionicons name="time-outline" size={12} color="#64748B" style={{ marginRight: 4 }} />
-                    <Text style={styles.itemSubtitle}>
+        ) : (
+          <FlatList
+            data={inactiveItems}
+            keyExtractor={(item) => item.id}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={monitoringStyles.listContent}
+            renderItem={({ item }) => (
+              <View style={incomeStyles.incomeCard}>
+                <TouchableOpacity activeOpacity={0.7} onPress={() => handleSelectItem(item)}>
+                  <View style={incomeStyles.cardHeaderRow}>
+                    <View style={incomeStyles.cardHeaderLeft}>
+                      <View style={incomeStyles.statusBadge}>
+                        <Ionicons name="archive-outline" size={20} color={theme.colors.success} />
+                      </View>
+                      <View style={incomeStyles.titleWrapper}>
+                        <Text style={incomeStyles.sourceText} numberOfLines={1}>
+                          {item.allowance_name || item.source_name}
+                        </Text>
+                      </View>
+                    </View>
+                    <View style={incomeStyles.amountContainer}>
+                      <Text style={incomeStyles.amountText}>₱{Number(item.amount).toLocaleString()}</Text>
+                    </View>
+                  </View>
+                </TouchableOpacity>
+
+                <View style={incomeStyles.cardDivider} />
+
+                <View style={incomeStyles.cardFooterRow}>
+                  <View style={incomeStyles.dateContainer}>
+                    <Ionicons name="time-outline" size={12} color={theme.colors.textMuted} />
+                    <Text style={incomeStyles.dateText} numberOfLines={1}>
                       {formatDateRange(item.start_date, item.end_date)}
                     </Text>
                   </View>
-                </View>
-                <View style={{ alignItems: 'flex-end', marginRight: 8 }}>
-                  <Text style={styles.itemAmount}>₱{Number(item.amount).toLocaleString()}</Text>
-                  <View style={styles.chevronRow}>
-                    <Text style={styles.viewDetailsText}>View</Text>
-                    <Ionicons name="chevron-forward" size={14} color="#0f766e" />
+
+                  <View style={incomeStyles.actionButtonsRow}>
+                    <TouchableOpacity
+                      style={[incomeStyles.actionButton, incomeStyles.archiveButtonBorder]}
+                      onPress={() => handleSelectItem(item)}
+                    >
+                      <Ionicons name="chevron-forward" size={16} color={theme.colors.brand} />
+                    </TouchableOpacity>
+
+                    {userRole !== 'Spender' && (
+                      <TouchableOpacity
+                        style={[incomeStyles.actionButton, incomeStyles.archiveButtonBorder]}
+                        onPress={() => confirmUnarchiveItem(item)}
+                      >
+                        <Ionicons name="arrow-undo-outline" size={16} color={theme.colors.brand} />
+                      </TouchableOpacity>
+                    )}
+
+                    {userRole !== 'Spender' && (
+                      <TouchableOpacity
+                        style={[incomeStyles.actionButton, incomeStyles.deleteButtonBorder]}
+                        onPress={() => confirmDeleteItem(item)}
+                      >
+                        <Ionicons name="trash-outline" size={16} color={theme.colors.danger} />
+                      </TouchableOpacity>
+                    )}
                   </View>
                 </View>
-              </TouchableOpacity>
-
-              {/* Action Buttons Row */}
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                {userRole !== 'Spender' && (
-                  <TouchableOpacity 
-                    style={styles.unarchiveBtn} 
-                    onPress={() => confirmUnarchiveItem(item)}
-                  >
-                    <Ionicons name="arrow-undo-outline" size={16} color="#0f766e" />
-                  </TouchableOpacity>
-                )}
-
-                {userRole !== 'Spender' && (
-                  <TouchableOpacity 
-                    style={styles.deleteBtn} 
-                    onPress={() => confirmDeleteItem(item)}
-                  >
-                    <Ionicons name="trash-outline" size={16} color="#ef4444" />
-                  </TouchableOpacity>
-                )}
               </View>
-            </View>
-          )}
-        />
-      )}
+            )}
+          />
+        )}
+      </View>
 
-      {/* Confirmation Modal */}
-      <Modal visible={dialogConfig.visible} transparent={true} animationType="fade">
-        <View style={styles.dialogOverlay}>
-          <View style={styles.dialogContainer}>
-            <View style={[
-              styles.dialogIconContainer, 
-              { backgroundColor: dialogConfig.type === 'delete' ? '#fef2f2' : '#e6f4f1' }
-            ]}>
-              <Ionicons 
-                name={dialogConfig.type === 'delete' ? 'trash-outline' : 'arrow-undo-outline'} 
-                size={24} 
-                color={dialogConfig.type === 'delete' ? '#ef4444' : '#0f766e'} 
-              />
-            </View>
+      {/* Delete / Restore confirmation (shared PaytonAlertDialog, local-state API) */}
+      <PaytonAlertDialog
+        visible={dialogConfig.visible}
+        title={dialogConfig.title}
+        message={dialogConfig.message}
+        type={dialogConfig.type === 'delete' ? 'error' : 'info'}
+        buttons={[
+          { text: 'Cancel', style: 'cancel', onPress: closeDialog },
+          {
+            text: dialogConfig.type === 'delete' ? 'Delete' : 'Restore',
+            style: dialogConfig.type === 'delete' ? 'destructive' : 'default',
+            onPress: handleExecuteDialogAction,
+          },
+        ]}
+        onDismiss={closeDialog}
+      />
 
-            <Text style={styles.dialogTitle}>{dialogConfig.title}</Text>
-            <Text style={styles.dialogMessage}>{dialogConfig.message}</Text>
-
-            <View style={styles.dialogButtonRow}>
-              <TouchableOpacity style={styles.dialogCancelButton} onPress={closeDialog}>
-                <Text style={styles.dialogCancelText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={[
-                  styles.dialogConfirmButton, 
-                  { backgroundColor: dialogConfig.type === 'delete' ? '#ef4444' : '#0f766e' }
-                ]} 
-                onPress={handleExecuteDialogAction}
-              >
-                <Text style={styles.dialogConfirmText}>
-                  {dialogConfig.type === 'delete' ? 'Delete' : 'Restore'}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Fullscreen Photo Modal */}
-      <Modal visible={!!selectedPhoto} transparent={true} animationType="fade">
-        <View style={styles.modalBackground}>
-          <TouchableOpacity 
-            style={styles.closeButtonContainer} 
-            onPress={() => setSelectedPhoto(null)}
-          >
-            <Ionicons name="close" size={24} color="#ffffff" />
+      {/* Fullscreen photo viewer */}
+      <Modal visible={!!selectedPhoto} transparent animationType="fade" onRequestClose={() => setSelectedPhoto(null)}>
+        <View style={monitoringStyles.imageOverlay}>
+          <TouchableOpacity style={monitoringStyles.closeImageButton} onPress={() => setSelectedPhoto(null)}>
+            <Ionicons name="close" size={24} color={theme.colors.white} />
           </TouchableOpacity>
           {selectedPhoto && (
-            <Image 
-              source={{ uri: selectedPhoto }} 
-              style={styles.fullscreenImage} 
-              resizeMode="contain" 
-            />
+            <Image source={{ uri: selectedPhoto }} style={monitoringStyles.fullScreenImage} resizeMode="contain" />
           )}
         </View>
       </Modal>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { 
-    flex: 1, 
-    backgroundColor: '#f8fafc',
-  },
-  modernHeader: { 
-    flexDirection: 'row', 
-    justifyContent: 'space-between', 
-    alignItems: 'center', 
-    paddingHorizontal: 24,
-    paddingTop: Platform.OS === 'android' ? 44 : 20,
-    paddingBottom: 20,
-    backgroundColor: colors.headerDark,
-    borderBottomLeftRadius: 32,
-    borderBottomRightRadius: 32,
-  },
-  inlineAlertContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginHorizontal: 20,
-    marginTop: 16,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-  },
-  inlineAlertText: {
-    fontSize: 13,
-    fontWeight: '600',
-    flex: 1,
-  },
-  backBtnTouchable: { 
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    justifyContent: 'center',
-    alignItems: 'center'
-  },
-  headerTitleCentered: { 
-    flex: 1, 
-    textAlign: 'center', 
-    fontSize: 17, 
-    fontWeight: '700', 
-    color: '#ffffff', 
-    marginHorizontal: 12,
-  },
-  centerContainer: { 
-    flex: 1, 
-    justifyContent: 'center', 
-    alignItems: 'center', 
-    paddingHorizontal: 40 
-  },
-  iconCircle: { 
-    width: 80, 
-    height: 80, 
-    borderRadius: 24, 
-    backgroundColor: '#EBF6F5', 
-    justifyContent: 'center', 
-    alignItems: 'center', 
-    marginBottom: 20 
-  },
-  mainTitle: { 
-    fontSize: 18, 
-    fontWeight: '700', 
-    color: '#1E293B', 
-    marginBottom: 8 
-  },
-  subTitle: { 
-    fontSize: 14, 
-    color: '#64748B', 
-    textAlign: 'center', 
-    lineHeight: 22 
-  },
-  listContainer: {
-    padding: 20,
-  },
-  archiveCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    borderWidth: 3,
-    borderColor: '#f1f5f9',
-  },
-  unarchiveBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
-    backgroundColor: '#e6f4f1',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#ccebe6',
-  },
-  deleteBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
-    backgroundColor: '#fef2f2',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#fee2e2',
-  },
-  itemTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#1E293B',
-    marginBottom: 4,
-  },
-  itemSubtitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  itemSubtitle: {
-    fontSize: 11,
-    color: '#64748B',
-  },
-  itemAmount: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#0f766e',
-    marginBottom: 4,
-  },
-  chevronRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  viewDetailsText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#0f766e',
-    marginRight: 2,
-  },
-  detailContainer: {
-    flex: 1,
-    padding: 20,
-  },
-  cardDetail: {
-    backgroundColor: '#ffffff',
-    borderRadius: 20,
-    padding: 20,
-    marginBottom: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 1,
-    borderWidth: 1,
-    borderColor: '#f1f5f9',
-  },
-  cardTopRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 16,
-  },
-  cardLabel: {
-    fontSize: 12,
-    color: '#64748b',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 4,
-  },
-  cardAmount: {
-    fontSize: 26,
-    fontWeight: '800',
-    color: '#1e293b',
-  },
-  validityBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f8fafc',
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
-    maxWidth: '55%',
-  },
-  cardDates: {
-    fontSize: 10,
-    color: '#475569',
-    fontWeight: '500',
-    flexShrink: 1,
-  },
-  metricsGrid: {
-    flexDirection: 'row',
-    backgroundColor: '#f8fafc',
-    borderRadius: 12,
-    paddingVertical: 12,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#f1f5f9',
-  },
-  metricBox: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  metricDivider: {
-    width: 1,
-    backgroundColor: '#e2e8f0',
-  },
-  metricTitle: {
-    fontSize: 11,
-    color: '#64748b',
-    marginBottom: 2,
-    fontWeight: '500',
-  },
-  metricValue: {
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  progressSection: {
-    marginTop: 4,
-  },
-  progressHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 6,
-  },
-  progressLabel: {
-    fontSize: 12,
-    color: '#64748b',
-    fontWeight: '500',
-  },
-  progressPercent: {
-    fontSize: 12,
-    color: '#1e293b',
-    fontWeight: '700',
-  },
-  progressBarBackground: {
-    height: 8,
-    backgroundColor: '#f1f5f9',
-    borderRadius: 4,
-    overflow: 'hidden',
-  },
-  progressBarFill: {
-    height: '100%',
-    borderRadius: 4,
-  },
-  sectionHeader: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#1E293B',
-    marginBottom: 12,
-  },
-  searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#ffffff',
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: Platform.OS === 'ios' ? 10 : 4,
-    marginBottom: 12,
-  },
-  searchIcon: {
-    marginRight: 8,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 14,
-    color: '#1e293b',
-  },
-  emptyExpenses: {
-    marginTop: 40,
-    alignItems: 'center',
-  },
-  expenseItem: {
-    backgroundColor: '#ffffff',
-    borderRadius: 14,
-    padding: 16,
-    marginBottom: 10,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#f1f5f9',
-  },
-  expenseIconContainer: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  expenseDesc: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1E293B',
-    marginBottom: 2,
-    marginRight: 6,
-  },
-  photoIconButton: {
-    padding: 4,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#e6f4f1',
-    borderRadius: 6,
-    marginBottom: 2,
-  },
-  expenseDate: {
-    fontSize: 11,
-    color: '#94a3b8',
-  },
-  expenseAmount: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#ef4444',
-  },
-  // Custom Dialog Modal Styles (Reserved strictly for confirmations)
-  dialogOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-  },
-  dialogContainer: {
-    width: '100%',
-    maxWidth: 340,
-    backgroundColor: '#ffffff',
-    borderRadius: 24,
-    padding: 24,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.1,
-    shadowRadius: 20,
-    elevation: 5,
-  },
-  dialogIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  dialogTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#1e293b',
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  dialogMessage: {
-    fontSize: 14,
-    color: '#64748b',
-    textAlign: 'center',
-    lineHeight: 20,
-    marginBottom: 24,
-  },
-  dialogButtonRow: {
-    flexDirection: 'row',
-    gap: 12,
-    width: '100%',
-  },
-  dialogCancelButton: {
-    flex: 1,
-    backgroundColor: '#f1f5f9',
-    borderRadius: 12,
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  dialogCancelText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#64748b',
-  },
-  dialogConfirmButton: {
-    flex: 1,
-    borderRadius: 12,
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  dialogConfirmText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#ffffff',
-  },
-  modalBackground: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.9)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  closeButtonContainer: {
-    position: 'absolute',
-    top: 50,
-    right: 25,
-    zIndex: 10,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    borderRadius: 20,
-    padding: 8,
-  },
-  fullscreenImage: {
-    width: '90%',
-    height: '80%',
-  },
-});

@@ -1,22 +1,19 @@
 // app/profile/change-password.tsx
+// Built ONLY from existing exports of constants/ui.styles.ts:
+//   profileStyles (gradient header + mint sheet), resetPasswordStyles (password input / eye icon / button),
+//   incomeStyles (instruction text). Messages are shown with the shared PaytonAlertDialog.
+// All Supabase / business logic below is unchanged.
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useState } from 'react';
-import {
-  ActivityIndicator,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View
-} from 'react-native';
-import { colors } from '../(spenderTabs)/profile';
-import { supabase } from '../../lib/supabase';
+import { ActivityIndicator, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
-type MessageType = 'error' | 'success' | null;
+import GradientBackground from '../../components/GradientBackground';
+import { AlertType, PaytonAlertDialog } from '../../components/PaytonAlert';
+import { theme } from '../../constants/theme';
+import { incomeStyles, profileStyles, resetPasswordStyles } from '../../constants/ui.styles';
+import { supabase } from '../../lib/supabase';
 
 export default function ChangePasswordScreen() {
   const router = useRouter();
@@ -28,8 +25,17 @@ export default function ChangePasswordScreen() {
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  // Inline message state
-  const [message, setMessage] = useState<{ type: MessageType; text: string } | null>(null);
+  // Shared alert dialog (local-state API) - replaces the old inline banner
+  const [alert, setAlert] = useState<{ visible: boolean; type: AlertType; title: string; message: string }>({
+    visible: false,
+    type: 'info',
+    title: '',
+    message: '',
+  });
+
+  const showAlert = (type: AlertType, title: string, message: string) =>
+    setAlert({ visible: true, type, title, message });
+  const hideAlert = () => setAlert((prev) => ({ ...prev, visible: false }));
 
   // Helper function to insert logs into Supabase
   const logActivity = async (userId: string, details: string) => {
@@ -46,19 +52,19 @@ export default function ChangePasswordScreen() {
   };
 
   const handleChangePassword = async () => {
-    // Clear previous inline messages on new submission attempt
-    setMessage(null);
+    // Clear any previous alert on a new submission attempt
+    hideAlert();
 
     if (!oldPassword || !newPassword || !confirmPassword) {
-      setMessage({ type: 'error', text: 'Please fill in all fields to proceed.' });
+      showAlert('warning', 'Missing Information', 'Please fill in all fields to proceed.');
       return;
     }
     if (newPassword.length < 8) {
-      setMessage({ type: 'error', text: 'Your new password must be at least 8 characters long.' });
+      showAlert('warning', 'Password Too Short', 'Your new password must be at least 8 characters long.');
       return;
     }
     if (newPassword !== confirmPassword) {
-      setMessage({ type: 'error', text: 'New passwords do not match. Please verify.' });
+      showAlert('error', 'Passwords Do Not Match', 'New passwords do not match. Please verify.');
       return;
     }
 
@@ -84,8 +90,8 @@ export default function ChangePasswordScreen() {
       }
 
       // 3. Update password
-      const { error: updateError } = await supabase.auth.updateUser({ 
-        password: newPassword 
+      const { error: updateError } = await supabase.auth.updateUser({
+        password: newPassword
       });
       if (updateError) throw updateError;
 
@@ -94,14 +100,11 @@ export default function ChangePasswordScreen() {
 
       // 4. Log out the user automatically after a successful update
       await supabase.auth.signOut();
-      
+
       // Log automatic sign out
       await logActivity(user.id, `signed out successfully.`);
 
-      setMessage({ 
-        type: 'success', 
-        text: 'Password updated successfully! Redirecting to login...' 
-      });
+      showAlert('success', 'Password Updated', 'Password updated successfully! Redirecting to login...');
 
       // Delay navigation slightly so the user can read the success message
       setTimeout(() => {
@@ -109,222 +112,99 @@ export default function ChangePasswordScreen() {
       }, 1500);
 
     } catch (error: any) {
-      setMessage({ type: 'error', text: error.message || 'An unexpected error occurred.' });
+      showAlert('error', 'Update Failed', error.message || 'An unexpected error occurred.');
     } finally {
       setIsUpdating(false);
     }
   };
 
-  return (
-    <View style={styles.container}>
-      <StatusBar style="light" />
-      
-      {/* Modern Curved Header */}
-      <View style={styles.modernHeader}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtnTouchable}>
-          <Ionicons name="arrow-back" size={20} color="#ffffff" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitleCentered}>Change Password</Text>
-        <View style={{ width: 20 }} />
-      </View>
-
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.editScrollContent}>
-        <View style={styles.instructionContainer}>
-          <Text style={styles.instructionText}>
-            Enter your current password and a new password to keep your Payton account secure.
-          </Text>
-        </View>
-
-        {/* Modern Inline Alert Banner */}
-        {message && (
-          <View style={[
-            styles.alertBanner, 
-            message.type === 'success' ? styles.alertSuccess : styles.alertError
-          ]}>
-            <Ionicons 
-              name={message.type === 'success' ? 'checkmark-circle-outline' : 'alert-circle-outline'} 
-              size={18} 
-              color={message.type === 'success' ? '#065F46' : '#991B1B'} 
-              style={styles.alertIcon}
-            />
-            <Text style={[
-              styles.alertText, 
-              message.type === 'success' ? styles.alertTextSuccess : styles.alertTextError
-            ]}>
-              {message.text}
-            </Text>
-          </View>
-        )}
-
-        <View style={styles.formCardContainer}>
-          {/* Current Password Input */}
-          <View style={styles.pillInputBlock}>
-            <Text style={styles.pillInputLabel}>Current Password</Text>
-            <View style={styles.passwordInputWrapper}>
-              <TextInput 
-                style={styles.pillTextInputInside} 
-                value={oldPassword} 
-                onChangeText={setOldPassword} 
-                placeholder="Enter current password"
-                secureTextEntry={!showOldPassword}
-                placeholderTextColor="#94A3B8"
-              />
-              <TouchableOpacity onPress={() => setShowOldPassword(!showOldPassword)} style={styles.eyeIconBtn}>
-                <Ionicons name={showOldPassword ? "eye-outline" : "eye-off-outline"} size={20} color="#64748B" />
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {/* New Password Input */}
-          <View style={styles.pillInputBlock}>
-            <Text style={styles.pillInputLabel}>New Password</Text>
-            <View style={styles.passwordInputWrapper}>
-              <TextInput 
-                style={styles.pillTextInputInside} 
-                value={newPassword} 
-                onChangeText={setNewPassword} 
-                placeholder="Min. 8 characters"
-                secureTextEntry={!showNewPassword}
-                placeholderTextColor="#94A3B8"
-              />
-              <TouchableOpacity onPress={() => setShowNewPassword(!showNewPassword)} style={styles.eyeIconBtn}>
-                <Ionicons name={showNewPassword ? "eye-outline" : "eye-off-outline"} size={20} color="#64748B" />
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {/* Confirm Password Input */}
-          <View style={styles.pillInputBlock}>
-            <Text style={styles.pillInputLabel}>Confirm New Password</Text>
-            <View style={styles.passwordInputWrapper}>
-              <TextInput 
-                style={styles.pillTextInputInside} 
-                value={confirmPassword} 
-                onChangeText={setConfirmPassword} 
-                placeholder="Repeat new password"
-                secureTextEntry={!showConfirmPassword}
-                placeholderTextColor="#94A3B8"
-              />
-              <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)} style={styles.eyeIconBtn}>
-                <Ionicons name={showConfirmPassword ? "eye-outline" : "eye-off-outline"} size={20} color="#64748B" />
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </ScrollView>
-
-      {/* Bottom Save Action Button */}
-      <View style={styles.bottomBtnContainer}>
-        <TouchableOpacity 
-          style={[styles.pillPrimaryActionBtn, isUpdating && styles.disabledButton]} 
-          onPress={handleChangePassword}
-          disabled={isUpdating}
-        >
-          {isUpdating ? (
-            <ActivityIndicator color="#FFFFFF" />
-          ) : (
-            <Text style={styles.pillPrimaryActionBtnText}>UPDATE PASSWORD</Text>
-          )}
+  // One password field (label + lock icon + input + eye toggle), all from resetPasswordStyles
+  const renderField = (
+    label: string,
+    value: string,
+    onChange: (t: string) => void,
+    placeholder: string,
+    visible: boolean,
+    toggle: () => void,
+  ) => (
+    <View style={{ marginBottom: theme.space[16] }}>
+      <Text style={profileStyles.groupContextLabel}>{label}</Text>
+      <View style={resetPasswordStyles.inputWrapper}>
+        <Ionicons name="lock-closed-outline" size={20} color={theme.colors.auth.greenDark} style={resetPasswordStyles.inputIcon} />
+        <TextInput
+          style={resetPasswordStyles.input}
+          value={value}
+          onChangeText={onChange}
+          placeholder={placeholder}
+          secureTextEntry={!visible}
+          placeholderTextColor={theme.colors.auth.placeholder}
+          autoCapitalize="none"
+        />
+        <TouchableOpacity onPress={toggle} style={resetPasswordStyles.eyeIcon}>
+          <Ionicons name={visible ? 'eye-outline' : 'eye-off-outline'} size={20} color={theme.colors.auth.muted} />
         </TouchableOpacity>
       </View>
     </View>
   );
+
+  return (
+    <View style={profileStyles.container}>
+      <StatusBar style="light" />
+
+      {/* Gradient header (same as Profile / About) */}
+      <View style={profileStyles.modernHeader}>
+        <View style={profileStyles.headerGradientFill} pointerEvents="none">
+          <GradientBackground />
+        </View>
+        <TouchableOpacity onPress={() => router.back()} style={profileStyles.backBtnTouchable} hitSlop={12}>
+          <Ionicons name="chevron-back" size={22} color={theme.colors.white} />
+        </TouchableOpacity>
+        <Text style={profileStyles.headerTitleCentered}>Change Password</Text>
+        <View style={profileStyles.backBtnTouchable} />
+      </View>
+
+      {/* Mint sheet over the gradient */}
+      <View style={profileStyles.sheet}>
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={[profileStyles.scrollContent, { paddingBottom: theme.space[24] }]}
+        >
+          <View style={profileStyles.modernCardGroup}>
+            <Text style={incomeStyles.confirmMessage}>
+              Enter your current password and a new password to keep your Payton account secure.
+            </Text>
+
+            {renderField('Current Password', oldPassword, setOldPassword, 'Enter current password', showOldPassword, () => setShowOldPassword(!showOldPassword))}
+            {renderField('New Password', newPassword, setNewPassword, 'Min. 8 characters', showNewPassword, () => setShowNewPassword(!showNewPassword))}
+            {renderField('Confirm New Password', confirmPassword, setConfirmPassword, 'Repeat new password', showConfirmPassword, () => setShowConfirmPassword(!showConfirmPassword))}
+          </View>
+        </ScrollView>
+
+        {/* Bottom Save Action Button */}
+        <View style={{ paddingHorizontal: theme.space[20], paddingBottom: theme.space[24] }}>
+          <TouchableOpacity
+            style={[resetPasswordStyles.primaryButton, isUpdating && profileStyles.disabledButton]}
+            onPress={handleChangePassword}
+            disabled={isUpdating}
+          >
+            {isUpdating ? (
+              <ActivityIndicator color={theme.colors.white} />
+            ) : (
+              <Text style={resetPasswordStyles.buttonText}>UPDATE PASSWORD</Text>
+            )}
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* Shared Payton alert (empty fields, validation, errors, success) */}
+      <PaytonAlertDialog
+        visible={alert.visible}
+        type={alert.type}
+        title={alert.title}
+        message={alert.message}
+        onDismiss={hideAlert}
+      />
+    </View>
+  );
 }
-
-const styles = StyleSheet.create({
-  container: { 
-    flex: 1, 
-    backgroundColor: '#f5fcfa',
-  },
-  modernHeader: { 
-    flexDirection: 'row', 
-    justifyContent: 'center', 
-    alignItems: 'center', 
-    paddingHorizontal: 24,
-    paddingTop: Platform.OS === 'android' ? 44 : 20,
-    paddingBottom: 20,
-    backgroundColor: colors.headerDark,
-    borderBottomLeftRadius: 32,
-    borderBottomRightRadius: 32,
-  },
-  backBtnTouchable: { width: 20 },
-  headerTitleCentered: { 
-    flex: 1, 
-    textAlign: 'center', 
-    fontSize: 20, 
-    fontWeight: '800', 
-    color: '#ffffff', 
-    letterSpacing: -0.5 
-  },
-  editScrollContent: { paddingBottom: 24, flexGrow: 1 },
-  instructionContainer: { paddingHorizontal: 24, marginTop: 24, marginBottom: 16 },
-  instructionText: { fontSize: 14, color: '#64748B', lineHeight: 20, fontWeight: '400' },
-  
-  // Inline Alert Styles
-  alertBanner: {
-    marginHorizontal: 24,
-    marginBottom: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-  },
-  alertError: {
-    backgroundColor: '#FEF2F2',
-    borderColor: '#FEE2E2',
-  },
-  alertSuccess: {
-    backgroundColor: '#ECFDF5',
-    borderColor: '#D1FAE5',
-  },
-  alertIcon: {
-    marginRight: 10,
-  },
-  alertText: {
-    flex: 1,
-    fontSize: 13,
-    fontWeight: '500',
-    lineHeight: 18,
-  },
-  alertTextError: {
-    color: '#991B1B',
-  },
-  alertTextSuccess: {
-    color: '#065F46',
-  },
-
-  formCardContainer: { paddingHorizontal: 24, gap: 24 },
-  pillInputBlock: { gap: 8 },
-  pillInputLabel: { fontSize: 13, fontWeight: '500', color: '#94A3B8' },
-  
-  passwordInputWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#dbe0e6',
-    borderRadius: 30,
-    backgroundColor: '#ffffff',
-    paddingHorizontal: 20,
-  },
-  pillTextInputInside: {
-    flex: 1,
-    paddingVertical: 14,
-    fontSize: 15,
-    color: '#1E293B',
-    fontWeight: '500',
-  },
-  eyeIconBtn: { padding: 4 },
-
-  bottomBtnContainer: { paddingHorizontal: 24, paddingBottom: 24, paddingTop: 12 },
-  pillPrimaryActionBtn: {
-    backgroundColor: '#173D45',
-    borderRadius: 30,
-    paddingVertical: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  pillPrimaryActionBtnText: { color: '#FFFFFF', fontSize: 15, fontWeight: '700', letterSpacing: 1 },
-  disabledButton: { backgroundColor: '#CBD5E1' }
-});
