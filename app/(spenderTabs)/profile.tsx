@@ -136,7 +136,7 @@ export default function SpenderProfileScreen() {
           <GradientBackground />
         </View>
         <TouchableOpacity style={styles.backBtnTouchable} onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={20} color={theme.colors.white} />
+          <Ionicons name="chevron-back" size={20} color={theme.colors.white} />
         </TouchableOpacity>
         <Text style={styles.headerTitleCentered}>Account</Text>
         <View style={{ width: 20 }} />

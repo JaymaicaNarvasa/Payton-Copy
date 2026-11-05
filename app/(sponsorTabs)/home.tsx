@@ -1,7 +1,7 @@
 // app/(sponsorTabs)/home.tsx
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
+
 import { ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -14,6 +14,7 @@ import {
   Platform,
   Pressable,
   RefreshControl,
+  StatusBar as RNStatusBar,
   ScrollView,
   StyleProp,
   StyleSheet,
@@ -92,11 +93,11 @@ const PERIODS: { key: PeriodKey; label: string }[] = [
 
 /** Period dropdown next to "Transaction History". */
 const TX_PERIODS: { key: TxFilter; label: string }[] = [
-  { key: 'today', label: 'Today' },
-  { key: 'week', label: 'Weekly' },
-  { key: 'month', label: 'Monthly' },
-  { key: 'year', label: 'Yearly' },
   { key: 'all', label: 'All time' },
+  { key: 'today', label: 'Today' },
+  { key: 'week', label: 'This Week' },
+  { key: 'month', label: 'This Month' },
+  { key: 'year', label: 'This Year' },
 ];
 
 /** Type chips under the title. */
@@ -515,6 +516,17 @@ export default function HomeScreen() {
   const router = useRouter();
   const { showAlert } = useAlert();
 
+  // Force the status bar style to dark every time this screen gains focus
+  useFocusEffect(
+    useCallback(() => {
+      RNStatusBar.setBarStyle('dark-content', true);
+      if (Platform.OS === 'android') {
+        RNStatusBar.setTranslucent(true);
+        // Optional: RNStatusBar.setBackgroundColor('transparent');
+      }
+    }, [])
+  );
+
   /** Sheets and the alert are both Modals: close the sheet first, then show the alert once it is gone. */
   const notify = (config: Parameters<typeof showAlert>[0]) => {
     setTimeout(() => showAlert(config), MODAL_SWAP_DELAY);
@@ -532,7 +544,7 @@ export default function HomeScreen() {
   } | null>(null);
 
   // Transaction filters (period dropdown + type chips)
-  const [txFilter, setTxFilter] = useState<TxFilter>('week');
+  const [txFilter, setTxFilter] = useState<TxFilter>('all');
   const [txType, setTxType] = useState<TxType>('all');
   const [periodMenu, setPeriodMenu] = useState<{ top: number; right: number } | null>(null);
   const periodPillRef = useRef<View>(null);
@@ -1185,7 +1197,7 @@ export default function HomeScreen() {
           sponsor_id: user.id,
           amount: parsedAmount,
           type: 'deduct',
-          description: `Allowance: ${allowanceName.trim()}`,
+          description: `Sent to ${selectedAllowanceSpender.name} (${allowanceName.trim()})`,
         });
       if (txError) throw txError;
 
@@ -1318,7 +1330,7 @@ export default function HomeScreen() {
 
   const mask = (value: string) => (balanceHidden ? '••••' : value);
   const monthLabel = formatMonthYear(new Date());
-  const activePeriodLabel = TX_PERIODS.find((p) => p.key === txFilter)?.label ?? 'Weekly';
+  const activePeriodLabel = TX_PERIODS.find((p) => p.key === txFilter)?.label ?? 'All time';
   const previewSpenders = connectedSpenders.slice(0, RECIPIENT_PREVIEW);
 
   const quickActions: { key: string; label: string; icon: IconName; onPress: () => void }[] = [
@@ -1344,7 +1356,7 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar style="dark" />
+      
 
       {/* HEADER */}
       <View style={styles.topBar}>
@@ -1431,20 +1443,13 @@ export default function HomeScreen() {
 
               <View style={styles.walletStatsRow}>
                 <View style={styles.walletStat}>
-                  <Text style={styles.statLabel}>Funded</Text>
+                  <Text style={styles.statLabel}>Added</Text>
                   <Text style={styles.statValue}>{mask(formatPeso(walletTotals.added, false))}</Text>
                 </View>
                 <View style={styles.statDivider} />
                 <View style={styles.walletStat}>
-                  <Text style={styles.statLabel}>Spent</Text>
+                  <Text style={styles.statLabel}>Sent</Text>
                   <Text style={styles.statValue}>{mask(formatPeso(walletTotals.sent, false))}</Text>
-                </View>
-                <View style={styles.statDivider} />
-                <View style={styles.walletStat}>
-                  <Text style={styles.statLabel}>Next Allowance</Text>
-                  <Text style={styles.statValue}>
-                    {nextAllowanceDate ? formatShortDate(nextAllowanceDate) : '—'}
-                  </Text>
                 </View>
               </View>
             </View>

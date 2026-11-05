@@ -2,23 +2,19 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import {
-  Animated,
-  DimensionValue,
   FlatList,
   Image,
   Modal,
   Pressable,
   RefreshControl,
   ScrollView,
-  StyleProp,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  View,
-  ViewStyle,
+  View
 } from 'react-native';
 
 import { theme } from '@/constants/theme';
@@ -41,7 +37,7 @@ interface ExpenseItem {
 }
 
 type ExpenseFilter = 'all' | 'today' | 'week' | 'month' | 'year';
-type ScreenView = 'overview' | 'all' | 'category';
+type ScreenView = 'overview' | 'all' | 'category' | 'other_categories';
 
 interface CategoryGroup {
   key: string;
@@ -49,6 +45,7 @@ interface CategoryGroup {
   icon: string;
   total: number;
   count: number;
+  color?: string;
 }
 
 interface SpendRow {
@@ -59,6 +56,7 @@ interface SpendRow {
   pct: number;
   color: string;
   group?: CategoryGroup;
+  isOtherGroup?: boolean;
 }
 
 const UNCATEGORIZED_KEY = '__uncategorized__';
@@ -69,13 +67,25 @@ const getCategoryKey = (exp: ExpenseItem) =>
 const FILTERS: { key: ExpenseFilter; label: string; caption: string }[] = [
   { key: 'all', label: 'All', caption: 'All time' },
   { key: 'today', label: 'Today', caption: 'Today' },
-  { key: 'week', label: 'This Week', caption: 'This week' },
-  { key: 'month', label: 'This Month', caption: 'This month' },
-  { key: 'year', label: 'This Year', caption: 'This year' },
+  { key: 'week', label: 'This Week', caption: 'This Week' },
+  { key: 'month', label: 'This Month', caption: 'This Month' },
+  { key: 'year', label: 'This Year', caption: 'This Year' },
 ];
 
-// rank 1, 2, 3 and "Other" (same order as the reference design)
-const RANK_COLORS = ['#F2B84B', '#4C9AE0', '#E0608A', '#8E9BAE'];
+// Expanded dynamic color palette so every category row/item can have a unique distinct color
+const EXTENDED_COLORS = [
+  '#F2B84B', // Gold/Yellow
+  '#4C9AE0', // Blue
+  '#E0608A', // Pink/Red
+  '#34D399', // Emerald Green
+  '#A78BFA', // Purple
+  '#FB923C', // Orange
+  '#38BDF8', // Sky Blue
+  '#F472B6', // Light Pink
+  '#4ADE80', // Green
+  '#818CF8', // Indigo
+];
+
 const RECENT_LIMIT = 5;
 
 const C = theme.colors;
@@ -88,7 +98,6 @@ const formatPeso = (n: number, fixed = true) =>
     maximumFractionDigits: 2,
   })}`;
 
-/** Start of the selected period in local time, or null for "All". */
 const getFilterStart = (filter: ExpenseFilter): Date | null => {
   const n = new Date();
   const y = n.getFullYear();
@@ -117,7 +126,6 @@ const isInPeriod = (dateStr: string, filter: ExpenseFilter) => {
 const formatTime = (d: Date) =>
   d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }).toLowerCase();
 
-/** "Today, 12:40 pm" · "Yesterday" · "Oct 28" */
 const formatRelative = (dateStr: string) => {
   try {
     if (!dateStr) return '';
@@ -146,7 +154,6 @@ const formatShortDate = (s?: string) => {
   }
 };
 
-// Same thresholds as the Allowances screen (>50 healthy, >20 warning, otherwise critical)
 const getHealth = (pct: number) => {
   if (pct > 50) return { label: 'On Track', bg: C.mintPill, fg: C.mintPillText };
   if (pct > 20) return { label: 'Running Low', bg: '#F8C95C', fg: '#6B4300' };
@@ -155,67 +162,73 @@ const getHealth = (pct: number) => {
 
 const tint = (hex: string) => `${hex}26`;
 
-/* ---------- Reusable UI ---------- */
-function Skeleton({
-  width,
-  height,
-  radius = 10,
-  style,
-  light = false,
-}: {
-  width: DimensionValue;
-  height: number;
-  radius?: number;
-  style?: StyleProp<ViewStyle>;
-  light?: boolean;
-}) {
-  const opacity = useRef(new Animated.Value(0.45)).current;
-
-  useEffect(() => {
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(opacity, { toValue: 1, duration: 750, useNativeDriver: true }),
-        Animated.timing(opacity, { toValue: 0.45, duration: 750, useNativeDriver: true }),
-      ]),
-    );
-    loop.start();
-    return () => loop.stop();
-  }, [opacity]);
-
-  return (
-    <Animated.View
-      style={[
-        light ? styles.skeletonBlockLight : styles.skeletonBlock,
-        { width, height, borderRadius: radius, opacity },
-        style,
-      ]}
-    />
-  );
-}
-
-function MonitoringSkeleton() {
-  return (
-    <View style={styles.listContent}>
-      <Skeleton width="100%" height={230} radius={24} />
-      <Skeleton width={190} height={18} radius={9} style={styles.skeletonSectionTitle} />
-      {[0, 1, 2].map((i) => (
-        <View key={i} style={[styles.txRow, styles.txRowLast]}>
-          <Skeleton width={44} height={44} radius={14} />
-          <View style={styles.skeletonRowBody}>
-            <Skeleton width="55%" height={12} radius={6} />
-            <Skeleton width="40%" height={10} radius={5} />
-          </View>
-          <Skeleton width={60} height={14} radius={7} />
-        </View>
-      ))}
-    </View>
-  );
-}
-
 /* ---------- Screen ---------- */
+const MonitoringSkeleton = () => (
+  <View style={{ flex: 1, paddingHorizontal: 20, paddingTop: 24 }}>
+    <View
+      style={{
+        width: '48%',
+        height: 18,
+        borderRadius: 9,
+        backgroundColor: '#E8ECF2',
+        marginBottom: 20,
+      }}
+    />
+    {[0, 1, 2, 3, 4].map((item) => (
+      <View
+        key={item}
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          paddingVertical: 16,
+          borderBottomWidth: 1,
+          borderBottomColor: '#EEF0F4',
+        }}
+      >
+        <View
+          style={{
+            width: 42,
+            height: 42,
+            borderRadius: 14,
+            backgroundColor: '#E8ECF2',
+            marginRight: 12,
+          }}
+        />
+        <View style={{ flex: 1 }}>
+          <View
+            style={{
+              width: '70%',
+              height: 14,
+              borderRadius: 7,
+              backgroundColor: '#E8ECF2',
+              marginBottom: 8,
+            }}
+          />
+          <View
+            style={{
+              width: '44%',
+              height: 11,
+              borderRadius: 6,
+              backgroundColor: '#EEF0F4',
+            }}
+          />
+        </View>
+        <View
+          style={{
+            width: 58,
+            height: 14,
+            borderRadius: 7,
+            backgroundColor: '#E8ECF2',
+            marginLeft: 12,
+          }}
+        />
+      </View>
+    ))}
+  </View>
+);
+
 export default function MonitoringScreen() {
   const router = useRouter();
-  // allocated / allowanceName / endDate are optional display params sent by the Allowances screen
   const { spenderId, allocated, allowanceName, endDate } = useLocalSearchParams<{
     spenderId: string;
     allocated?: string;
@@ -229,16 +242,29 @@ export default function MonitoringScreen() {
   const [spenderAvatar, setSpenderAvatar] = useState<string | null>(null);
   const [expenses, setExpenses] = useState<ExpenseItem[]>([]);
 
+  const [totalAllocatedDb, setTotalAllocatedDb] = useState<number>(0);
+  const [primaryAllowanceName, setPrimaryAllowanceName] = useState<string | null>(null);
+  const [latestEndDate, setLatestEndDate] = useState<string | null>(null);
+
   const [view, setView] = useState<ScreenView>('overview');
-  // "All transactions" list keeps its own period filter; Top Spendings uses categoryFilter
   const [allFilter, setAllFilter] = useState<ExpenseFilter>('all');
-  const [categoryFilter, setCategoryFilter] = useState<ExpenseFilter>('month');
+  const [categoryFilter, setCategoryFilter] = useState<ExpenseFilter>('all');
+  
   const [selectedCategory, setSelectedCategory] = useState<CategoryGroup | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedImageUri, setSelectedImageUri] = useState<string | null>(null);
   const [periodMenuOpen, setPeriodMenuOpen] = useState(false);
 
-  /* ---------- Data ---------- */
+  const filterButtonRef = useRef<View>(null);
+  const [menuLayout, setMenuLayout] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
+
+  const handleOpenPeriodMenu = () => {
+    filterButtonRef.current?.measureInWindow((x, y, width, height) => {
+      setMenuLayout({ x, y, width, height });
+      setPeriodMenuOpen(true);
+    });
+  };
+
   const fetchMonitoringData = async (isRefreshing = false) => {
     if (!spenderId) return;
     try {
@@ -252,6 +278,20 @@ export default function MonitoringScreen() {
 
       if (profile?.full_name) setSpenderName(profile.full_name);
       setSpenderAvatar(profile?.avatar_url || null);
+
+      const { data: allowancesData } = await supabase
+        .from('allowances')
+        .select('amount, allowance_name, end_date, received_at')
+        .eq('spender_id', spenderId)
+        .eq('is_archived', false)
+        .order('received_at', { ascending: false });
+
+      if (allowancesData && allowancesData.length > 0) {
+        const sumAllocated = allowancesData.reduce((acc, item) => acc + Number(item.amount || 0), 0);
+        setTotalAllocatedDb(sumAllocated);
+        setPrimaryAllowanceName(allowancesData[0].allowance_name);
+        setLatestEndDate(allowancesData[0].end_date);
+      }
 
       const { data: expenseData, error: expenseError } = await supabase
         .from('expenses')
@@ -291,7 +331,6 @@ export default function MonitoringScreen() {
     await fetchMonitoringData(true);
   }, [spenderId]);
 
-  /* ---------- Derived ---------- */
   const matchesSearch = useCallback((exp: ExpenseItem, query: string) => {
     if (!query) return true;
     return (
@@ -300,28 +339,29 @@ export default function MonitoringScreen() {
     );
   }, []);
 
-  // Header: remaining allowance (needs the allocated total passed in by the Allowances screen)
   const totalSpentAll = useMemo(
     () => expenses.reduce((sum, e) => sum + Number(e.amount), 0),
     [expenses],
   );
-  const allocatedNum = allocated !== undefined && allocated !== '' ? Number(allocated) : NaN;
-  const hasBudget = Number.isFinite(allocatedNum) && allocatedNum > 0;
-  const remaining = hasBudget ? Math.max(0, allocatedNum - totalSpentAll) : 0;
-  const remainingPct = hasBudget ? Math.min(100, Math.round((remaining / allocatedNum) * 100)) : 0;
-  const health = getHealth(remainingPct);
-  const endLabel = formatShortDate(endDate);
 
-  // Recent transactions (latest first)
+  const routeAllocatedNum = allocated !== undefined && allocated !== '' ? Number(allocated) : NaN;
+  const finalAllocated = Number.isFinite(routeAllocatedNum) && routeAllocatedNum > 0 ? routeAllocatedNum : totalAllocatedDb;
+  const finalAllowanceName = allowanceName || primaryAllowanceName;
+  const finalEndDate = endDate || latestEndDate;
+
+  const hasBudget = Number.isFinite(finalAllocated) && finalAllocated > 0;
+  const remaining = hasBudget ? Math.max(0, finalAllocated - totalSpentAll) : 0;
+  const remainingPct = hasBudget ? Math.min(100, Math.round((remaining / finalAllocated) * 100)) : 0;
+  const health = getHealth(remainingPct);
+  const endLabel = formatShortDate(finalEndDate ?? undefined);
+
   const recentExpenses = useMemo(() => expenses.slice(0, RECENT_LIMIT), [expenses]);
 
-  // Full list ("See All")
   const allTabExpenses = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
     return expenses.filter((exp) => isInPeriod(exp.spent_at, allFilter) && matchesSearch(exp, query));
   }, [expenses, allFilter, searchQuery, matchesSearch]);
 
-  // Top spendings (respect the period dropdown)
   const categoryGroups = useMemo<CategoryGroup[]>(() => {
     const map = new Map<string, CategoryGroup>();
     expenses.forEach((exp) => {
@@ -341,10 +381,15 @@ export default function MonitoringScreen() {
         });
       }
     });
-    return Array.from(map.values()).sort((a, b) => b.total - a.total);
+    
+    const sorted = Array.from(map.values()).sort((a, b) => b.total - a.total);
+    // Assign unique distinct colors to every single category group sequentially
+    return sorted.map((g, index) => ({
+      ...g,
+      color: EXTENDED_COLORS[index % EXTENDED_COLORS.length],
+    }));
   }, [expenses, categoryFilter]);
 
-  // Top 3 + "Other" (or all of them when there are 4 or fewer)
   const spendRows = useMemo<SpendRow[]>(() => {
     const total = categoryGroups.reduce((s, g) => s + g.total, 0);
     const pctOf = (v: number) => (total > 0 ? Math.round((v / total) * 100) : 0);
@@ -352,13 +397,13 @@ export default function MonitoringScreen() {
     const top = collapse ? categoryGroups.slice(0, 3) : categoryGroups;
     const rest = collapse ? categoryGroups.slice(3) : [];
 
-    const rows: SpendRow[] = top.map((g, i) => ({
+    const rows: SpendRow[] = top.map((g) => ({
       key: g.key,
       name: g.name,
       icon: g.icon,
       total: g.total,
       pct: pctOf(g.total),
-      color: RANK_COLORS[i],
+      color: g.color || EXTENDED_COLORS[0],
       group: g,
     }));
 
@@ -370,22 +415,24 @@ export default function MonitoringScreen() {
         icon: 'ellipsis-horizontal',
         total: restTotal,
         pct: pctOf(restTotal),
-        color: RANK_COLORS[3],
+        color: EXTENDED_COLORS[3],
+        isOtherGroup: true,
       });
     }
     return rows;
   }, [categoryGroups]);
 
-  // Drill-down: expenses for the tapped category
   const categoryExpenses = useMemo(() => {
     if (!selectedCategory) return [];
     const query = searchQuery.trim().toLowerCase();
-    return expenses.filter(
-      (exp) =>
-        getCategoryKey(exp) === selectedCategory.key &&
+    return expenses.filter((exp) => {
+      const expKey = getCategoryKey(exp);
+      return (
+        expKey === selectedCategory.key &&
         isInPeriod(exp.spent_at, categoryFilter) &&
-        matchesSearch(exp, query),
-    );
+        matchesSearch(exp, query)
+      );
+    });
   }, [expenses, selectedCategory, categoryFilter, searchQuery, matchesSearch]);
 
   const categoryDetailTotal = useMemo(
@@ -393,9 +440,8 @@ export default function MonitoringScreen() {
     [categoryExpenses],
   );
 
-  const monthName = new Date().toLocaleDateString('en-US', { month: 'long' });
   const categoryCaption = FILTERS.find((f) => f.key === categoryFilter)?.caption ?? 'All time';
-  const periodLabel = categoryFilter === 'month' ? monthName : categoryCaption;
+  const periodLabel = categoryFilter === 'month' ? 'This Month' : categoryCaption;
   const showSkeleton = loading && !refreshing;
 
   const goOverview = () => {
@@ -412,8 +458,11 @@ export default function MonitoringScreen() {
     setSelectedCategory(category);
     setView('category');
   };
+  const openOtherCategoriesList = () => {
+    setSearchQuery('');
+    setView('other_categories');
+  };
 
-  /* ---------- Render ---------- */
   const renderHeader = () => (
     <View style={styles.header}>
       <View style={styles.headerGradient}>
@@ -421,20 +470,15 @@ export default function MonitoringScreen() {
       </View>
 
       <View style={styles.headerTop}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()} activeOpacity={0.7}>
+        <TouchableOpacity style={styles.backButton} onPress={() => router.push('/allowances')} activeOpacity={0.7}>
           <Ionicons name="arrow-back" size={20} color={C.gradientEnd} />
         </TouchableOpacity>
 
         <View style={styles.headerTitleBlock}>
-          {showSkeleton ? (
-            <>
-              <Skeleton light width={140} height={16} radius={8} />
-              <Skeleton light width={90} height={12} radius={6} style={styles.skeletonSubtitle} />
-            </>
-          ) : (
+          {showSkeleton ? null : (
             <>
               <Text style={styles.headerTitle} numberOfLines={1}>
-                {allowanceName || 'Allowance'}
+                {finalAllowanceName || 'Allowance'}
               </Text>
               <Text style={styles.headerSubtitle} numberOfLines={1}>{spenderName}</Text>
             </>
@@ -445,27 +489,23 @@ export default function MonitoringScreen() {
       {!showSkeleton && (
         <View style={styles.hero}>
           <View style={styles.heroLabelRow}>
-            <Text style={styles.heroLabel}>{hasBudget ? 'Remaining Allowance' : 'Total Spent'}</Text>
-            {hasBudget && (
-              <View style={[styles.healthPill, { backgroundColor: health.bg }]}>
-                <Ionicons name="timer-outline" size={12} color={health.fg} />
-                <Text style={[styles.healthPillText, { color: health.fg }]}>{health.label}</Text>
-              </View>
-            )}
+            <Text style={styles.heroLabel}>Remaining Allowance</Text>
+            <View style={[styles.healthPill, { backgroundColor: health.bg }]}>
+              <Ionicons name="timer-outline" size={12} color={health.fg} />
+              <Text style={[styles.healthPillText, { color: health.fg }]}>{health.label}</Text>
+            </View>
           </View>
 
           <View style={styles.heroAmountRow}>
             <Text style={styles.heroAmount} numberOfLines={1} adjustsFontSizeToFit>
-              {formatPeso(hasBudget ? remaining : totalSpentAll)}
+              {formatPeso(remaining)}
             </Text>
-            {hasBudget && <Text style={styles.heroPct}>{remainingPct}% left</Text>}
+            <Text style={styles.heroPct}>{remainingPct}% left</Text>
           </View>
 
-          {hasBudget && (
-            <View style={styles.heroTrack}>
-              <View style={[styles.heroFill, { width: `${remainingPct}%` }]} />
-            </View>
-          )}
+          <View style={styles.heroTrack}>
+            <View style={[styles.heroFill, { width: `${remainingPct}%` }]} />
+          </View>
 
           {!!endLabel && <Text style={styles.heroCaption}>Allowance ends on {endLabel}</Text>}
         </View>
@@ -520,6 +560,14 @@ export default function MonitoringScreen() {
       </View>
     );
 
+    if (row.isOtherGroup) {
+      return (
+        <TouchableOpacity key={row.key} activeOpacity={0.7} onPress={openOtherCategoriesList}>
+          {body}
+        </TouchableOpacity>
+      );
+    }
+
     if (!row.group) return <View key={row.key}>{body}</View>;
     return (
       <TouchableOpacity key={row.key} activeOpacity={0.7} onPress={() => openCategory(row.group!)}>
@@ -532,14 +580,16 @@ export default function MonitoringScreen() {
     <View>
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>Top Spendings</Text>
-        <TouchableOpacity
-          style={styles.periodPill}
-          activeOpacity={0.8}
-          onPress={() => setPeriodMenuOpen(true)}
-        >
-          <Text style={styles.periodPillText}>{periodLabel}</Text>
-          <Ionicons name="chevron-down" size={13} color={C.mintPillText} />
-        </TouchableOpacity>
+        <View ref={filterButtonRef} collapsable={false}>
+          <TouchableOpacity
+            style={styles.periodPill}
+            activeOpacity={0.8}
+            onPress={handleOpenPeriodMenu}
+          >
+            <Text style={styles.periodPillText}>{periodLabel}</Text>
+            <Ionicons name="chevron-down" size={13} color={C.mintPillText} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <View style={styles.spendCard}>
@@ -606,7 +656,7 @@ export default function MonitoringScreen() {
   const renderCategoryHeader = () => (
     <View>
       <View style={styles.subHeader}>
-        <TouchableOpacity style={styles.subBack} onPress={goOverview} activeOpacity={0.7}>
+        <TouchableOpacity style={styles.subBack} onPress={() => categoryGroups.length > 4 ? openOtherCategoriesList() : goOverview()} activeOpacity={0.7}>
           <Ionicons name="chevron-back" size={18} color={C.textStrong} />
         </TouchableOpacity>
         <View style={styles.subHeaderText}>
@@ -621,10 +671,26 @@ export default function MonitoringScreen() {
     </View>
   );
 
+  // Header for the list of other/remaining categories
+  const renderOtherCategoriesHeader = () => (
+    <View>
+      <View style={styles.subHeader}>
+        <TouchableOpacity style={styles.subBack} onPress={goOverview} activeOpacity={0.7}>
+          <Ionicons name="chevron-back" size={18} color={C.textStrong} />
+        </TouchableOpacity>
+        <View style={styles.subHeaderText}>
+          <Text style={styles.subTitle}>Other Categories</Text>
+          <Text style={styles.subSubtitle}>
+            {categoryGroups.slice(3).length} categories • {categoryCaption}
+          </Text>
+        </View>
+      </View>
+    </View>
+  );
+
   const renderTransaction = ({ item: exp, index }: { item: ExpenseItem; index: number }) => {
-    // colour the row by the category's rank in Top Spendings (falls back to gray)
-    const rank = spendRows.findIndex((r) => r.key === getCategoryKey(exp));
-    const color = rank >= 0 ? spendRows[rank].color : RANK_COLORS[3];
+    const matchedGroup = categoryGroups.find((g) => g.key === getCategoryKey(exp));
+    const color = matchedGroup?.color || EXTENDED_COLORS[3];
     const list = view === 'overview' ? recentExpenses : view === 'all' ? allTabExpenses : categoryExpenses;
     const isLast = index === list.length - 1;
 
@@ -661,6 +727,44 @@ export default function MonitoringScreen() {
     );
   };
 
+  // Renders each remaining category item when viewing the "Other Categories" list
+  const renderOtherCategoryItem = ({ item: group, index }: { item: CategoryGroup; index: number }) => {
+    const totalSum = categoryGroups.reduce((s, g) => s + g.total, 0);
+    const pct = totalSum > 0 ? Math.round((group.total / totalSum) * 100) : 0;
+    const color = group.color || EXTENDED_COLORS[index % EXTENDED_COLORS.length];
+
+    return (
+      <TouchableOpacity
+        activeOpacity={0.7}
+        onPress={() => openCategory(group)}
+      >
+        <View style={styles.spendRow}>
+          <Text style={[styles.spendRank, { color }]}>{index + 4}</Text>
+          <View style={[styles.spendIconBox, { backgroundColor: tint(color) }]}>
+            <Ionicons name={(group.icon as any) || 'pricetag-outline'} size={18} color={color} />
+          </View>
+          <View style={styles.spendBody}>
+            <View style={styles.spendTop}>
+              <Text style={styles.spendName} numberOfLines={1}>{group.name}</Text>
+              <Text style={styles.spendAmount}>{formatPeso(group.total, false)}</Text>
+            </View>
+            <View style={styles.spendBarRow}>
+              <View style={styles.spendTrack}>
+                <View
+                  style={[
+                    styles.spendFill,
+                    { width: `${Math.max(pct, group.total > 0 ? 3 : 0)}%`, backgroundColor: color },
+                  ]}
+                />
+              </View>
+              <Text style={styles.spendPct}>{pct}%</Text>
+            </View>
+          </View>
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
   const refreshControl = (
     <RefreshControl
       refreshing={refreshing}
@@ -670,9 +774,25 @@ export default function MonitoringScreen() {
     />
   );
 
-  const listData = view === 'overview' ? recentExpenses : view === 'all' ? allTabExpenses : categoryExpenses;
-  const listHeader =
-    view === 'overview' ? renderOverviewHeader() : view === 'all' ? renderAllHeader() : renderCategoryHeader();
+  // Determine data source and header components based on current view
+  let listData: any = [];
+  let listHeader: any = null;
+  let renderItemFunc: any = renderTransaction;
+
+  if (view === 'overview') {
+    listData = recentExpenses;
+    listHeader = renderOverviewHeader();
+  } else if (view === 'all') {
+    listData = allTabExpenses;
+    listHeader = renderAllHeader();
+  } else if (view === 'category') {
+    listData = categoryExpenses;
+    listHeader = renderCategoryHeader();
+  } else if (view === 'other_categories') {
+    listData = categoryGroups.slice(3); // All categories after the top 3
+    listHeader = renderOtherCategoriesHeader();
+    renderItemFunc = renderOtherCategoryItem;
+  }
 
   return (
     <View style={styles.container}>
@@ -680,7 +800,6 @@ export default function MonitoringScreen() {
 
       {renderHeader()}
 
-      {/* BODY */}
       <View style={styles.bodyContent}>
         {showSkeleton ? (
           <MonitoringSkeleton />
@@ -688,8 +807,8 @@ export default function MonitoringScreen() {
           <FlatList
             key={view}
             data={listData}
-            keyExtractor={(item) => item.id}
-            renderItem={renderTransaction}
+            keyExtractor={(item) => (view === 'other_categories' ? item.key : item.id)}
+            renderItem={renderItemFunc}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
             contentContainerStyle={styles.listContent}
@@ -705,7 +824,7 @@ export default function MonitoringScreen() {
                   />
                 </View>
                 <Text style={styles.emptyTitle}>
-                  {expenses.length === 0 ? 'No expenses logged yet' : 'No expenses found'}
+                  {expenses.length === 0 ? 'No expenses logged yet' : 'No entries found'}
                 </Text>
                 <Text style={styles.emptySubtitle}>
                   {expenses.length === 0
@@ -718,7 +837,6 @@ export default function MonitoringScreen() {
         )}
       </View>
 
-      {/* PERIOD MENU (Top Spendings) */}
       <Modal
         visible={periodMenuOpen}
         transparent
@@ -727,31 +845,42 @@ export default function MonitoringScreen() {
         statusBarTranslucent
       >
         <Pressable style={styles.menuOverlay} onPress={() => setPeriodMenuOpen(false)}>
-          <View style={styles.menuCard}>
-            {FILTERS.map((f) => {
-              const active = categoryFilter === f.key;
-              return (
-                <TouchableOpacity
-                  key={f.key}
-                  style={styles.menuItem}
-                  activeOpacity={0.7}
-                  onPress={() => {
-                    setCategoryFilter(f.key);
-                    setPeriodMenuOpen(false);
-                  }}
-                >
-                  <Text style={[styles.menuItemText, active && styles.menuItemTextActive]}>
-                    {f.key === 'month' ? monthName : f.caption}
-                  </Text>
-                  {active && <Ionicons name="checkmark" size={16} color={C.mintPillText} />}
-                </TouchableOpacity>
-              );
-            })}
-          </View>
+          {menuLayout ? (
+            <View
+              style={[
+                styles.menuCard,
+                {
+                  position: 'absolute',
+                  top: menuLayout.y + menuLayout.height + 6,
+                  right: Math.max(16, 16), 
+                  width: Math.max(menuLayout.width, 140),
+                },
+              ]}
+            >
+              {FILTERS.map((f) => {
+                const active = categoryFilter === f.key;
+                return (
+                  <TouchableOpacity
+                    key={f.key}
+                    style={styles.menuItem}
+                    activeOpacity={0.7}
+                    onPress={() => {
+                      setCategoryFilter(f.key);
+                      setPeriodMenuOpen(false);
+                    }}
+                  >
+                    <Text style={[styles.menuItemText, active && styles.menuItemTextActive]}>
+                      {f.key === 'month' ? 'This Month' : f.caption}
+                    </Text>
+                    {active && <Ionicons name="checkmark" size={16} color={C.mintPillText} />}
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          ) : null}
         </Pressable>
       </Modal>
 
-      {/* IMAGE VIEWER */}
       <Modal
         visible={!!selectedImageUri}
         transparent

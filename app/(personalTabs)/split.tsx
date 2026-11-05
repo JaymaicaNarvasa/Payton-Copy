@@ -22,6 +22,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { router } from 'expo-router';
 import GradientBackground from '../../components/GradientBackground';
 import { AlertConfig, PaytonAlertDialog } from '../../components/PaytonAlert';
 import { theme } from '../../constants/theme';
@@ -120,6 +121,9 @@ export default function SplitScreen() {
   const [myProfile, setMyProfile] = useState<{ full_name?: string; avatar_url?: string } | null>(null);
   const [selectedFriend, setSelectedFriend] = useState<Friend | null>(null);
   const [manageModalVisible, setManageModalVisible] = useState(false);
+  const handleBackPress = () => {
+      router.push('/home'); 
+    };
 
   // Inline banners
   const [formMessage, setFormMessage] = useState<Msg>(null);
@@ -896,13 +900,22 @@ export default function SplitScreen() {
 
       {/* HEADER (gradient) */}
       <View style={[styles.modernHeader, { paddingTop: insets.top + space[12] }]}>
-        <View style={styles.headerGradientFill} pointerEvents="none">
+
+        <View style={styles.headerGradientFill}>
           <GradientBackground />
-        </View>
-        <View style={styles.headerLeft}>
-          <Ionicons name="people-circle-outline" size={28} color={colors.white} />
-          <Text style={styles.modernHeaderTitle}>Split Expenses</Text>
-        </View>
+            </View>
+                <View style={styles.headerLeft}>
+                  <TouchableOpacity 
+                    activeOpacity={0.7}
+                    onPress={handleBackPress}
+                    style={styles.backButton}
+                  >
+                      <Ionicons name="chevron-back" size={24} color={theme.colors.white} />
+                  </TouchableOpacity>
+                  
+                  <Text style={styles.modernHeaderTitle}>Split Expenses</Text>
+                 </View>
+        
         <TouchableOpacity style={styles.quickFormTrigger} onPress={() => setFormVisible(true)}>
           <Ionicons name="add" size={18} color={colors.white} />
           <Text style={styles.quickFormTriggerText}>New Split</Text>

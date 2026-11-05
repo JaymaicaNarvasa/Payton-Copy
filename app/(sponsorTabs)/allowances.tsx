@@ -142,7 +142,7 @@ const formatAllowanceDateRange = (startDate: string, endDate: string, receivedAt
 };
 
 /* ---------- Reusable UI ---------- */
-function Avatar({ uri, size = 46 }: { uri?: string | null; size?: number }) {
+function Avatar({ uri, size = 42 }: { uri?: string | null; size?: number }) {
   const [failed, setFailed] = useState(false);
 
   if (uri && !failed) {
@@ -150,7 +150,7 @@ function Avatar({ uri, size = 46 }: { uri?: string | null; size?: number }) {
       <Image
         source={{ uri }}
         onError={() => setFailed(true)}
-        style={[styles.avatarImageBg, { width: size, height: size, borderRadius: size / 2 }]}
+        style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: theme.colors.border }}
       />
     );
   }
@@ -158,34 +158,41 @@ function Avatar({ uri, size = 46 }: { uri?: string | null; size?: number }) {
   const head = size * 0.32;
   const body = size * 0.74;
   return (
-    <View style={[styles.avatarFallbackBg, { width: size, height: size, borderRadius: size / 2 }]}>
+    <View
+      style={{
+        width: size,
+        height: size,
+        borderRadius: size / 2,
+        backgroundColor: theme.colors.mintTint,
+        overflow: 'hidden',
+      }}
+    >
       <View
-        style={[
-          styles.avatarSilhouette,
-          {
-            width: head,
-            height: head,
-            borderRadius: head / 2,
-            top: size * 0.2,
-            left: (size - head) / 2,
-          },
-        ]}
+        style={{
+          position: 'absolute',
+          width: head,
+          height: head,
+          borderRadius: head / 2,
+          backgroundColor: theme.colors.gradientStart,
+          top: size * 0.2,
+          left: (size - head) / 2,
+        }}
       />
       <View
-        style={[
-          styles.avatarSilhouette,
-          {
-            width: body,
-            height: body,
-            borderRadius: body / 2,
-            top: size * 0.6,
-            left: (size - body) / 2,
-          },
-        ]}
+        style={{
+          position: 'absolute',
+          width: body,
+          height: body,
+          borderRadius: body / 2,
+          backgroundColor: theme.colors.gradientStart,
+          top: size * 0.6,
+          left: (size - body) / 2,
+        }}
       />
     </View>
   );
 }
+
 
 function Skeleton({
   width,
@@ -222,7 +229,6 @@ function AllowancesSkeleton() {
       <Skeleton width="100%" height={150} radius={24} style={styles.skeletonSummary} />
       <View style={styles.sectionHeader}>
         <Skeleton width={150} height={18} radius={9} />
-        <Skeleton width={120} height={30} radius={15} />
       </View>
       {[0, 1].map((i) => (
         <View key={i} style={styles.card}>
@@ -496,10 +502,7 @@ export default function AllowancesScreen() {
       {/* Section header */}
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>Active Allowances</Text>
-        <TouchableOpacity style={styles.addPill} onPress={handleAddAllowance} activeOpacity={0.8}>
-          <Ionicons name="add" size={14} color={theme.colors.gradientEnd} />
-          <Text style={styles.addPillText}>Add Allowance</Text>
-        </TouchableOpacity>
+        
       </View>
     </View>
   );
@@ -567,7 +570,7 @@ export default function AllowancesScreen() {
               {count} Active Allowance{count === 1 ? '' : 's'}
             </Text>
           </View>
-          <Ionicons name={isOpen ? 'chevron-up' : 'chevron-forward'} size={18} color={theme.colors.textGray} />
+          <Ionicons name={isOpen ? 'chevron-up' : 'chevron-down'} size={18} color={theme.colors.textGray} />
         </TouchableOpacity>
 
         {isOpen &&

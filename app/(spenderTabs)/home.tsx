@@ -37,7 +37,9 @@ import Svg, {
 
 import { theme } from '@/constants/theme';
 import { homeStyles as styles } from '@/constants/ui.styles';
+import { CategoryDropdown } from '../../components/CategoryDropdown';
 import { GradientBackground } from '../../components/GradientBackground';
+import { KeyboardAwareModal } from '../../components/KeyboardAwareModal';
 import { supabase } from '../../lib/supabase';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -175,6 +177,15 @@ export default function SpenderHomeScreen() {
   type StatsPeriod = 'weekly' | 'monthly' | 'yearly';
   const [statsPeriod, setStatsPeriod] = useState<StatsPeriod>('monthly');
   const [periodMenuVisible, setPeriodMenuVisible] = useState(false);
+  // Dropdown is anchored under the pill: measure where the pill sits, then drop the menu right below it.
+  const periodPillRef = useRef<View>(null);
+  const [periodAnchor, setPeriodAnchor] = useState({ top: 0, right: 0 });
+  const openPeriodMenu = () => {
+    periodPillRef.current?.measureInWindow((x, y, w, h) => {
+      setPeriodAnchor({ top: y + h + theme.space[6], right: SCREEN_WIDTH - (x + w) });
+      setPeriodMenuVisible(true);
+    });
+  };
   const periodLabels: Record<StatsPeriod, string> = { weekly: 'Weekly', monthly: 'Monthly', yearly: 'Yearly' };
 
   const dateList = generateDateRange();
@@ -415,6 +426,11 @@ export default function SpenderHomeScreen() {
     setSubmitting(false);
     setErrorMessage(null);    // <-- Add this
     setSuccessMessage(null); // <-- Add this
+  };
+
+  const closeAddModal = () => {
+    resetForm(); // also clears errorMessage / successMessage
+    setAddModalVisible(false);
   };
 
 const handleCreateReminder = async () => {
@@ -739,7 +755,7 @@ const handleSettleReminder = async (reminder: ReminderItem) => {
 
   return (
     <View style={styles.mainContainer}>
-      <ExpoStatusBar style="light" />
+      <StatusBar barStyle="light-content" translucent />
 
       {/* HEADER (collapses while scrolling) */}
       <Animated.View style={[styles.headerBackground, headerAnimatedStyle]}>
@@ -937,20 +953,28 @@ const handleSettleReminder = async (reminder: ReminderItem) => {
         <View style={styles.sectionBlock}>
           <View style={styles.sectionHeaderRow}>
             <Text style={styles.sectionTitle}>Expense per Category</Text>
-            <TouchableOpacity
-              style={styles.addReminderPill}
-              onPress={() => setPeriodMenuVisible(true)}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.seeAllText}>{periodLabels[statsPeriod]}</Text>
-              <Ionicons name="chevron-down" size={14} color={theme.colors.mintPillText} />
-            </TouchableOpacity>
+            <View ref={periodPillRef} collapsable={false}>
+              <TouchableOpacity
+                style={styles.addReminderPill}
+                onPress={openPeriodMenu}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.seeAllText}>{periodLabels[statsPeriod]}</Text>
+                <Ionicons
+                  name={periodMenuVisible ? 'chevron-up' : 'chevron-down'}
+                  size={14}
+                  color={theme.colors.mintPillText}
+                />
+              </TouchableOpacity>
+            </View>
           </View>
 
+          {/* Dropdown: drops down right under the pill (no dimmed screen, no centered popup) */}
           <Modal
             visible={periodMenuVisible}
             transparent
             animationType="fade"
+            statusBarTranslucent
             onRequestClose={() => setPeriodMenuVisible(false)}
           >
             <TouchableOpacity
@@ -958,7 +982,7 @@ const handleSettleReminder = async (reminder: ReminderItem) => {
               activeOpacity={1}
               onPress={() => setPeriodMenuVisible(false)}
             >
-              <View style={styles.periodDropdownMenu}>
+              <View style={[styles.periodDropdownMenu, { top: periodAnchor.top, right: periodAnchor.right }]}>
                 {(['weekly', 'monthly', 'yearly'] as const).map((period) => (
                   <TouchableOpacity
                     key={period}
@@ -1397,118 +1421,75 @@ const handleSettleReminder = async (reminder: ReminderItem) => {
   </View>
 </Modal>
 
-      {/* MODAL FOR ADDING A NEW REMINDER */}
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={addModalVisible}
-        onRequestClose={() => {
-          resetForm();
-          setAddModalVisible(false);
-          setErrorMessage(null);   // <-- Add this
-          setSuccessMessage(null); // <-- Add this
-        }}
-        onShow={() => fetchCategories()}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContainer}>
-            <View style={styles.modalHeader}>
-              <View>
-                <Text style={styles.modalTitle}>Add New Reminder</Text>
-                <Text style={styles.modalSubtitle}>Fill in reminder details</Text>
-              </View>
-              <TouchableOpacity 
-                onPress={() => {
-                  resetForm();
-                  setAddModalVisible(false);
-                }} 
-                style={styles.modalCloseButton}
-              >
-                <Ionicons name="close" size={20} color={theme.colors.textMuted} />
-              </TouchableOpacity>
-            </View>
-
-            {/* Inline Error Banner */}
-            {errorMessage && (
-              <View style={styles.inlineErrorContainer}>
-                <Ionicons name="alert-circle-outline" size={18} color={theme.colors.danger} />
-                <Text style={styles.inlineErrorText}>{errorMessage}</Text>
-              </View>
-            )}
-
-            {/* Inline Success Banner */}
-            {successMessage && (
-              <View style={styles.inlineSuccessContainer}>
-                <Ionicons name="checkmark-circle-outline" size={18} color={theme.colors.green} />
-                <Text style={styles.inlineSuccessText}>{successMessage}</Text>
-              </View>
-            )}
-
-            <ScrollView contentContainerStyle={styles.formContainer} showsVerticalScrollIndicator={false}>
-              <Text style={styles.inputLabel}>Title</Text>
-              <TextInput
-                style={styles.textInput}
-                placeholder="e.g., Electricity Bill"
-                placeholderTextColor={theme.colors.textMuted}
-                value={newTitle}
-                onChangeText={setNewTitle}
-              />
-
-              <Text style={styles.inputLabel}>Amount (₱)</Text>
-              <TextInput
-                style={styles.textInput}
-                placeholder="0.00"
-                placeholderTextColor={theme.colors.textMuted}
-                keyboardType="numeric"
-                value={newAmount}
-                onChangeText={setNewAmount}
-              />
-
-              <Text style={styles.inputLabel}>Category</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoryScroll}>
-                {categories.map((cat) => {
-                  const isSelected = newCategoryId === cat.id;
-                  return (
-                    <TouchableOpacity
-                      key={cat.id}
-                      onPress={() => setNewCategoryId(cat.id)}
-                      style={[
-                        styles.categoryChip,
-                        isSelected && { backgroundColor: theme.colors.brand, borderColor: theme.colors.brand }
-                      ]}
-                    >
-                      <Text style={[styles.categoryChipText, isSelected && { color: theme.colors.white }]}>
-                        {cat.name}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </ScrollView>
-
-              <Text style={styles.inputLabel}>Due Date (YYYY-MM-DD)</Text>
-              <TextInput
-                style={styles.textInput}
-                placeholder="YYYY-MM-DD"
-                placeholderTextColor={theme.colors.textMuted}
-                value={newDueDate}
-                onChangeText={setNewDueDate}
-              />
-
-              <TouchableOpacity 
-                style={styles.submitButton} 
-                onPress={handleCreateReminder}
-                disabled={submitting}
-              >
-                {submitting ? (
-                  <ActivityIndicator color={theme.colors.white} />
-                ) : (
-                  <Text style={styles.submitButtonText}>Save Reminder</Text>
-                )}
-              </TouchableOpacity>
-            </ScrollView>
+      {/* MODAL FOR ADDING A NEW REMINDER (rides above the keyboard) */}
+      <KeyboardAwareModal visible={addModalVisible} onClose={closeAddModal} onShow={fetchCategories}>
+        <View style={styles.modalHeader}>
+          <View>
+            <Text style={styles.modalTitle}>Add New Reminder</Text>
+            <Text style={styles.modalSubtitle}>Fill in reminder details</Text>
           </View>
+          <TouchableOpacity onPress={closeAddModal} style={styles.modalCloseButton}>
+            <Ionicons name="close" size={20} color={theme.colors.textMuted} />
+          </TouchableOpacity>
         </View>
-      </Modal>
+
+        {/* Inline Error Banner */}
+        {errorMessage && (
+          <View style={styles.inlineErrorContainer}>
+            <Ionicons name="alert-circle-outline" size={18} color={theme.colors.danger} />
+            <Text style={styles.inlineErrorText}>{errorMessage}</Text>
+          </View>
+        )}
+
+        {/* Inline Success Banner */}
+        {successMessage && (
+          <View style={styles.inlineSuccessContainer}>
+            <Ionicons name="checkmark-circle-outline" size={18} color={theme.colors.green} />
+            <Text style={styles.inlineSuccessText}>{successMessage}</Text>
+          </View>
+        )}
+
+        <View style={styles.formContainer}>
+          <Text style={styles.inputLabel}>Title</Text>
+          <TextInput
+            style={styles.textInput}
+            placeholder="e.g., Electricity Bill"
+            placeholderTextColor={theme.colors.textMuted}
+            value={newTitle}
+            onChangeText={setNewTitle}
+          />
+
+          <Text style={styles.inputLabel}>Amount (₱)</Text>
+          <TextInput
+            style={styles.textInput}
+            placeholder="0.00"
+            placeholderTextColor={theme.colors.textMuted}
+            keyboardType="numeric"
+            value={newAmount}
+            onChangeText={setNewAmount}
+          />
+
+          <Text style={styles.inputLabel}>Category</Text>
+          <CategoryDropdown categories={categories} value={newCategoryId} onChange={setNewCategoryId} />
+
+          <Text style={styles.inputLabel}>Due Date (YYYY-MM-DD)</Text>
+          <TextInput
+            style={styles.textInput}
+            placeholder="YYYY-MM-DD"
+            placeholderTextColor={theme.colors.textMuted}
+            value={newDueDate}
+            onChangeText={setNewDueDate}
+          />
+
+          <TouchableOpacity style={styles.submitButton} onPress={handleCreateReminder} disabled={submitting}>
+            {submitting ? (
+              <ActivityIndicator color={theme.colors.white} />
+            ) : (
+              <Text style={styles.submitButtonText}>Save Reminder</Text>
+            )}
+          </TouchableOpacity>
+        </View>
+      </KeyboardAwareModal>
     </View>
   );
 }

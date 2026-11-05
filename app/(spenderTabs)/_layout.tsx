@@ -155,6 +155,7 @@ export default function SpenderLayout() {
           },
 
           tabBarStyle: { display: "none" as const },
+          animation: "shift", // or 'fade'
         }}
       >
         <Tabs.Screen

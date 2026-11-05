@@ -30,8 +30,8 @@ export default function SponsorTabsLayout() {
           <Tabs
             screenOptions={{
               headerShown: false,
-              // the built-in bar is hidden; <GlassTabBar /> replaces it
               tabBarStyle: { display: 'none' as const },
+              animation: 'shift', // or 'fade'
             }}
           >
             <Tabs.Screen name="home" options={{ title: 'Home' }} />

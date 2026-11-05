@@ -7,10 +7,8 @@ import {
   Dimensions,
   Image,
   Modal,
-  Platform,
   RefreshControl,
   ScrollView,
-  StatusBar,
   Text,
   TextInput,
   TouchableOpacity,
@@ -24,6 +22,7 @@ import Animated, {
   useAnimatedStyle,
   useSharedValue,
 } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, {
   Circle,
   Defs,
@@ -244,7 +243,8 @@ export default function PersonalHomeScreen() {
   const [modalVisible, setModalVisible] = useState(false);
 
   // ---- collapsing header (driven by scroll) — same approach as the Spender dashboard ----
-  const topInset = (Platform.OS === 'android' ? StatusBar.currentHeight || 24 : 50) + theme.space[8];
+  const insets = useSafeAreaInsets();
+  const topInset = insets.top + theme.space[8];
   const HEADER_EXPANDED = topInset + theme.layout.headerExpanded;
   const HEADER_COLLAPSED = topInset + theme.layout.headerCollapsed;
   const COLLAPSE_RANGE = HEADER_EXPANDED - HEADER_COLLAPSED;
@@ -823,7 +823,7 @@ export default function PersonalHomeScreen() {
 
           <View style={styles.balanceBlock}>
             <View style={styles.balanceLabelRow}>
-              <Text style={styles.balanceLabel}>Total Remaining</Text>
+              <Text style={styles.balanceLabel}>Remaining Balance</Text>
             </View>
 
             <View style={styles.pillTrackOuter}>

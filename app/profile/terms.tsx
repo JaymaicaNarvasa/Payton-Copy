@@ -6,28 +6,29 @@ import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
 
 import GradientBackground from '../../components/GradientBackground';
 import { theme } from '../../constants/theme';
-import { termsStyles as styles } from '../../constants/ui.styles';
+import { profileStyles, termsStyles as styles } from '../../constants/ui.styles';
 
 export default function TermsScreen() {
   const router = useRouter();
 
   return (
-    <View style={styles.container}>
+    <View style={profileStyles.container}>
       <StatusBar style="light" />
 
-      {/* Gradient header */}
-      <View style={styles.header}>
-        <View style={styles.headerGradient} pointerEvents="none">
-          <GradientBackground id="terms-gradient" />
+      {/* Gradient header (same as Profile) */}
+      <View style={profileStyles.modernHeader}>
+        <View style={profileStyles.headerGradientFill} pointerEvents="none">
+          <GradientBackground />
         </View>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton} hitSlop={12}>
-          <Ionicons name="arrow-back" size={20} color={theme.colors.white} />
+        <TouchableOpacity onPress={() => router.back()} style={profileStyles.backBtnTouchable} hitSlop={12}>
+          <Ionicons name="chevron-back" size={22} color={theme.colors.white} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Terms of Use</Text>
-        <View style={styles.headerSpacer} />
+        <Text style={profileStyles.headerTitleCentered}>Terms of Use</Text>
+        <View style={profileStyles.backBtnTouchable} />
       </View>
-
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      
+      <View style={styles.sheet}>
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.card}>
           <Text style={styles.lastUpdated}>Last updated: September 2026</Text>
 
@@ -64,8 +65,9 @@ export default function TermsScreen() {
           <Text style={styles.paragraph}>
             Failure to comply with Payton policies may result in warnings, temporary account restrictions, suspension of privileges, or permanent termination of access depending on the severity of the violation. Serious cases involving fraudulent activities or data breaches may be reported to the appropriate authorities.
           </Text>
-        </View>
-      </ScrollView>
+          </View>
+        </ScrollView>
+      </View>
     </View>
   );
 }

@@ -7,6 +7,221 @@ import { theme } from './theme';
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const SCREEN_HEIGHT = Dimensions.get('window').height;
 
+export const styles = StyleSheet.create({
+  // ---------------------------------------------------------------- layout atoms
+  fill: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }, // gradients, glass layers
+  flex1: { flex: 1 },
+  row: { flexDirection: 'row', alignItems: 'center' },
+  rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  center: { alignItems: 'center', justifyContent: 'center' },
+  gap4: { gap: theme.space[4] },
+  gap6: { gap: theme.space[6] },
+  gap8: { gap: theme.space[8] },
+  gap12: { gap: theme.space[12] },
+
+  // ---------------------------------------------------------------- screen shells
+  screen: { flex: 1, backgroundColor: theme.colors.background },
+  screenWhite: { flex: 1, backgroundColor: theme.colors.white }, // auth screens
+  // The rounded white "sheet" that slides up under a gradient header.
+  sheet: {
+    flex: 1,
+    marginTop: -theme.layout.sheetOverlap,
+    borderTopLeftRadius: theme.layout.sheetRadius,
+    borderTopRightRadius: theme.layout.sheetRadius,
+    overflow: 'hidden',
+    backgroundColor: theme.colors.background,
+  },
+  scrollPad: { paddingHorizontal: theme.space[20], paddingBottom: theme.layout.tabBarClearance },
+
+  // ---------------------------------------------------------------- gradient header
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: theme.space[20] },
+  headerTitle: { fontSize: theme.fontSize.headingLg, fontFamily: theme.fontFamily.bold, color: theme.colors.white, letterSpacing: -0.3 },
+  headerSubtitle: { fontSize: theme.fontSize.bodyLg, fontFamily: theme.fontFamily.semibold, color: theme.colors.alpha.white[82], marginTop: theme.space[2] },
+  headerIconButton: {
+    width: 36,
+    height: 36,
+    borderRadius: theme.radius.md,
+    backgroundColor: theme.colors.alpha.white[20],
+    borderWidth: 1,
+    borderColor: theme.colors.alpha.white[30],
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  // ---------------------------------------------------------------- sections + text
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: theme.space[12] },
+  sectionTitle: { fontSize: theme.fontSize.title, fontFamily: theme.fontFamily.extrabold, color: theme.colors.brandInk, letterSpacing: -0.3 },
+  seeAll: { fontSize: theme.fontSize.caption, fontFamily: theme.fontFamily.bold, color: theme.colors.mintPillText },
+  textBody: { fontSize: theme.fontSize.body, fontFamily: theme.fontFamily.semibold, color: theme.colors.textStrong },
+  textMuted: { fontSize: theme.fontSize.small, fontFamily: theme.fontFamily.regular, color: theme.colors.textMuted },
+  amount: { fontSize: theme.fontSize.bodyLg, fontFamily: theme.fontFamily.extrabold, color: theme.colors.brandInk },
+  amountNegative: { fontSize: theme.fontSize.bodyLg, fontFamily: theme.fontFamily.extrabold, color: theme.colors.danger },
+  label: { fontSize: theme.fontSize.caption, fontFamily: theme.fontFamily.semibold, color: theme.colors.textMuted },
+
+  // ---------------------------------------------------------------- cards + list rows
+  card: {
+    backgroundColor: theme.colors.white,
+    borderRadius: theme.radius.xxl,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    padding: theme.space[14],
+    ...theme.shadow.sm,
+  },
+  listRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: theme.space[12], borderBottomWidth: 1, borderBottomColor: theme.colors.surfaceAlt },
+  listRowLast: { borderBottomWidth: 0 },
+  iconBox: { width: 46, height: 46, borderRadius: theme.radius.soft, alignItems: 'center', justifyContent: 'center' },
+
+  // ---------------------------------------------------------------- pills + chips
+  pill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.space[4],
+    backgroundColor: theme.colors.mintPill,
+    paddingHorizontal: theme.space[14],
+    paddingVertical: 7,
+    borderRadius: theme.radius.pill,
+  },
+  pillText: { fontSize: theme.fontSize.caption, fontFamily: theme.fontFamily.semibold, color: theme.colors.mintPillText },
+  chip: {
+    paddingHorizontal: theme.space[14],
+    paddingVertical: theme.space[8],
+    borderRadius: theme.radius.xl,
+    borderWidth: 1,
+    borderColor: theme.colors.borderStrong,
+    backgroundColor: theme.colors.white,
+    marginRight: theme.space[8],
+  },
+  chipSelected: { backgroundColor: theme.colors.brand, borderColor: theme.colors.brand },
+  chipText: { fontSize: theme.fontSize.small, fontFamily: theme.fontFamily.semibold, color: theme.colors.oliveDeep },
+  chipTextSelected: { color: theme.colors.white },
+
+  // ---------------------------------------------------------------- buttons
+  buttonPrimary: {
+    backgroundColor: theme.colors.brand,
+    borderRadius: theme.radius.soft,
+    paddingVertical: theme.space[14],
+    alignItems: 'center',
+    marginTop: theme.space[10],
+  },
+  buttonPrimaryText: { color: theme.colors.white, fontSize: theme.fontSize.bodyLg, fontFamily: theme.fontFamily.bold },
+  buttonDisabled: { opacity: 0.5 },
+  closeButton: {
+    width: 32,
+    height: 32,
+    borderRadius: theme.radius.lg,
+    backgroundColor: theme.colors.surfaceAlt,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  backButton: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: theme.colors.surfaceAlt,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  // ---------------------------------------------------------------- bottom-sheet modal
+  modalOverlay: { flex: 1, backgroundColor: theme.colors.overlay, justifyContent: 'flex-end' },
+  modalSheet: {
+    backgroundColor: theme.colors.background,
+    borderTopLeftRadius: theme.radius.xxxl,
+    borderTopRightRadius: theme.radius.xxxl,
+    paddingHorizontal: theme.space[24],
+    paddingTop: theme.space[24],
+    paddingBottom: theme.space[40],
+    maxHeight: SCREEN_HEIGHT * 0.75,
+    flexShrink: 1, // lets the sheet shrink above the keyboard instead of overflowing off-screen
+    ...theme.shadow.lg,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: theme.space[16],
+    paddingBottom: theme.space[12],
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
+  },
+  modalTitle: { fontSize: theme.fontSize.title, fontFamily: theme.fontFamily.bold, color: theme.colors.oliveDeep },
+  modalBody: { gap: theme.space[10], paddingBottom: theme.space[20] },
+
+  // ---------------------------------------------------------------- forms
+  inputLabel: { fontSize: theme.fontSize.small, fontFamily: theme.fontFamily.semibold, color: theme.colors.textMuted, marginBottom: theme.space[6] },
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.space[8],
+    height: 46,
+    backgroundColor: theme.colors.white,
+    borderRadius: theme.radius.soft,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    paddingHorizontal: theme.space[14],
+  },
+  searchInput: { flex: 1, fontSize: theme.fontSize.body, fontFamily: theme.fontFamily.regular, color: theme.colors.textStrong, paddingVertical: 0 },
+  inputError: { borderColor: theme.colors.auth.danger, borderWidth: 1.5 },
+
+  // ---------------------------------------------------------------- states
+  emptyState: {
+    alignItems: 'center',
+    paddingVertical: 36,
+    paddingHorizontal: theme.space[24],
+    backgroundColor: theme.colors.background,
+    borderRadius: theme.radius.xxl,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  emptyTitle: { fontSize: theme.fontSize.body, fontFamily: theme.fontFamily.bold, color: theme.colors.textStrong },
+  emptySubtitle: { fontSize: theme.fontSize.small, fontFamily: theme.fontFamily.regular, color: theme.colors.textMuted, textAlign: 'center', marginTop: theme.space[4] },
+  skeleton: { backgroundColor: theme.colors.surfaceAlt },
+});
+
+// ----------------------------------------------------------------------
+// DROPDOWN (components/CategoryDropdown.tsx) — inline, expands inside the modal
+export const dropdownStyles = StyleSheet.create({
+  trigger: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    height: 48,
+    paddingHorizontal: theme.space[14],
+    backgroundColor: theme.colors.white,
+    borderRadius: theme.radius.soft,
+    borderWidth: 1,
+    borderColor: theme.colors.borderStrong,
+  },
+  triggerOpen: { borderColor: theme.colors.brand },
+  triggerDisabled: { opacity: 0.5 },
+  triggerLeft: { flexDirection: 'row', alignItems: 'center', gap: theme.space[8], flexShrink: 1 },
+  triggerText: { flexShrink: 1, fontSize: theme.fontSize.body, fontFamily: theme.fontFamily.semibold, color: theme.colors.textStrong },
+  placeholder: { color: theme.colors.textSubtle, fontFamily: theme.fontFamily.regular },
+  list: {
+    marginTop: theme.space[6],
+    maxHeight: 220,
+    backgroundColor: theme.colors.white,
+    borderRadius: theme.radius.soft,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    overflow: 'hidden',
+    ...theme.shadow.sm,
+  },
+  item: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: theme.space[14],
+    paddingVertical: theme.space[12],
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.surfaceAlt,
+  },
+  itemSelected: { backgroundColor: theme.colors.mintPill },
+  itemText: { fontSize: theme.fontSize.body, fontFamily: theme.fontFamily.medium, color: theme.colors.text },
+  itemTextSelected: { fontFamily: theme.fontFamily.bold, color: theme.colors.mintPillText },
+  empty: { padding: theme.space[14], textAlign: 'center', fontSize: theme.fontSize.small, fontFamily: theme.fontFamily.regular, color: theme.colors.textMuted },
+});
+
 
 // ======================================================================
 // TAB BAR LAYOUT (Spender + Personal + Sponsor)
@@ -525,10 +740,14 @@ inlineSuccessText: {
 },
   headerGradientClip: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, borderBottomLeftRadius: 28, borderBottomRightRadius: 28, overflow: 'hidden' },
   addReminderPill: { flexDirection: 'row', alignItems: 'center', gap: theme.space[4], backgroundColor: theme.colors.mintPill, paddingHorizontal: theme.space[12], paddingVertical: theme.space[6], borderRadius: theme.radius.pill },
-  periodDropdownOverlay: { flex: 1, backgroundColor: theme.colors.overlay, justifyContent: 'flex-start', alignItems: 'flex-end', paddingTop: 220, paddingRight: theme.space[20] },
+  // transparent tap-away layer; the menu itself is positioned under the pill from home.tsx (top/right)
+  periodDropdownOverlay: { flex: 1 },
   periodDropdownMenu: {
+    position: 'absolute',
     backgroundColor: theme.colors.white,
     borderRadius: theme.radius.lg,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
     paddingVertical: theme.space[6],
     width: 150,
     ...theme.shadow.lg,
@@ -2118,6 +2337,7 @@ export const splitStyles = StyleSheet.create({
     backgroundColor: theme.colors.background,
     borderRadius: theme.radius.md,
   },
+  backButton: { width: 40, height: 40, borderRadius: theme.radius.xl, backgroundColor: theme.colors.alpha.white[15], justifyContent: 'center', alignItems: 'center' },
   modernHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -4165,7 +4385,15 @@ export const termsStyles = StyleSheet.create({
   headerTitle: { flex: 1, textAlign: 'center', fontSize: theme.fontSize.heading, fontFamily: theme.fontFamily.extrabold, color: theme.colors.white, letterSpacing: -0.5 },
 
   /* Body */
-  scrollContent: { paddingHorizontal: theme.space[24], paddingTop: theme.space[24], paddingBottom: theme.layout.tabBarClearance },
+  scrollContent: { paddingHorizontal: theme.space[24], paddingTop: 20, paddingBottom: theme.layout.tabBarClearance },
+  sheet: {
+    flex: 1,
+    marginTop: -theme.layout.sheetOverlap,
+    borderTopLeftRadius: theme.layout.sheetRadius,
+    borderTopRightRadius: theme.layout.sheetRadius,
+    overflow: 'hidden',
+    backgroundColor: theme.colors.background,
+  },
   card: { backgroundColor: theme.colors.white, padding: theme.space[24], borderRadius: theme.radius.xxl, borderWidth: 1, borderColor: theme.colors.border, ...theme.shadow.sm },
   lastUpdated: { fontSize: theme.fontSize.small, fontFamily: theme.fontFamily.medium, color: theme.colors.textSubtle, marginBottom: theme.space[20] },
   heading: { fontSize: theme.fontSize.subtitle, fontFamily: theme.fontFamily.bold, color: theme.colors.text, marginTop: theme.space[16], marginBottom: theme.space[6] },

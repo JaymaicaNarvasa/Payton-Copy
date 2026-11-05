@@ -6,6 +6,7 @@ import emailjs from 'emailjs-com';
 import 'expo-blob';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as ImagePicker from 'expo-image-picker';
+import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -108,6 +109,10 @@ export default function SplitScreen() {
   const { showAlert: openAlert } = useAlert();
   const showAlert = (title: string, message: string, type: 'success' | 'error' | 'warning' | 'info' = 'warning') => {
     openAlert({ type, title, message, buttons: [{ text: 'OK' }] });
+  };
+
+  const handleBackPress = () => {
+    router.push('/home'); 
   };
 
   useEffect(() => {
@@ -887,9 +892,17 @@ const handleConfirmSettlePayment = async () => {
           <GradientBackground />
         </View>
         <View style={styles.headerLeft}>
-          <Ionicons name="people-circle-outline" size={24} color={theme.colors.white} />
+          <TouchableOpacity 
+            activeOpacity={0.7}
+            onPress={handleBackPress}
+            style={styles.backButton}
+          >
+              <Ionicons name="chevron-back" size={24} color={theme.colors.white} />
+          </TouchableOpacity>
+          
           <Text style={styles.modernHeaderTitle}>Split Expenses</Text>
-        </View>
+         </View>
+         
         <TouchableOpacity
           style={styles.quickFormTrigger}
           onPress={() => setFormVisible(true)}

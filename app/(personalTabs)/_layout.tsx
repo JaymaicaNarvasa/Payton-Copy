@@ -4,6 +4,7 @@
 import { tabLayoutStyles as styles } from '@/constants/ui.styles';
 import { BlurTargetView } from 'expo-blur';
 import { Tabs, usePathname } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
 import { useRef } from 'react';
 import type { View as RNView } from 'react-native';
 import { View } from 'react-native';
@@ -25,12 +26,17 @@ export default function PersonalLayout() {
   const pathname = usePathname();
   const blurTargetRef = useRef<RNView>(null);
 
-  // Same behaviour as before: no tab bar on the Scan and Coach screens.
+  // No tab bar on the Scan and Coach screens.
   const hideTabBar = pathname.includes('scan') || pathname.includes('insight');
 
   return (
     <View style={styles.layoutRoot}>
+      {/* Transparent status bar with white icons, so the green gradient header shows through
+          on every phone. Each screen's header must add the top safe-area inset as padding. */}
+      <StatusBar style="light" />
+
       <BlurTargetView ref={blurTargetRef} style={styles.layoutBlurTarget}>
+        
         <Tabs screenOptions={{ headerShown: false }} tabBar={() => null}>
           <Tabs.Screen name="home" options={{ title: 'Home' }} />
           <Tabs.Screen name="transaction" options={{ title: 'Transactions' }} />
