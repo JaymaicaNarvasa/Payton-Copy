@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
   Image,
   Modal,
+  Platform,
   RefreshControl,
   ScrollView,
   StyleProp,
@@ -26,7 +27,7 @@ import { router } from 'expo-router';
 import GradientBackground from '../../components/GradientBackground';
 import { AlertConfig, PaytonAlertDialog } from '../../components/PaytonAlert';
 import { theme } from '../../constants/theme';
-import { splitStyles as styles } from '../../constants/ui.styles';
+import { transactionStyles as style, splitStyles as styles } from '../../constants/ui.styles';
 
 const { colors, space } = theme;
 const DEFAULT_AVATAR = require('../../assets/images/default.png');
@@ -898,29 +899,42 @@ export default function SplitScreen() {
     <View style={styles.container}>
       <StatusBar style="light" />
 
-      {/* HEADER (gradient) */}
-      <View style={[styles.modernHeader, { paddingTop: insets.top + space[12] }]}>
-
-        <View style={styles.headerGradientFill}>
-          <GradientBackground />
+      {/* HEADER */}
+            <View
+              style={[
+                style.topBackgroundHeader,
+                { paddingTop: Platform.OS === 'android' ? insets.top + 12 : insets.top + 8 },
+              ]}
+            >
+              <View style={style.headerGradientFill} pointerEvents="none">
+                <GradientBackground id="transactions-header-gradient" />
+              </View>
+      
+              <View style={style.header}>
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  onPress={handleBackPress}
+                  style={style.headerActionButton}
+                  accessibilityRole="button"
+                  accessibilityLabel="Go back"
+                >
+                  <Ionicons name="chevron-back" size={22} color={theme.colors.white} />
+                </TouchableOpacity>
+                
+                <View style={style.headerContent}>
+                  <Text style={style.headerTitle} numberOfLines={1}>Split Expense</Text>
+                </View>
+      
+                <TouchableOpacity
+                  style={styles.quickFormTrigger}
+                  onPress={() => setFormVisible(true)}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="add" size={18} color={theme.colors.white} />
+                    <Text style={styles.quickFormTriggerText}>New</Text>
+                </TouchableOpacity>
+              </View>
             </View>
-                <View style={styles.headerLeft}>
-                  <TouchableOpacity 
-                    activeOpacity={0.7}
-                    onPress={handleBackPress}
-                    style={styles.backButton}
-                  >
-                      <Ionicons name="chevron-back" size={24} color={theme.colors.white} />
-                  </TouchableOpacity>
-                  
-                  <Text style={styles.modernHeaderTitle}>Split Expenses</Text>
-                 </View>
-        
-        <TouchableOpacity style={styles.quickFormTrigger} onPress={() => setFormVisible(true)}>
-          <Ionicons name="add" size={18} color={colors.white} />
-          <Text style={styles.quickFormTriggerText}>New Split</Text>
-        </TouchableOpacity>
-      </View>
 
       {/* CONTENT SHEET */}
       <View style={styles.sheet}>

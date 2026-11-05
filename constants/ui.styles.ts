@@ -44,8 +44,8 @@ export const styles = StyleSheet.create({
     backgroundColor: theme.colors.alpha.white[20],
     borderWidth: 1,
     borderColor: theme.colors.alpha.white[30],
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: 'flex-start',
+    justifyContent: 'flex-start',
   },
 
   // ---------------------------------------------------------------- sections + text
@@ -389,6 +389,8 @@ export const homeStyles = StyleSheet.create({
     backgroundColor: theme.colors.lime, justifyContent: 'center', alignItems: 'center',
   },
   balanceLabel: { fontSize: theme.fontSize.caption, color: theme.colors.white, fontFamily: theme.fontFamily.medium },
+  // small edit button that sits beside the "Remaining Balance" label (Personal)
+  balanceEditButton: { width: 26, height: 26, borderRadius: theme.radius.sm, marginLeft: theme.space[8], backgroundColor: theme.colors.alpha.white[20], borderWidth: 1, borderColor: theme.colors.alpha.white[30], alignItems: 'center', justifyContent: 'center' },
   pillTrackOuter: { width: '100%' },
   pillTrack: { width: '100%', height: 26, borderRadius: 13, backgroundColor: theme.colors.progressTrack, overflow: 'hidden' },
   pillFill: { height: '100%', borderRadius: 13, backgroundColor: theme.colors.progressFill },
@@ -797,7 +799,7 @@ inlineSuccessText: {
   compactAvatarInitial: { color: theme.colors.brand, fontSize: theme.fontSize.body, fontFamily: theme.fontFamily.bold },
   compactName: { flex: 1, fontSize: theme.fontSize.bodyLg, fontFamily: theme.fontFamily.bold, color: theme.colors.white },
   compactActions: { flexDirection: 'row', gap: theme.space[8] },
-  headerIconButton: { width: 36, height: 36, borderRadius: theme.radius.md, backgroundColor: theme.colors.alpha.white[20], borderWidth: 1, borderColor: theme.colors.alpha.white[30], alignItems: 'center', justifyContent: 'center' },
+  headerIconButton: { width: 34, height: 34, borderRadius: theme.radius.md, backgroundColor: theme.colors.alpha.white[20], borderWidth: 1, borderColor: theme.colors.alpha.white[30], alignItems: 'center', justifyContent: 'center' },
   compactTrack: { height: 14, borderRadius: 7, backgroundColor: theme.colors.progressTrack, overflow: 'hidden', marginTop: theme.space[12] },
   compactAmountRow: { flexDirection: 'row', alignItems: 'baseline', gap: theme.space[6], marginTop: theme.space[8] },
   compactAmountText: { fontSize: theme.fontSize.heading, fontFamily: theme.fontFamily.extrabold, color: theme.colors.white, letterSpacing: -0.3 },
@@ -2393,7 +2395,7 @@ export const splitStyles = StyleSheet.create({
     borderColor: theme.colors.alpha.white[30],
     paddingVertical: theme.space[8],
     paddingHorizontal: theme.space[14],
-    borderRadius: theme.radius.xl,
+    borderRadius: 12,
     gap: theme.space[4],
   },
   quickFormTriggerText: {

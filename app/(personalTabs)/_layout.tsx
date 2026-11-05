@@ -1,6 +1,4 @@
-// app/(personalTabs)/_layout.tsx  — Personal tabs, same glass tab bar as Spender.
-// Pattern (see GlassTabBar.tsx): the <Tabs /> content is wrapped in <BlurTargetView> and the
-// <GlassTabBar /> sits NEXT to it, so the blur works on Android as well as iOS.
+// app/(personalTabs)/_layout.tsx
 import { tabLayoutStyles as styles } from '@/constants/ui.styles';
 import { BlurTargetView } from 'expo-blur';
 import { Tabs, usePathname } from 'expo-router';
@@ -11,7 +9,6 @@ import { View } from 'react-native';
 
 import { GlassTabBar, type GlassTabItem } from '../../components/GlassTabBarBackground';
 
-// Route group folder of the Personal tabs. Change this if your folder is named differently.
 const TAB_GROUP = '(personalTabs)';
 
 const TAB_ITEMS: GlassTabItem[] = [
@@ -26,18 +23,20 @@ export default function PersonalLayout() {
   const pathname = usePathname();
   const blurTargetRef = useRef<RNView>(null);
 
-  // No tab bar on the Scan and Coach screens.
   const hideTabBar = pathname.includes('scan') || pathname.includes('insight');
 
   return (
     <View style={styles.layoutRoot}>
-      {/* Transparent status bar with white icons, so the green gradient header shows through
-          on every phone. Each screen's header must add the top safe-area inset as padding. */}
       <StatusBar style="light" />
 
       <BlurTargetView ref={blurTargetRef} style={styles.layoutBlurTarget}>
-        
-        <Tabs screenOptions={{ headerShown: false }} tabBar={() => null}>
+        <Tabs
+          tabBar={() => null}
+          screenOptions={{
+            headerShown: false,
+            animation: 'shift', // or 'fade'
+          }}
+        >
           <Tabs.Screen name="home" options={{ title: 'Home' }} />
           <Tabs.Screen name="transaction" options={{ title: 'Transactions' }} />
           <Tabs.Screen name="scan" options={{ title: 'Scan' }} />

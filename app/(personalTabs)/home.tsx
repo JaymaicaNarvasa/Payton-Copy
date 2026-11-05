@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { StatusBar as ExpoStatusBar } from 'expo-status-bar';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Dimensions,
@@ -42,6 +42,7 @@ import { PaytonAlertDialog } from '../../components/PaytonAlert';
 import { supabase } from '../../lib/supabase';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
+
 
 function extractErrorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
@@ -236,6 +237,15 @@ export default function PersonalHomeScreen() {
   type StatsPeriod = 'weekly' | 'monthly' | 'yearly';
   const [statsPeriod, setStatsPeriod] = useState<StatsPeriod>('monthly');
   const [periodMenuVisible, setPeriodMenuVisible] = useState(false);
+  // Dropdown is anchored under the pill: measure where the pill sits, then drop the menu right below it.
+  const periodPillRef = useRef<View>(null);
+  const [periodAnchor, setPeriodAnchor] = useState({ top: 0, right: 0 });
+  const openPeriodMenu = () => {
+    periodPillRef.current?.measureInWindow((x, y, w, h) => {
+      setPeriodAnchor({ top: y + h + theme.space[6], right: SCREEN_WIDTH - (x + w) });
+      setPeriodMenuVisible(true);
+    });
+  };
   const periodLabels: Record<StatsPeriod, string> = { weekly: 'Weekly', monthly: 'Monthly', yearly: 'Yearly' };
 
   const todayStr = new Date().toISOString().split('T')[0];
@@ -824,6 +834,16 @@ export default function PersonalHomeScreen() {
           <View style={styles.balanceBlock}>
             <View style={styles.balanceLabelRow}>
               <Text style={styles.balanceLabel}>Remaining Balance</Text>
+              {/* Income (Personal only) — sits beside the label */}
+              <TouchableOpacity
+                style={styles.balanceEditButton}
+                onPress={() => router.push('/income')}
+                activeOpacity={0.8}
+                accessibilityRole="button"
+                accessibilityLabel="Manage income"
+              >
+                <Ionicons name="create-outline" size={16} color={theme.colors.white} />
+              </TouchableOpacity>
             </View>
 
             <View style={styles.pillTrackOuter}>
@@ -842,17 +862,6 @@ export default function PersonalHomeScreen() {
                   ₱{summary ? summary.totalIncome.toLocaleString('en-US') : '0'}
                 </Text>
               </View>
-
-              {/* Income (Personal only) */}
-              <TouchableOpacity
-                style={styles.headerIconButton}
-                onPress={() => router.push('/income')}
-                activeOpacity={0.8}
-                accessibilityRole="button"
-                accessibilityLabel="Manage income"
-              >
-                <Ionicons name="create-outline" size={20} color={theme.colors.white} />
-              </TouchableOpacity>
             </View>
           </View>
         </Animated.View>
@@ -990,20 +999,28 @@ export default function PersonalHomeScreen() {
         <View style={styles.sectionBlock}>
           <View style={styles.sectionHeaderRow}>
             <Text style={styles.sectionTitle}>Expense per Category</Text>
-            <TouchableOpacity
-              style={styles.addReminderPill}
-              onPress={() => setPeriodMenuVisible(true)}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.seeAllText}>{periodLabels[statsPeriod]}</Text>
-              <Ionicons name="chevron-down" size={14} color={theme.colors.mintPillText} />
-            </TouchableOpacity>
+            <View ref={periodPillRef} collapsable={false}>
+              <TouchableOpacity
+                style={styles.addReminderPill}
+                onPress={openPeriodMenu}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.seeAllText}>{periodLabels[statsPeriod]}</Text>
+                <Ionicons
+                  name={periodMenuVisible ? 'chevron-up' : 'chevron-down'}
+                  size={14}
+                  color={theme.colors.mintPillText}
+                />
+              </TouchableOpacity>
+            </View>
           </View>
 
+          {/* Dropdown: drops down right under the pill (no dimmed screen, no centered popup) */}
           <Modal
             visible={periodMenuVisible}
             transparent
             animationType="fade"
+            statusBarTranslucent
             onRequestClose={() => setPeriodMenuVisible(false)}
           >
             <TouchableOpacity
@@ -1011,7 +1028,7 @@ export default function PersonalHomeScreen() {
               activeOpacity={1}
               onPress={() => setPeriodMenuVisible(false)}
             >
-              <View style={styles.periodDropdownMenu}>
+              <View style={[styles.periodDropdownMenu, { top: periodAnchor.top, right: periodAnchor.right }]}>
                 {(['weekly', 'monthly', 'yearly'] as const).map((period) => (
                   <TouchableOpacity
                     key={period}
