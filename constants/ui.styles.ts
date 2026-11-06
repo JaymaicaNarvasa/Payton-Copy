@@ -762,7 +762,7 @@ inlineSuccessText: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: theme.space[10],
-    width: 208,
+    width: 170,
     backgroundColor: theme.colors.white,
     borderRadius: theme.radius.lg,
     padding: theme.space[10],
@@ -3930,7 +3930,7 @@ export const sponsorHomeStyles = StyleSheet.create({
 
   /* Body */
   bodyContent: { flex: 1 },
-  listScrollContent: { paddingHorizontal: theme.space[20], paddingBottom: theme.space[40] },
+  listScrollContent: { paddingHorizontal: theme.space[20], paddingBottom: theme.space[100] },
   sectionGap: { marginTop: theme.space[24] },
   skeletonGap: { marginTop: theme.space[24], marginBottom: theme.space[12] },
 
@@ -3970,7 +3970,7 @@ export const sponsorHomeStyles = StyleSheet.create({
   quickActionLabel: { fontSize: theme.fontSize.small, fontFamily: theme.fontFamily.bold, color: theme.colors.mintPillText, textAlign: 'center', lineHeight: 15 },
 
   /* Recipients */
-  recipientsRow: { gap: theme.space[14], paddingVertical: theme.space[4], paddingRight: theme.space[8] },
+  recipientsRow: { gap: theme.space[16], paddingVertical: theme.space[4], paddingRight: theme.space[8] },
   recipientItem: { alignItems: 'center', width: 56 },
   recipientName: { fontSize: theme.fontSize.caption, fontFamily: theme.fontFamily.medium, color: theme.colors.brandInk, marginTop: theme.space[6], textAlign: 'center' },
   moreCircle: { width: 50, height: 50, borderRadius: 25, backgroundColor: theme.colors.borderStrong, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: theme.space[4] },
@@ -4111,6 +4111,16 @@ export const sponsorHomeStyles = StyleSheet.create({
   budgetInputWrap: { width: 118, justifyContent: 'center' },
   budgetPrefix: { position: 'absolute', left: theme.space[10], zIndex: 1, fontSize: theme.fontSize.caption, fontFamily: theme.fontFamily.bold, color: theme.colors.textStrong },
   budgetInput: { height: 40, borderWidth: 1, borderColor: theme.colors.border, borderRadius: theme.radius.md, paddingLeft: theme.space[24], paddingRight: theme.space[10], fontSize: theme.fontSize.caption, fontFamily: theme.fontFamily.regular, color: theme.colors.textStrong, backgroundColor: theme.colors.white, textAlign: 'right' },
+  /* Category chips (wrap inside a sheet) + confirm text */
+  chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: theme.space[8] },
+  categoryChip: { flexDirection: 'row', alignItems: 'center', gap: theme.space[6], paddingHorizontal: theme.space[12], height: 36, borderRadius: theme.radius.pill, borderWidth: 1, borderColor: theme.colors.border, backgroundColor: theme.colors.background },
+  categoryChipActive: { backgroundColor: theme.colors.gradientEnd, borderColor: theme.colors.gradientEnd },
+  categoryChipText: { fontSize: theme.fontSize.small, fontFamily: theme.fontFamily.semibold, color: theme.colors.textGray },
+  categoryChipTextActive: { color: theme.colors.white },
+  confirmText: { fontSize: theme.fontSize.body, fontFamily: theme.fontFamily.regular, color: theme.colors.textGray, lineHeight: 20, marginBottom: theme.space[4] },
+  confirmTextStrong: { fontFamily: theme.fontFamily.bold, color: theme.colors.textStrong },
+  dueDaysBadge: { alignSelf: 'flex-start', paddingHorizontal: theme.space[10], paddingVertical: theme.space[4], borderRadius: theme.radius.md, marginBottom: theme.space[12] },
+  dueDaysBadgeText: { fontSize: theme.fontSize.tiny, fontFamily: theme.fontFamily.bold },
 });
 
 // ======================================================================

@@ -91,14 +91,7 @@ export function PaytonAlertDialog({
     <Modal transparent visible={visible} animationType="fade" statusBarTranslucent onRequestClose={busy ? () => {} : onDismiss}>
       <View style={styles.overlay}>
         <Animated.View style={[styles.card, cardStyle]}>
-          {/* accent strip in the type colour */}
-          <View style={[styles.accent, { backgroundColor: tone.color }]} />
-
-          <View style={[styles.iconRing, { backgroundColor: tone.ring, borderColor: tone.tint }]}>
-            <View style={[styles.iconCore, { backgroundColor: tone.tint }]}>
-              <Ionicons name={tone.icon} size={28} color={tone.color} />
-            </View>
-          </View>
+          
 
           <Text style={styles.title}>{title}</Text>
           {!!message && <Text style={styles.message}>{message}</Text>}

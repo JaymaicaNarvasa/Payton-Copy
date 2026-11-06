@@ -175,7 +175,7 @@ export const colors = {
 } as const;
 
 /** Spacing scale (padding / margin / gap), in px. Usage: theme.space[12] */
-export const space = {1: 1, 2: 2, 3: 3, 4: 4, 5: 5, 6: 6, 8: 8, 10: 10, 12: 12, 14: 14, 15: 15, 16: 16, 18: 18, 20: 20, 24: 24, 28: 28, 30: 30, 32: 32, 36: 36, 40: 40} as const;
+export const space = {1: 1, 2: 2, 3: 3, 4: 4, 5: 5, 6: 6, 8: 8, 10: 10, 12: 12, 14: 14, 15: 15, 16: 16, 18: 18, 20: 20, 24: 24, 28: 28, 30: 30, 32: 32, 36: 36, 40: 40, 100: 100} as const;
 
 export const radius = {xxs: 2, xs: 4, sm: 8, tight: 10, md: 12, soft: 14, lg: 16, xl: 20, xxl: 24, xxxl: 28, jumbo: 30, pill: 999} as const;
 

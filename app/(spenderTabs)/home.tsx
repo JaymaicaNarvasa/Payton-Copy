@@ -1,9 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { StatusBar as ExpoStatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   Dimensions,
   Image,
   Modal,
@@ -36,10 +34,23 @@ import Svg, {
 } from 'react-native-svg';
 
 import { theme } from '@/constants/theme';
-import { homeStyles as styles } from '@/constants/ui.styles';
+import { sponsorHomeStyles as sheetStyles, homeStyles as styles } from '@/constants/ui.styles';
 import { CategoryDropdown } from '../../components/CategoryDropdown';
 import { GradientBackground } from '../../components/GradientBackground';
-import { KeyboardAwareModal } from '../../components/KeyboardAwareModal';
+import { useAlert } from '../../components/PaytonAlert';
+import {
+  AMOUNT_REGEX,
+  Banner,
+  DateButton,
+  DatePickerSheet,
+  Field,
+  MODAL_SWAP_DELAY,
+  Msg,
+  Sheet,
+  SheetActions,
+  toDateString,
+} from '../../components/Sheet';
+import { Skeleton } from '../../components/Skeleton';
 import { supabase } from '../../lib/supabase';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -127,7 +138,7 @@ interface ReminderItem {
   amount: number;
   due_date: string;
   status: string;
-  category_id?: string | null; // <--- Add this line
+  category_id?: string | null;
   categories?: {
     name?: string;
     icon?: string;
@@ -156,6 +167,90 @@ interface DailyTrendItem {
   amount: number;
 }
 
+/** Skeleton version of the whole spender dashboard (header + sections), shown while loading. */
+function SpenderHomeSkeleton({ topInset, headerHeight }: { topInset: number; headerHeight: number }) {
+  const onDark = theme.colors.alpha.white[30];
+  return (
+    <View style={styles.mainContainer}>
+      <StatusBar barStyle="light-content" translucent />
+
+      {/* Header */}
+      <View style={[styles.headerBackground, { height: headerHeight }]}>
+        <View style={styles.headerGradientClip}>
+          <GradientBackground />
+        </View>
+        <View style={[styles.headerExpanded, { paddingTop: topInset }]}>
+          <View style={styles.topRowContainer}>
+            <View style={styles.topRow}>
+              <View style={styles.userProfileGroup}>
+                <Skeleton width={56} height={56} radius={28} color={onDark} />
+                <View>
+                  <Skeleton width={70} height={18} radius={9} color={onDark} />
+                  <Skeleton width={130} height={13} radius={7} color={onDark} style={{ marginTop: theme.space[8] }} />
+                </View>
+              </View>
+              <Skeleton width={78} height={28} radius={14} color={onDark} />
+            </View>
+          </View>
+
+          <View style={styles.balanceBlock}>
+            <Skeleton width={120} height={13} radius={7} color={onDark} style={{ marginBottom: theme.space[10] }} />
+            <Skeleton width="100%" height={26} radius={13} color={onDark} />
+            <Skeleton width={170} height={32} radius={10} color={onDark} style={{ marginTop: theme.space[14] }} />
+          </View>
+        </View>
+      </View>
+
+      {/* Body */}
+      <View style={{ paddingTop: headerHeight + theme.space[8] }}>
+        {/* Upcoming dues */}
+        <View style={styles.sectionBlock}>
+          <View style={styles.sectionHeaderRow}>
+            <Skeleton width={130} height={18} radius={9} />
+            <Skeleton width={120} height={30} radius={15} />
+          </View>
+          <View style={{ flexDirection: 'row', gap: theme.space[12] }}>
+            <Skeleton width={170} height={74} radius={theme.radius.lg} />
+            <Skeleton width={170} height={74} radius={theme.radius.lg} />
+          </View>
+        </View>
+
+        {/* Expense per category */}
+        <View style={styles.sectionBlock}>
+          <View style={styles.sectionHeaderRow}>
+            <Skeleton width={160} height={18} radius={9} />
+            <Skeleton width={84} height={30} radius={15} />
+          </View>
+          <View style={[styles.statsCard, { gap: theme.space[16] }]}>
+            <Skeleton width={170} height={170} radius={85} />
+            {[0, 1].map((i) => (
+              <View key={i} style={{ flexDirection: 'row', alignItems: 'center', width: '100%' }}>
+                <Skeleton width={40} height={40} radius={20} />
+                <View style={{ flex: 1, marginLeft: theme.space[12], gap: theme.space[6] }}>
+                  <Skeleton width="50%" height={13} radius={7} />
+                  <Skeleton width="30%" height={10} radius={5} />
+                </View>
+                <Skeleton width={70} height={14} radius={7} />
+              </View>
+            ))}
+          </View>
+        </View>
+
+        {/* Daily trend */}
+        <View style={styles.sectionBlock}>
+          <View style={styles.sectionHeaderRow}>
+            <Skeleton width={150} height={18} radius={9} />
+          </View>
+          <View style={styles.trendCard}>
+            <Skeleton width="70%" height={11} radius={6} style={{ marginBottom: theme.space[12] }} />
+            <Skeleton width="100%" height={150} radius={theme.radius.lg} />
+          </View>
+        </View>
+      </View>
+    </View>
+  );
+}
+
 export default function SpenderHomeScreen() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
@@ -173,9 +268,9 @@ export default function SpenderHomeScreen() {
   const [dailyTrends, setDailyTrends] = useState<DailyTrendItem[]>([]);
   const [rawExpenses, setRawExpenses] = useState<any[]>([]);
 
-  // "Expense per Category" period filter (Weekly / Monthly / Yearly)
-  type StatsPeriod = 'weekly' | 'monthly' | 'yearly';
-  const [statsPeriod, setStatsPeriod] = useState<StatsPeriod>('monthly');
+  // "Expense per Category" period filter (All time / Today / This Week / This Month / This Year)
+  type StatsPeriod = 'all' | 'today' | 'weekly' | 'monthly' | 'yearly';
+  const [statsPeriod, setStatsPeriod] = useState<StatsPeriod>('all');
   const [periodMenuVisible, setPeriodMenuVisible] = useState(false);
   // Dropdown is anchored under the pill: measure where the pill sits, then drop the menu right below it.
   const periodPillRef = useRef<View>(null);
@@ -186,10 +281,16 @@ export default function SpenderHomeScreen() {
       setPeriodMenuVisible(true);
     });
   };
-  const periodLabels: Record<StatsPeriod, string> = { weekly: 'Weekly', monthly: 'Monthly', yearly: 'Yearly' };
+  const periodLabels: Record<StatsPeriod, string> = {
+    all: 'All time',
+    today: 'Today',
+    weekly: 'This Week',
+    monthly: 'This Month',
+    yearly: 'This Year',
+  };
 
   const dateList = generateDateRange();
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = toDateString(new Date());
   const [selectedDate, setSelectedDate] = useState<string>(todayStr);
   const [modalVisible, setModalVisible] = useState(false);
   const horizontalScrollRef = useRef<ScrollView>(null);
@@ -222,8 +323,19 @@ export default function SpenderHomeScreen() {
   const [newCategoryId, setNewCategoryId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const { showAlert } = useAlert();
+  /** Sheets and the alert are both Modals: close the sheet first, then show the alert once it is gone. */
+  const notify = (config: Parameters<typeof showAlert>[0]) => {
+    setTimeout(() => showAlert(config), MODAL_SWAP_DELAY);
+  };
+
+  // Field-level errors show right under each input; submit/server messages go to a banner inside the sheet.
+  type ReminderErrors = { title?: string; amount?: string; category?: string; date?: string };
+  const [reminderErrors, setReminderErrors] = useState<ReminderErrors>({});
+  const [addBanner, setAddBanner] = useState<Msg>(null);
+  const [duesBanner, setDuesBanner] = useState<Msg>(null);
+  const [deleteBanner, setDeleteBanner] = useState<Msg>(null);
+  const [datePickerVisible, setDatePickerVisible] = useState(false);
 
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
   const [reminderToDelete, setReminderToDelete] = useState<{ id: string; title: string } | null>(null);
@@ -292,7 +404,7 @@ export default function SpenderHomeScreen() {
         .from('allowances')
         .select('id, allowance_name, amount, received_at')
         .eq('spender_id', user.id)
-        .eq('is_archived', false) // Only fetch non-archived allowances
+        .eq('is_archived', false)
         .order('received_at', { ascending: false });
 
       if (allowanceError) throw allowanceError;
@@ -328,10 +440,6 @@ export default function SpenderHomeScreen() {
         );
 
         setOverallTotalExpenses(totalSpentCounter);
-
-        // Keep the raw, per-expense rows (with spent_at) so the Weekly / Monthly / Yearly
-        // filter on "Expense per Category" can recompute the breakdown client-side,
-        // without another round trip to Supabase.
         setRawExpenses(expensesData || []);
 
         // Compute past 7 days trend data for the Line Graph
@@ -424,235 +532,209 @@ export default function SpenderHomeScreen() {
     setNewDueDate(todayStr);
     setNewCategoryId(null);
     setSubmitting(false);
-    setErrorMessage(null);    // <-- Add this
-    setSuccessMessage(null); // <-- Add this
+    setReminderErrors({});
+    setAddBanner(null);
+  };
+
+  const openAddModal = () => {
+    resetForm();
+    fetchCategories();
+    setAddModalVisible(true);
   };
 
   const closeAddModal = () => {
-    resetForm(); // also clears errorMessage / successMessage
+    if (submitting) return;
+    resetForm();
     setAddModalVisible(false);
   };
 
-const handleCreateReminder = async () => {
-  setErrorMessage(null);
-  setSuccessMessage(null);
+  const clearReminderError = (key: keyof ReminderErrors) =>
+    setReminderErrors((p) => (p[key] ? { ...p, [key]: undefined } : p));
 
-  if (!newTitle.trim() || !newAmount.trim()) {
-    setErrorMessage('Please fill in both title and amount.');
-    return;
-  }
+  const handleCreateReminder = async () => {
+    setAddBanner(null);
 
-  if (!newCategoryId) {
-    setErrorMessage('Please choose a category for this reminder.');
-    return;
-  }
+    const errors: ReminderErrors = {};
+    const title = newTitle.trim();
+    const amountTrimmed = newAmount.trim();
 
-  
-  const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-  if (!dateRegex.test(newDueDate)) {
-    setErrorMessage('Invalid due date. Please use YYYY-MM-DD.');
-    return;
-  }
+    if (!title) errors.title = 'Enter a title for this reminder.';
 
-  // 3. Optional: Validate if it's a real calendar date (e.g., catching "2026-02-31")
-  const parsedDate = new Date(newDueDate);
-  const timestamp = parsedDate.getTime();
-  
-  if (
-    isNaN(timestamp) || 
-    parsedDate.toISOString().slice(0, 10) !== newDueDate
-  ) {
-    setErrorMessage('Please enter a valid calendar date (YYYY-MM-DD).');
-    return;
-  }
+    if (!amountTrimmed) {
+      errors.amount = 'Enter the reminder amount.';
+    } else if (!AMOUNT_REGEX.test(amountTrimmed)) {
+      errors.amount = 'Enter a valid amount, up to 2 decimal places.';
+    } else if (parseFloat(amountTrimmed) <= 0) {
+      errors.amount = 'Amount must be greater than zero.';
+    }
 
-  try {
-    setSubmitting(true);
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    if (!newCategoryId) errors.category = 'Choose a category for this reminder.';
+    if (!newDueDate) errors.date = 'Choose a due date.';
 
-    const parsedAmount = parseFloat(newAmount);
+    setReminderErrors(errors);
+    if (Object.keys(errors).length > 0) return;
 
-    const { error } = await supabase.from('reminders').insert({
-      user_id: user.id,
-      title: newTitle.trim(),
-      amount: parsedAmount,
-      due_date: newDueDate,
-      status: 'pending',
-      allowance_id: summary?.allowanceId || null,
-      category_id: newCategoryId,
-    });
+    try {
+      setSubmitting(true);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
 
-    if (error) throw error;
+      const parsedAmount = parseFloat(amountTrimmed);
 
-    // Log the successful reminder creation matching your logs table schema
-    await supabase.from('logs').insert({
-      user_id: user.id,
-      details: `created reminder "${newTitle.trim()}" (${parsedAmount}).`,
-    });
+      const { error } = await supabase.from('reminders').insert({
+        user_id: user.id,
+        title,
+        amount: parsedAmount,
+        due_date: newDueDate,
+        status: 'pending',
+        allowance_id: summary?.allowanceId || null,
+        category_id: newCategoryId,
+      });
+      if (error) throw error;
 
-    // Set success message
-    setSuccessMessage('Reminder saved successfully!');
-    fetchDashboardData();
-
-    // Optional: Wait 1 second so the user sees the success banner before closing the modal
-    setTimeout(() => {
-      resetForm();
-      setAddModalVisible(false);
-      setSuccessMessage(null);
-    }, 1000);
-
-  } catch (error: unknown) {
-    console.error('Error adding reminder:', extractErrorMessage(error));
-    setErrorMessage('Failed to save reminder. Please try again.');
-  } finally {
-    setSubmitting(false);
-  }
-};
-
-const handleDeleteReminder = (reminderId: string, reminderTitle: string) => {
-  setReminderToDelete({ id: reminderId, title: reminderTitle });
-  setDeleteModalVisible(true);
-};
-
-const confirmDeleteReminder = async () => {
-  if (!reminderToDelete) return;
-
-  try {
-    setIsDeleting(true);
-    const { error } = await supabase
-      .from('reminders')
-      .delete()
-      .eq('id', reminderToDelete.id);
-
-    if (error) throw error;
-    
-    // Fetch current user and log the deletion action matching your logs table schema
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
       await supabase.from('logs').insert({
         user_id: user.id,
-        details: `deleted reminder "${reminderToDelete.title || reminderToDelete.id}".`,
+        details: `created reminder "${title}" (${parsedAmount}).`,
       });
+
+      resetForm();
+      setAddModalVisible(false);
+      fetchDashboardData();
+      notify({
+        type: 'success',
+        title: 'Reminder saved',
+        message: `"${title}" was added to your upcoming dues.`,
+      });
+    } catch (error: unknown) {
+      console.error('Error adding reminder:', extractErrorMessage(error));
+      setAddBanner({ type: 'error', text: 'Failed to save reminder. Please try again.' });
+    } finally {
+      setSubmitting(false);
     }
+  };
 
-    fetchDashboardData();
-    
-    // 1. Clear any old errors and set your success message
-    setErrorMessage(null);
-    setSuccessMessage(`Successfully deleted "${reminderToDelete.title || 'reminder'}"`);
+  const handleDeleteReminder = (reminderId: string, reminderTitle: string) => {
+    setDeleteBanner(null);
+    setReminderToDelete({ id: reminderId, title: reminderTitle });
+    setDeleteModalVisible(true);
+  };
 
-    // 2. Close the delete confirmation modal and clear temporary deletion state
+  const closeDeleteModal = () => {
+    if (isDeleting) return;
     setDeleteModalVisible(false);
-    setReminderToDelete(null);
+    setDeleteBanner(null);
+  };
 
-    // 3. Optional: Automatically clear the success banner after 4 seconds
-    setTimeout(() => {
-      setSuccessMessage(null);
-    }, 4000);
+  const confirmDeleteReminder = async () => {
+    if (!reminderToDelete) return;
 
-  } catch (error: unknown) {
-    console.error('Error deleting reminder:', extractErrorMessage(error));
-    setSuccessMessage(null); // Clear any old success message on failure
-    setErrorMessage('Failed to delete reminder.');
-  } finally {
-    setIsDeleting(false);
-  }
-};
+    try {
+      setIsDeleting(true);
+      const { error } = await supabase
+        .from('reminders')
+        .delete()
+        .eq('id', reminderToDelete.id);
+      if (error) throw error;
 
-const handleSettleReminder = async (reminder: ReminderItem) => {
-  setErrorMessage(null);
-  setSuccessMessage(null);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await supabase.from('logs').insert({
+          user_id: user.id,
+          details: `deleted reminder "${reminderToDelete.title || reminderToDelete.id}".`,
+        });
+      }
 
-  try {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-
-    // 1. Fetch the user's active (non-archived) allowance records[cite: 1]
-    const { data: allowances, error: allowanceFetchError } = await supabase
-      .from('allowances')
-      .select('amount')
-      .eq('spender_id', user.id)
-      .eq('is_archived', false);
-
-    if (allowanceFetchError) throw allowanceFetchError;
-
-    if (!allowances || allowances.length === 0) {
-      setErrorMessage('Cannot settle reminder: No allowance records found.');
-      return;
+      const deletedTitle = reminderToDelete.title || 'reminder';
+      setDeleteModalVisible(false);
+      setDeleteBanner(null);
+      setReminderToDelete(null);
+      setDuesBanner({ type: 'success', text: `Deleted "${deletedTitle}".` });
+      fetchDashboardData();
+    } catch (error: unknown) {
+      console.error('Error deleting reminder:', extractErrorMessage(error));
+      setDeleteBanner({ type: 'error', text: 'Failed to delete reminder.' });
+    } finally {
+      setIsDeleting(false);
     }
+  };
 
-    const totalAllowance = allowances.reduce((sum, item) => sum + Number(item.amount), 0);
+  const handleSettleReminder = async (reminder: ReminderItem) => {
+    setDuesBanner(null);
 
-    // 2. Fetch expenses only where the associated allowance has is_archived = false
-    // Note: Replace 'allowances' with the exact foreign table name if it differs in your schema
-    const { data: expenses, error: expenseFetchError } = await supabase
-      .from('expenses')
-      .select(`
-        amount,
-        allowances!inner (
-          is_archived
-        )
-      `)
-      .eq('user_id', user.id)
-      .eq('allowances.is_archived', false);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
 
-    if (expenseFetchError) throw expenseFetchError;
+      const { data: allowances, error: allowanceFetchError } = await supabase
+        .from('allowances')
+        .select('amount')
+        .eq('spender_id', user.id)
+        .eq('is_archived', false);
+      if (allowanceFetchError) throw allowanceFetchError;
 
-    const totalExpenses = expenses ? expenses.reduce((sum, item) => sum + Number(item.amount), 0) : 0;
+      if (!allowances || allowances.length === 0) {
+        setDuesBanner({ type: 'error', text: 'Cannot settle reminder: no allowance records found.' });
+        return;
+      }
 
-    // 3. Calculate the actual remaining balance
-    const remaining = totalAllowance - totalExpenses;
+      const totalAllowance = allowances.reduce((sum, item) => sum + Number(item.amount), 0);
 
-    // 4. Check if the reminder amount exceeds the remaining balance
-    if (reminder.amount > remaining) {
-      setErrorMessage(`Cannot settle reminder: The amount (${reminder.amount}) exceeds your remaining balance (${remaining}).`);
-      return;
-    }
+      const { data: expenses, error: expenseFetchError } = await supabase
+        .from('expenses')
+        .select(`
+          amount,
+          allowances!inner (
+            is_archived
+          )
+        `)
+        .eq('user_id', user.id)
+        .eq('allowances.is_archived', false);
+      if (expenseFetchError) throw expenseFetchError;
 
-    // 5. Update reminder status to 'paid'
-    const { error: updateError } = await supabase
-      .from('reminders')
-      .update({ status: 'paid' })
-      .eq('id', reminder.id);
+      const totalExpenses = expenses ? expenses.reduce((sum, item) => sum + Number(item.amount), 0) : 0;
 
-    if (updateError) throw updateError;
+      const remaining = totalAllowance - totalExpenses;
+      if (reminder.amount > remaining) {
+        setDuesBanner({
+          type: 'error',
+          text: `The amount (₱${Number(reminder.amount).toLocaleString('en-US')}) exceeds your remaining allowance (₱${remaining.toLocaleString('en-US')}).`,
+        });
+        return;
+      }
 
-    // 6. Insert record into the expenses table
-    const { error: expenseError } = await supabase
-      .from('expenses')
-      .insert({
+      const { error: updateError } = await supabase
+        .from('reminders')
+        .update({ status: 'paid' })
+        .eq('id', reminder.id);
+      if (updateError) throw updateError;
+
+      const { error: expenseError } = await supabase
+        .from('expenses')
+        .insert({
+          user_id: user.id,
+          description: reminder.title,
+          amount: reminder.amount,
+          category_id: reminder.category_id || null,
+          allowance_id: summary?.allowanceId || null,
+          spent_at: new Date().toISOString(),
+        });
+      if (expenseError) throw expenseError;
+
+      await supabase.from('logs').insert({
         user_id: user.id,
-        description: reminder.title,
-        amount: reminder.amount,
-        category_id: reminder.category_id || null,
-        allowance_id: summary?.allowanceId || null,
-        spent_at: new Date().toISOString(),
+        details: `settled reminder "${reminder.title}" (${reminder.amount}).`,
       });
 
-    if (expenseError) throw expenseError;
-
-    // Log the successful settlement action matching your logs table schema
-    await supabase.from('logs').insert({
-      user_id: user.id,
-      details: `settled reminder "${reminder.title}" (${reminder.amount}).`,
-    });
-
-    setSuccessMessage(`"${reminder.title}" has been settled and recorded.`);
-    fetchDashboardData();
-  } catch (error: unknown) {
-    console.error('Error settling reminder:', extractErrorMessage(error));
-    setErrorMessage('Failed to settle reminder.');
-  }
-};
+      setDuesBanner({ type: 'success', text: `"${reminder.title}" has been settled and recorded.` });
+      fetchDashboardData();
+    } catch (error: unknown) {
+      console.error('Error settling reminder:', extractErrorMessage(error));
+      setDuesBanner({ type: 'error', text: 'Failed to settle reminder.' });
+    }
+  };
 
   if (loading) {
-    return (
-      <View style={[styles.loadingContainer, { backgroundColor: theme.colors.background }]}>
-        <ExpoStatusBar style="light" />
-        <ActivityIndicator size="large" color={theme.colors.brand} />
-      </View>
-    );
+    return <SpenderHomeSkeleton topInset={topInset} headerHeight={HEADER_EXPANDED} />;
   }
 
   const remainingPercentage = summary && summary.totalAllowance > 0
@@ -663,7 +745,14 @@ const handleSettleReminder = async (reminder: ReminderItem) => {
     return upcomingDues.some(due => due.due_date === dateStr && due.status === 'pending');
   };
 
+  const closeDuesModal = () => {
+    setModalVisible(false);
+    setSelectedDate(todayStr);
+    setDuesBanner(null);
+  };
+
   const handleDatePress = (dateStr: string) => {
+    setDuesBanner(null);
     setSelectedDate(dateStr);
     setModalVisible(true);
   };
@@ -671,37 +760,61 @@ const handleSettleReminder = async (reminder: ReminderItem) => {
   const filteredDues = upcomingDues.filter(due => due.due_date === selectedDate);
   const selectedDaysInfo = getDaysInfo(selectedDate);
 
-  // SVG Donut Chart Calculation variables
   const size = 200;
-  const CHART_BOX = 260; // must match circleContainer width/height in ui.styles.ts
+  const CHART_BOX = 260;
   const strokeWidth = 23;
   const center = size / 2;
   const radius = center - strokeWidth;
   const circumference = 2 * Math.PI * radius;
 
-  // Opens the soonest pending due (or the add-reminder form when there is none)
   const openSoonestDue = () => {
     const next = upcomingDues
       .filter((due) => due.status === 'pending')
       .sort((x, y) => x.due_date.localeCompare(y.due_date))[0];
     if (next) handleDatePress(next.due_date);
-    else setAddModalVisible(true);
+    else openAddModal();
   };
 
-  // "Expense per Category" breakdown, recomputed client-side for the selected
-  // Weekly / Monthly / Yearly period from the raw expense rows already fetched above.
+  // "Expense per Category" breakdown for All time, Today, This Week, This Month, This Year
   const periodTotalExpenses = (() => {
     const now = new Date();
-    const cutoff = new Date(now);
-    if (statsPeriod === 'weekly') cutoff.setDate(now.getDate() - 7);
-    else if (statsPeriod === 'monthly') cutoff.setMonth(now.getMonth() - 1);
-    else cutoff.setFullYear(now.getFullYear() - 1);
+    const todayStrOnly = now.toISOString().split('T')[0];
 
-    const inRange = rawExpenses.filter((exp: any) => exp.spent_at && new Date(exp.spent_at) >= cutoff);
-    const total = inRange.reduce((sum: number, exp: any) => sum + Number(exp.amount || 0), 0);
+    let filteredExpenses = rawExpenses;
+
+    if (statsPeriod === 'today') {
+      filteredExpenses = rawExpenses.filter((exp: any) => exp.spent_at?.startsWith(todayStrOnly));
+    } else if (statsPeriod === 'weekly') {
+      const startOfWeek = new Date(now);
+      startOfWeek.setDate(now.getDate() - now.getDay());
+      startOfWeek.setHours(0, 0, 0, 0);
+
+      filteredExpenses = rawExpenses.filter((exp: any) => {
+        if (!exp.spent_at) return false;
+        const expDate = new Date(exp.spent_at);
+        return expDate >= startOfWeek;
+      });
+    } else if (statsPeriod === 'monthly') {
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      filteredExpenses = rawExpenses.filter((exp: any) => {
+        if (!exp.spent_at) return false;
+        const expDate = new Date(exp.spent_at);
+        return expDate >= startOfMonth;
+      });
+    } else if (statsPeriod === 'yearly') {
+      const startOfYear = new Date(now.getFullYear(), 0, 1);
+      filteredExpenses = rawExpenses.filter((exp: any) => {
+        if (!exp.spent_at) return false;
+        const expDate = new Date(exp.spent_at);
+        return expDate >= startOfYear;
+      });
+    }
+    // 'all' includes all items
+
+    const total = filteredExpenses.reduce((sum: number, exp: any) => sum + Number(exp.amount || 0), 0);
 
     const map: { [key: string]: { name: string; icon?: string; total: number } } = {};
-    inRange.forEach((exp: any) => {
+    filteredExpenses.forEach((exp: any) => {
       const catId = exp.category_id || 'uncategorized';
       const catName = exp.categories?.name || 'Uncategorized';
       const catIcon = exp.categories?.icon;
@@ -727,7 +840,6 @@ const handleSettleReminder = async (reminder: ReminderItem) => {
   })();
   const categoryStats = periodTotalExpenses.stats;
 
-  // donut segments: arc path + gradient end points for each category
   const donutSegments = (() => {
     let acc = 0;
     return categoryStats.map((stat, index) => {
@@ -757,13 +869,12 @@ const handleSettleReminder = async (reminder: ReminderItem) => {
     <View style={styles.mainContainer}>
       <StatusBar barStyle="light-content" translucent />
 
-      {/* HEADER (collapses while scrolling) */}
+      {/* HEADER */}
       <Animated.View style={[styles.headerBackground, headerAnimatedStyle]}>
         <View style={styles.headerGradientClip}>
           <GradientBackground />
         </View>
 
-        {/* expanded layer */}
         <Animated.View style={[styles.headerExpanded, { paddingTop: topInset }, expandedLayerStyle]}>
           <View style={styles.topRowContainer}>
             <View style={styles.topRow}>
@@ -798,7 +909,7 @@ const handleSettleReminder = async (reminder: ReminderItem) => {
 
           <View style={styles.balanceBlock}>
             <View style={styles.balanceLabelRow}>
-              <Text style={styles.balanceLabel}>Remaining Balance</Text>
+              <Text style={styles.balanceLabel}>Remaining Allowance</Text>
             </View>
 
             <View style={styles.pillTrackOuter}>
@@ -819,7 +930,6 @@ const handleSettleReminder = async (reminder: ReminderItem) => {
           </View>
         </Animated.View>
 
-        {/* compact layer (shown after scrolling) */}
         <Animated.View style={[styles.headerCompact, { paddingTop: topInset }, compactLayerStyle]}>
           <View style={styles.compactTopRow}>
             <TouchableOpacity style={styles.compactUser} onPress={() => router.push('/profile')} activeOpacity={0.8}>
@@ -836,10 +946,7 @@ const handleSettleReminder = async (reminder: ReminderItem) => {
             </TouchableOpacity>
 
             <View style={styles.compactActions}>
-              {/* <TouchableOpacity style={styles.headerIconButton} onPress={openSoonestDue} activeOpacity={0.8}>
-                <Ionicons name="calendar-outline" size={18} color={theme.colors.white} />
-              </TouchableOpacity> */}
-              <TouchableOpacity style={styles.headerIconButton} onPress={() => setAddModalVisible(true)} activeOpacity={0.8}>
+              <TouchableOpacity style={styles.headerIconButton} onPress={openAddModal} activeOpacity={0.8}>
                 <Ionicons name="add" size={20} color={theme.colors.white} />
               </TouchableOpacity>
             </View>
@@ -883,10 +990,7 @@ const handleSettleReminder = async (reminder: ReminderItem) => {
           <View style={styles.sectionHeaderRow}>
             <Text style={styles.sectionTitle}>Upcoming Dues</Text>
             <View style={styles.duesActions}>
-              {/* <TouchableOpacity style={styles.dueIconButton} onPress={openSoonestDue} activeOpacity={0.8}>
-                <Ionicons name="calendar-outline" size={15} color={theme.colors.mintPillText} />
-              </TouchableOpacity> */}
-              <TouchableOpacity style={styles.addReminderPill} onPress={() => setAddModalVisible(true)} activeOpacity={0.8}>
+              <TouchableOpacity style={styles.addReminderPill} onPress={openAddModal} activeOpacity={0.8}>
                 <View style={styles.pillPlusCircle}>
                   <Ionicons name="add" size={12} color={theme.colors.white} />
                 </View>
@@ -895,7 +999,6 @@ const handleSettleReminder = async (reminder: ReminderItem) => {
             </View>
           </View>
 
-          {/* Upcoming due cards */}
           {(() => {
             const pendingDues = upcomingDues
               .filter((due) => due.status === 'pending')
@@ -969,7 +1072,6 @@ const handleSettleReminder = async (reminder: ReminderItem) => {
             </View>
           </View>
 
-          {/* Dropdown: drops down right under the pill (no dimmed screen, no centered popup) */}
           <Modal
             visible={periodMenuVisible}
             transparent
@@ -983,7 +1085,7 @@ const handleSettleReminder = async (reminder: ReminderItem) => {
               onPress={() => setPeriodMenuVisible(false)}
             >
               <View style={[styles.periodDropdownMenu, { top: periodAnchor.top, right: periodAnchor.right }]}>
-                {(['weekly', 'monthly', 'yearly'] as const).map((period) => (
+                {(['all', 'today', 'weekly', 'monthly', 'yearly'] as const).map((period) => (
                   <TouchableOpacity
                     key={period}
                     style={styles.periodDropdownItem}
@@ -1011,7 +1113,6 @@ const handleSettleReminder = async (reminder: ReminderItem) => {
           </Modal>
 
           <View style={styles.statsCard}>
-            {/* Multi-Segment Donut Chart Display */}
             <View style={styles.circleContainer}>
               <Svg width={size} height={size}>
                 <Defs>
@@ -1031,10 +1132,8 @@ const handleSettleReminder = async (reminder: ReminderItem) => {
                   ))}
                 </Defs>
 
-                {/* Background Track Circle */}
                 <Circle cx={center} cy={center} r={radius} stroke={theme.colors.surfaceAlt} strokeWidth={strokeWidth} fill="none" />
 
-                {/* Gradient category segments */}
                 {donutSegments.map((seg) => {
                   if (seg.stat.percentage < 0.4) return null;
                   return seg.full ? (
@@ -1060,7 +1159,6 @@ const handleSettleReminder = async (reminder: ReminderItem) => {
                 })}
               </Svg>
 
-              {/* Icon + percentage labels around the ring */}
               {donutSegments.map((seg) => {
                 if (seg.stat.percentage < 4) return null;
                 const labelRadius = radius + strokeWidth / 2 + 24;
@@ -1082,7 +1180,6 @@ const handleSettleReminder = async (reminder: ReminderItem) => {
               </View>
             </View>
 
-            {/* Category Breakdown Legend List */}
             <View style={styles.legendContainer}>
               {categoryStats
                 .slice()
@@ -1224,272 +1321,197 @@ const handleSettleReminder = async (reminder: ReminderItem) => {
         </View>
       </Animated.ScrollView>
 
-      {/* MODAL FOR PENDING DUES */}
-      <Modal
-        animationType="fade"
-        transparent={true}
+      {/* SCHEDULED DUES */}
+      <Sheet
         visible={modalVisible}
-        onRequestClose={() => setModalVisible(false)}
+        title="Scheduled Dues"
+        subtitle={formatReadableDate(selectedDate)}
+        onClose={closeDuesModal}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContainer}>
-            <View style={styles.modalHeader}>
-              <View style={styles.modalHeaderLeft}>
-                <View>
-                  <Text style={styles.modalTitle}>Scheduled Dues</Text>
-                  <Text style={styles.modalSubtitle}>{formatReadableDate(selectedDate)}</Text>
-                </View>
-                {/* Only show the days remaining/overdue badge if there are pending dues or if not all items are paid */}
-                {filteredDues.length > 0 && filteredDues.some(d => d.status === 'pending') && (
-                  <View style={[
-                    styles.dueBadgeHome, 
-                    { backgroundColor: selectedDaysInfo.urgent ? theme.colors.dangerBg : theme.colors.alpha.brand[10] }
-                  ]}>
-                    <Text style={[
-                      styles.dueBadgeTextHome, 
-                      { color: selectedDaysInfo.urgent ? theme.colors.danger : theme.colors.brand }
-                    ]}>
-                      {selectedDaysInfo.text}
-                    </Text>
+        <Banner message={duesBanner} />
+
+        {filteredDues.some((d) => d.status === 'pending') && (
+          <View
+            style={[
+              sheetStyles.dueDaysBadge,
+              { backgroundColor: selectedDaysInfo.urgent ? theme.colors.dangerBg : theme.colors.alpha.brand[10] },
+            ]}
+          >
+            <Text
+              style={[
+                sheetStyles.dueDaysBadgeText,
+                { color: selectedDaysInfo.urgent ? theme.colors.danger : theme.colors.brand },
+              ]}
+            >
+              {selectedDaysInfo.text}
+            </Text>
+          </View>
+        )}
+
+        {filteredDues.length > 0 ? (
+          <View style={{ gap: theme.space[10] }}>
+            {filteredDues.map((due, index) => {
+              const cardBgColor = theme.chart.lightCards[index % theme.chart.lightCards.length];
+              const categoryIcon = due.categories?.icon || 'pricetag-outline';
+              const isPaid = due.status === 'paid';
+
+              return (
+                <View
+                  key={due.id}
+                  style={[styles.reminderCardHome, { backgroundColor: cardBgColor, opacity: isPaid ? 0.75 : 1 }]}
+                >
+                  <View style={styles.calendarBadgeHome}>
+                    <Ionicons name={categoryIcon as any} size={22} color={theme.colors.brand} />
                   </View>
-                )}
-              </View>
 
-              <TouchableOpacity 
-                onPress={() => {
-                  setModalVisible(false);
-                  setSelectedDate(todayStr);
-                  setErrorMessage(null);   // <-- Add this
-                  setSuccessMessage(null); // <-- Add this
-                }} 
-                style={styles.modalCloseButton}
-              >
-                <Ionicons name="close" size={20} color={theme.colors.textMuted} />
-              </TouchableOpacity>
-            </View>
+                  <View style={styles.cardContentHome}>
+                    <Text style={[styles.reminderTitleHome, isPaid && { textDecorationLine: 'line-through', color: theme.colors.textMuted }]}>
+                      {due.title}
+                    </Text>
+                    <Text style={styles.reminderSubHome}>₱{Number(due.amount).toFixed(2)}</Text>
+                  </View>
 
-            {errorMessage && (
-              <View style={styles.inlineErrorContainer}>
-                <Ionicons name="alert-circle-outline" size={18} color={theme.colors.danger} />
-                <Text style={styles.inlineErrorText}>{errorMessage}</Text>
-              </View>
-            )}
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.space[8] }}>
+                    {isPaid ? (
+                      <View style={{ paddingHorizontal: theme.space[12], paddingVertical: theme.space[6], backgroundColor: theme.colors.alpha.olive[15], borderRadius: theme.radius.sm, marginRight: theme.space[4] }}>
+                        <Text style={{ color: theme.colors.olive, fontFamily: theme.fontFamily.semibold, fontSize: theme.fontSize.caption }}>Paid</Text>
+                      </View>
+                    ) : (
+                      <TouchableOpacity
+                        style={[styles.deleteButtonHome, { backgroundColor: theme.colors.alpha.brand[10] }]}
+                        onPress={() => handleSettleReminder(due)}
+                        activeOpacity={0.7}
+                      >
+                        <Ionicons name="checkmark-outline" size={18} color={theme.colors.brand} />
+                      </TouchableOpacity>
+                    )}
 
-            {successMessage && (
-              <View style={styles.inlineSuccessContainer}>
-                <Ionicons name="checkmark-circle-outline" size={18} color={theme.colors.olive} />
-                <Text style={styles.inlineSuccessText}>{successMessage}</Text>
-              </View>
-            )}
-
-            <ScrollView contentContainerStyle={styles.modalBody} showsVerticalScrollIndicator={false}>
-              {filteredDues.length > 0 ? (
-                filteredDues.map((due, index) => {
-                  const cardBgColor = theme.chart.lightCards[index % theme.chart.lightCards.length];
-                  const categoryIcon = due.categories?.icon || 'pricetag-outline';
-                  const isPaid = due.status === 'paid';
-
-                  return (
-                    <View
-                      key={due.id}
-                      style={[styles.reminderCardHome, { backgroundColor: cardBgColor, opacity: isPaid ? 0.75 : 1 }]}
+                    <TouchableOpacity
+                      style={styles.deleteButtonHome}
+                      onPress={() => handleDeleteReminder(due.id, due.title)}
+                      activeOpacity={0.7}
                     >
-                      <View style={styles.calendarBadgeHome}>
-                        <Ionicons name={categoryIcon as any} size={22} color={theme.colors.brand} />
-                      </View>
-
-                      <View style={styles.cardContentHome}>
-                        <Text style={[styles.reminderTitleHome, isPaid && { textDecorationLine: 'line-through', color: theme.colors.textMuted }]}>
-                          {due.title}
-                        </Text>
-                        <Text style={styles.reminderSubHome}>
-                          ₱{Number(due.amount).toFixed(2)}
-                        </Text>
-                      </View>
-
-                      {/* Conditional Actions or Paid Badge */}
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.space[8] }}>
-                        {isPaid ? (
-                          <View style={{ paddingHorizontal: theme.space[12], paddingVertical: theme.space[6], backgroundColor: theme.colors.alpha.olive[15], borderRadius: theme.radius.sm, marginRight: theme.space[4] }}>
-                            <Text style={{ color: theme.colors.olive, fontFamily: theme.fontFamily.semibold, fontSize: theme.fontSize.caption }}>Paid</Text>
-                          </View>
-                        ) : (
-                          /* Settle Button (Only shown when not paid) */
-                          <TouchableOpacity 
-                            style={[styles.deleteButtonHome, { backgroundColor: theme.colors.alpha.brand[10] }]} 
-                            onPress={() => handleSettleReminder(due)}
-                            activeOpacity={0.7}
-                          >
-                            <Ionicons name="checkmark-outline" size={18} color={theme.colors.brand} />
-                          </TouchableOpacity>
-                        )}
-
-                        {/* Delete Button (Always shown) */}
-                        <TouchableOpacity 
-                          style={styles.deleteButtonHome} 
-                          onPress={() => handleDeleteReminder(due.id, due.title)}
-                          activeOpacity={0.7}
-                        >
-                          <Ionicons name="trash-outline" size={18} color={theme.colors.danger} />
-                        </TouchableOpacity>
-                      </View>
-                    </View>
-                  );
-                })
-              ) : (
-                <View style={styles.emptyStateContainer}>
-                  <Ionicons name="checkmark-circle-outline" size={48} color={theme.colors.brand} />
-                  <Text style={styles.emptyStateTitle}>All Clear!</Text>
-                  <Text style={styles.emptyStateText}>No reminders set for this date.</Text>
+                      <Ionicons name="trash-outline" size={18} color={theme.colors.danger} />
+                    </TouchableOpacity>
+                  </View>
                 </View>
-              )}
-            </ScrollView>
+              );
+            })}
           </View>
-        </View>
-      </Modal>
-
-{/* CUSTOM DELETE CONFIRMATION MODAL */}
-<Modal
-  animationType="fade"
-  transparent={true}
-  visible={deleteModalVisible}
-  onRequestClose={() => !isDeleting && setDeleteModalVisible(false)}
->
-  {/* Ensure modalOverlay has justifyContent and alignItems set to 'center' */}
-  <View style={[styles.modalOverlay, { justifyContent: 'center', alignItems: 'center' }]}>
-    <View style={[styles.modalContainer2, { width: '85%', maxWidth: 340, padding: theme.space[24], alignItems: 'center', alignSelf: 'center' }]}>
-      
-      {/* Warning Icon with subtle red aura */}
-      <View style={{
-        width: 48,
-        height: 48,
-        borderRadius: theme.radius.xxl,
-        backgroundColor: theme.colors.dangerBg,
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginBottom: theme.space[16],
-        borderWidth: 8,
-        borderColor: theme.colors.dangerSoft
-      }}>
-        <Ionicons name="alert-circle-outline" size={24} color={theme.colors.danger} />
-      </View>
-
-      {/* Title */}
-      <Text style={{ fontSize: theme.fontSize.title, fontFamily: theme.fontFamily.bold, color: theme.colors.gray900, marginBottom: theme.space[8], textAlign: 'center' }}>
-        Delete Reminder
-      </Text>
-
-      {/* Subtitle / Description */}
-      <Text style={{ fontFamily: theme.fontFamily.regular, fontSize: theme.fontSize.body, color: theme.colors.textGray, textAlign: 'center', marginBottom: theme.space[24], lineHeight: 20 }}>
-        Are you sure you want to delete "{reminderToDelete?.title}"?{'\n'}This action cannot be undone.
-      </Text>
-
-      {/* Action Buttons */}
-      <View style={{ flexDirection: 'row', gap: theme.space[12], width: '100%' }}>
-        <TouchableOpacity
-          style={{
-            flex: 1,
-            backgroundColor: theme.colors.surfaceGray,
-            paddingVertical: theme.space[12],
-            borderRadius: theme.radius.md,
-            alignItems: 'center',
-          }}
-          onPress={() => setDeleteModalVisible(false)}
-          disabled={isDeleting}
-        >
-          <Text style={{ color: theme.colors.gray700, fontFamily: theme.fontFamily.semibold, fontSize: theme.fontSize.bodyLg }}>Cancel</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={{
-            flex: 1,
-            backgroundColor: theme.colors.danger,
-            paddingVertical: theme.space[12],
-            borderRadius: theme.radius.md,
-            alignItems: 'center',
-          }}
-          onPress={confirmDeleteReminder}
-          disabled={isDeleting}
-        >
-          <Text style={{ color: theme.colors.white, fontFamily: theme.fontFamily.semibold, fontSize: theme.fontSize.bodyLg }}>
-            {isDeleting ? 'Deleting...' : 'Delete'}
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-    </View>
-  </View>
-</Modal>
-
-      {/* MODAL FOR ADDING A NEW REMINDER (rides above the keyboard) */}
-      <KeyboardAwareModal visible={addModalVisible} onClose={closeAddModal} onShow={fetchCategories}>
-        <View style={styles.modalHeader}>
-          <View>
-            <Text style={styles.modalTitle}>Add New Reminder</Text>
-            <Text style={styles.modalSubtitle}>Fill in reminder details</Text>
-          </View>
-          <TouchableOpacity onPress={closeAddModal} style={styles.modalCloseButton}>
-            <Ionicons name="close" size={20} color={theme.colors.textMuted} />
-          </TouchableOpacity>
-        </View>
-
-        {/* Inline Error Banner */}
-        {errorMessage && (
-          <View style={styles.inlineErrorContainer}>
-            <Ionicons name="alert-circle-outline" size={18} color={theme.colors.danger} />
-            <Text style={styles.inlineErrorText}>{errorMessage}</Text>
+        ) : (
+          <View style={sheetStyles.emptyState}>
+            <View style={sheetStyles.emptyIcon}>
+              <Ionicons name="checkmark-circle-outline" size={22} color={theme.colors.textMuted} />
+            </View>
+            <Text style={sheetStyles.emptyTitle}>All Clear!</Text>
+            <Text style={sheetStyles.emptySubtitle}>No reminders set for this date.</Text>
           </View>
         )}
+      </Sheet>
 
-        {/* Inline Success Banner */}
-        {successMessage && (
-          <View style={styles.inlineSuccessContainer}>
-            <Ionicons name="checkmark-circle-outline" size={18} color={theme.colors.green} />
-            <Text style={styles.inlineSuccessText}>{successMessage}</Text>
-          </View>
-        )}
+      {/* DELETE REMINDER */}
+      <Sheet
+        visible={deleteModalVisible}
+        title="Delete Reminder"
+        subtitle="This action cannot be undone."
+        onClose={closeDeleteModal}
+        footer={
+          <SheetActions
+            onCancel={closeDeleteModal}
+            onSubmit={confirmDeleteReminder}
+            submitLabel="Delete"
+            loading={isDeleting}
+            danger
+          />
+        }
+      >
+        <Banner message={deleteBanner} />
+        <Text style={sheetStyles.confirmText}>
+          Are you sure you want to delete{' '}
+          <Text style={sheetStyles.confirmTextStrong}>"{reminderToDelete?.title}"</Text>?
+        </Text>
+      </Sheet>
 
-        <View style={styles.formContainer}>
-          <Text style={styles.inputLabel}>Title</Text>
+      {/* ADD REMINDER */}
+      <Sheet
+        visible={addModalVisible}
+        title="Add New Reminder"
+        subtitle="Fill in reminder details."
+        onClose={closeAddModal}
+        footer={
+          <SheetActions
+            onCancel={closeAddModal}
+            onSubmit={handleCreateReminder}
+            submitLabel="Save Reminder"
+            loading={submitting}
+          />
+        }
+      >
+        <Banner message={addBanner} />
+
+        <Field label="Title" error={reminderErrors.title}>
           <TextInput
-            style={styles.textInput}
+            style={[sheetStyles.input, !!reminderErrors.title && sheetStyles.inputError]}
             placeholder="e.g., Electricity Bill"
             placeholderTextColor={theme.colors.textMuted}
             value={newTitle}
-            onChangeText={setNewTitle}
+            onChangeText={(t) => {
+              setNewTitle(t);
+              clearReminderError('title');
+            }}
           />
+        </Field>
 
-          <Text style={styles.inputLabel}>Amount (₱)</Text>
-          <TextInput
-            style={styles.textInput}
-            placeholder="0.00"
-            placeholderTextColor={theme.colors.textMuted}
-            keyboardType="numeric"
-            value={newAmount}
-            onChangeText={setNewAmount}
+        <Field label="Amount (PHP)" error={reminderErrors.amount}>
+          <View style={sheetStyles.amountWrapper}>
+            <Text style={sheetStyles.currencyPrefix}>₱</Text>
+            <TextInput
+              style={[sheetStyles.input, sheetStyles.amountInput, !!reminderErrors.amount && sheetStyles.inputError]}
+              placeholder="0.00"
+              placeholderTextColor={theme.colors.textMuted}
+              keyboardType="decimal-pad"
+              value={newAmount}
+              onChangeText={(t) => {
+                setNewAmount(t);
+                clearReminderError('amount');
+              }}
+            />
+          </View>
+        </Field>
+
+        <Field label="Category" error={reminderErrors.category}>
+          <CategoryDropdown
+            categories={categories}
+            value={newCategoryId}
+            onChange={(id) => {
+              setNewCategoryId(id);
+              clearReminderError('category');
+            }}
           />
+        </Field>
 
-          <Text style={styles.inputLabel}>Category</Text>
-          <CategoryDropdown categories={categories} value={newCategoryId} onChange={setNewCategoryId} />
-
-          <Text style={styles.inputLabel}>Due Date (YYYY-MM-DD)</Text>
-          <TextInput
-            style={styles.textInput}
-            placeholder="YYYY-MM-DD"
-            placeholderTextColor={theme.colors.textMuted}
+        <Field label="Due Date" error={reminderErrors.date}>
+          <DateButton
             value={newDueDate}
-            onChangeText={setNewDueDate}
+            hasError={!!reminderErrors.date}
+            onPress={() => setDatePickerVisible(true)}
           />
+        </Field>
+      </Sheet>
 
-          <TouchableOpacity style={styles.submitButton} onPress={handleCreateReminder} disabled={submitting}>
-            {submitting ? (
-              <ActivityIndicator color={theme.colors.white} />
-            ) : (
-              <Text style={styles.submitButtonText}>Save Reminder</Text>
-            )}
-          </TouchableOpacity>
-        </View>
-      </KeyboardAwareModal>
+      {/* DUE DATE PICKER */}
+      <DatePickerSheet
+        visible={datePickerVisible}
+        value={newDueDate}
+        title="Select Due Date"
+        subtitle="Tap the day this reminder is due."
+        onClose={() => setDatePickerVisible(false)}
+        onConfirm={(dateStr) => {
+          setNewDueDate(dateStr);
+          clearReminderError('date');
+          setDatePickerVisible(false);
+        }}
+      />
     </View>
   );
 }

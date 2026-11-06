@@ -1,11 +1,10 @@
 import { theme } from '@/constants/theme';
-import { transactionStyles as styles } from '@/constants/ui.styles';
+import { sponsorHomeStyles as sheetStyles, transactionStyles as styles } from '@/constants/ui.styles';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   Image,
   Modal,
   NativeScrollEvent,
@@ -20,7 +19,21 @@ import {
 } from 'react-native';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GradientBackground } from '../../components/GradientBackground';
+import { useAlert } from '../../components/PaytonAlert';
+import {
+  AMOUNT_REGEX,
+  Banner,
+  Field,
+  MODAL_SWAP_DELAY,
+  Msg,
+  Sheet,
+  SheetActions,
+} from '../../components/Sheet';
+import { Skeleton } from '../../components/Skeleton';
 import { supabase } from '../../lib/supabase';
+
+const HIT_SLOP = { top: 10, bottom: 10, left: 10, right: 10 };
+const HIT_SLOP_SM = { top: 8, bottom: 8, left: 8, right: 8 };
 
 const COLORS = {
   white: theme.colors.white,
@@ -47,6 +60,16 @@ interface Category {
   color: string;
 }
 
+interface BudgetWallet {
+  category_id: string;
+  category_name: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  color: string;
+  allocated_amount: number;
+  spent_amount: number;
+  remaining_amount: number;
+}
+
 function TransactionsScreenContent() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -55,13 +78,20 @@ function TransactionsScreenContent() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [budgetWallets, setBudgetWallets] = useState<BudgetWallet[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [showScrollTop, setShowScrollTop] = useState(false);
 
-  // Global Inline Success Alert State (for screen-level notices like deletion)
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+    // Global Inline Success Alert State (for screen-level notices like deletion)
+    const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  // Add/Edit Expense Modal States
+  const { showAlert } = useAlert();
+  /** Sheets and the alert are both Modals: close the sheet first, then show the alert once it is gone. */
+  const notify = (config: Parameters<typeof showAlert>[0]) => {
+    setTimeout(() => showAlert(config), MODAL_SWAP_DELAY);
+  };
+
+  // Add/Edit Expense sheet
   const [isAddModalVisible, setIsAddModalVisible] = useState(false);
   const [amountInput, setAmountInput] = useState('');
   const [descriptionInput, setDescriptionInput] = useState('');
@@ -71,14 +101,16 @@ function TransactionsScreenContent() {
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [allowanceIdInput, setAllowanceIdInput] = useState<string | null>(null);
 
-  // Inline Modal Feedback States
-  const [modalError, setModalError] = useState<string | null>(null);
-  const [modalSuccess, setModalSuccess] = useState<string | null>(null);
+  // Field-level errors show right under each input; submit/server messages go to a banner inside the sheet.
+  type ExpenseErrors = { amount?: string; description?: string; category?: string };
+  const [expenseErrors, setExpenseErrors] = useState<ExpenseErrors>({});
+  const [modalBanner, setModalBanner] = useState<Msg>(null);
 
-  // Custom Modern Delete Confirmation States
+  // Delete confirmation sheet
   const [isDeleteModalVisible, setIsDeleteModalVisible] = useState(false);
   const [transactionToDelete, setTransactionToDelete] = useState<Transaction | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteBanner, setDeleteBanner] = useState<Msg>(null);
 
   // Full-screen Image Viewer State
   const [selectedImageUri, setSelectedImageUri] = useState<string | null>(null);
@@ -102,18 +134,26 @@ function TransactionsScreenContent() {
     setSelectedCategory(null);
     setEditingTransaction(null);
     setAllowanceIdInput(null);
-    setModalError(null);
-    setModalSuccess(null);
+    setExpenseErrors({});
+    setModalBanner(null);
     setIsAddModalVisible(false);
   };
+
+  const closeAddModal = () => {
+    if (isSubmitting) return;
+    handleCloseModal();
+  };
+
+  const clearExpenseError = (key: keyof ExpenseErrors) =>
+    setExpenseErrors((p) => (p[key] ? { ...p, [key]: undefined } : p));
 
   const handleOpenEditModal = (expense: Transaction) => {
     setEditingTransaction(expense);
     setAmountInput(expense.amount.toString());
     setDescriptionInput(expense.description);
     setAllowanceIdInput(expense.allowance_id || null);
-    setModalError(null);
-    setModalSuccess(null);
+    setExpenseErrors({});
+    setModalBanner(null);
     
     const matchedCat = categories.find(cat => cat.name === expense.categories.name);
     setSelectedCategory(matchedCat || null);
@@ -153,12 +193,14 @@ function TransactionsScreenContent() {
           spent_at,
           photo_url,
           allowance_id,
+          category_id,
           categories (
             name,
             icon,
             color
           ),
           allowances!inner (
+            id,
             is_archived
           )
         `)
@@ -179,15 +221,84 @@ function TransactionsScreenContent() {
           spent_at: expense.spent_at,
           photo_url: expense.photo_url || null,
           allowance_id: expense.allowance_id || null,
+          category_id: expense.category_id || null,
           categories: {
             name: rawCategory?.name || 'Uncategorized',
             icon: rawCategory?.icon || 'receipt-outline',
-            color: rawCategory?.color || theme.colors.textMuted
+            color: rawCategory?.color || '#64748B'
           }
         };
       });
 
       setTransactions(formattedData as Transaction[]);
+
+      // Fetch Budgets & Compute Budget Wallets per Category
+      const { data: allowanceData } = await supabase
+        .from('allowances')
+        .select('id')
+        .eq('is_archived', false);
+
+      const activeAllowanceIds = (allowanceData || []).map((inc: any) => inc.id);
+
+      if (activeAllowanceIds.length > 0) {
+        const { data: budgetData, error: budgetErr } = await supabase
+          .from('budgets')
+          .select(`
+            category_id,
+            allocated_amount,
+            allowance_id,
+            categories (
+              name,
+              icon,
+              color
+            )
+          `)
+          .in('allowance_id', activeAllowanceIds);
+
+        if (!budgetErr && budgetData) {
+          // Aggregate budgets per category across active allowances
+          const walletMap: { [key: string]: BudgetWallet } = {};
+
+          budgetData.forEach((b: any) => {
+            const catId = b.category_id;
+            const rawCat = Array.isArray(b.categories) ? b.categories[0] : b.categories;
+            const allocated = Number(b.allocated_amount || 0);
+
+            if (!walletMap[catId]) {
+              walletMap[catId] = {
+                category_id: catId,
+                category_name: rawCat?.name || 'Category',
+                icon: rawCat?.icon || 'receipt-outline',
+                color: rawCat?.color || '#1F4F59',
+                allocated_amount: 0,
+                spent_amount: 0,
+                remaining_amount: 0,
+              };
+            }
+            walletMap[catId].allocated_amount += allocated;
+          });
+
+          // Calculate total spent per category from active expenses
+          formattedData.forEach((tx: any) => {
+            if (tx.category_id && walletMap[tx.category_id]) {
+              walletMap[tx.category_id].spent_amount += tx.amount;
+            }
+          });
+
+          // Compute remaining amounts
+          const wallets = Object.values(walletMap).map(w => ({
+            ...w,
+            remaining_amount: w.allocated_amount - w.spent_amount
+          }));
+
+          setBudgetWallets(wallets);
+        } else {
+          setBudgetWallets([]);
+        }
+      } else {
+        setBudgetWallets([]);
+      }
+
     } catch (error: any) {
       console.error('Fetch Transactions Error:', error.message);
     } finally {
@@ -195,6 +306,7 @@ function TransactionsScreenContent() {
       setRefreshing(false);
     }
   }, []);
+  
 
   useFocusEffect(
     useCallback(() => {
@@ -208,30 +320,31 @@ function TransactionsScreenContent() {
   }, [fetchTransactions]);
 
   const handleSaveExpense = async () => {
-    setModalError(null);
-    setModalSuccess(null);
+    setModalBanner(null);
 
-    const numericAmount = parseFloat(amountInput);
-    if (!amountInput || isNaN(numericAmount) || numericAmount <= 0) {
-      setModalError('Please enter a valid amount.');
-      return;
+    const errors: ExpenseErrors = {};
+    const amountTrimmed = amountInput.trim();
+    const numericAmount = parseFloat(amountTrimmed);
+
+    if (!amountTrimmed) {
+      errors.amount = 'Enter the expense amount.';
+    } else if (!AMOUNT_REGEX.test(amountTrimmed)) {
+      errors.amount = 'Enter a valid amount, up to 2 decimal places.';
+    } else if (numericAmount <= 0) {
+      errors.amount = 'Amount must be greater than zero.';
     }
-    if (!descriptionInput.trim()) {
-      setModalError('Please enter a description.');
-      return;
-    }
-    if (!selectedCategory) {
-      setModalError('Please select a category.');
-      return;
-    }
+    if (!descriptionInput.trim()) errors.description = 'Enter a description for this expense.';
+    if (!selectedCategory) errors.category = 'Select a category.';
+
+    setExpenseErrors(errors);
+    if (Object.keys(errors).length > 0 || !selectedCategory) return;
 
     try {
       setIsSubmitting(true);
 
       const { data: { user }, error: userError } = await supabase.auth.getUser();
       if (userError || !user) {
-        setModalError('You must be logged in to manage expenses.');
-        setIsSubmitting(false);
+        setModalBanner({ type: 'error', text: 'You must be logged in to manage expenses.' });
         return;
       }
 
@@ -260,8 +373,7 @@ function TransactionsScreenContent() {
       }
 
       if (activeAllowances.length === 0) {
-        setModalError('Cannot save expense: No active allowances found.');
-        setIsSubmitting(false);
+        setModalBanner({ type: 'error', text: 'Cannot save expense: no active allowances found.' });
         return;
       }
 
@@ -289,8 +401,9 @@ function TransactionsScreenContent() {
       const remainingBalance = totalAllowanceBudget - totalSpent;
 
       if (numericAmount > remainingBalance) {
-        setModalError(`Expense exceeds total remaining allowance balance (₱${remainingBalance.toLocaleString(undefined, { minimumFractionDigits: 2 })}).`);
-        setIsSubmitting(false);
+        setExpenseErrors({
+          amount: `Exceeds your remaining balance (₱${remainingBalance.toLocaleString(undefined, { minimumFractionDigits: 2 })}).`,
+        });
         return;
       }
 
@@ -334,23 +447,33 @@ function TransactionsScreenContent() {
         });
       }
 
-      setModalSuccess(editingTransaction ? 'Expense updated successfully!' : 'Expense saved successfully!');
-      setTimeout(() => {
-        handleCloseModal();
-        fetchTransactions();
-      }, 700);
-
+      const wasEditing = !!editingTransaction;
+      const savedDescription = descriptionInput.trim();
+      handleCloseModal();
+      fetchTransactions(true);
+      notify({
+        type: 'success',
+        title: wasEditing ? 'Expense updated' : 'Expense saved',
+        message: `"${savedDescription}" was ${wasEditing ? 'updated' : 'added to your transactions'}.`,
+      });
     } catch (err: any) {
       console.error('Error saving expense:', err.message);
-      setModalError('Failed to save expense: ' + err.message);
+      setModalBanner({ type: 'error', text: 'Failed to save expense: ' + err.message });
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const confirmDeleteExpense = (expense: Transaction) => {
+    setDeleteBanner(null);
     setTransactionToDelete(expense);
     setIsDeleteModalVisible(true);
+  };
+
+  const closeDeleteModal = () => {
+    if (isDeleting) return;
+    setIsDeleteModalVisible(false);
+    setDeleteBanner(null);
   };
 
   const handleDeleteExpense = async () => {
@@ -373,16 +496,19 @@ function TransactionsScreenContent() {
         });
       }
 
+      const deletedDescription = transactionToDelete.description || 'transaction';
       setIsDeleteModalVisible(false);
+      setDeleteBanner(null);
       setTransactionToDelete(null);
-      
-      // Trigger Modern Inline Success Alert on screen
-      setSuccessMessage('Transaction deleted successfully!');
-      setTimeout(() => setSuccessMessage(null), 3500);
-
-      fetchTransactions();
+      fetchTransactions(true);
+      notify({
+        type: 'success',
+        title: 'Transaction deleted',
+        message: `"${deletedDescription}" was removed.`,
+      });
     } catch (err: any) {
       console.error('Error deleting expense:', err.message);
+      setDeleteBanner({ type: 'error', text: 'Failed to delete transaction. Please try again.' });
     } finally {
       setIsDeleting(false);
     }
@@ -420,10 +546,60 @@ function TransactionsScreenContent() {
   };
 
   if (loading && transactions.length === 0) {
+    const onDark = theme.colors.alpha.white[30];
     return (
-      <View style={[styles.container, styles.centeredContent]}>
+      <View style={[styles.container, { paddingBottom: insets.bottom }]}>
         <StatusBar style="light" />
-        <ActivityIndicator size="large" color={theme.colors.brand} />
+
+        {/* Header */}
+        <View
+          style={[
+            styles.topBackgroundHeader,
+            { paddingTop: Platform.OS === 'android' ? insets.top + 12 : insets.top + 8 },
+          ]}
+        >
+          <View style={styles.headerGradientFill}>
+            <GradientBackground />
+          </View>
+          <View style={styles.header}>
+            <Skeleton width={40} height={40} radius={theme.radius.xl} color={onDark} />
+            <View style={styles.headerContent}>
+              <Skeleton width={130} height={20} radius={10} color={onDark} />
+            </View>
+            <Skeleton width={38} height={38} radius={theme.radius.soft} color={onDark} />
+          </View>
+        </View>
+
+        {/* Body */}
+        <View style={styles.scrollContent}>
+          <View style={{ paddingHorizontal: theme.space[20], paddingTop: theme.space[16] }}>
+            <Skeleton width="100%" height={44} radius={theme.radius.lg} />
+            <View style={{ gap: theme.space[8], marginTop: theme.space[16] }}>
+              {[0, 1, 2, 3, 4, 5].map((i) => (
+                <View
+                  key={i}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    paddingVertical: theme.space[12],
+                    paddingHorizontal: theme.space[14],
+                    backgroundColor: theme.colors.background,
+                    borderRadius: theme.radius.soft,
+                    borderWidth: 1,
+                    borderColor: theme.colors.surfaceAlt,
+                  }}
+                >
+                  <Skeleton width={40} height={40} radius={theme.radius.tight} />
+                  <View style={{ flex: 1, marginLeft: theme.space[12], gap: theme.space[8] }}>
+                    <Skeleton width="55%" height={13} radius={7} />
+                    <Skeleton width="35%" height={10} radius={5} />
+                  </View>
+                  <Skeleton width={70} height={14} radius={7} />
+                </View>
+              ))}
+            </View>
+          </View>
+        </View>
       </View>
     );
   }
@@ -433,20 +609,25 @@ function TransactionsScreenContent() {
       <StatusBar style="light" />
 
       {/* HEADER */}
-      <View style={[
-        styles.topBackgroundHeader, 
-        { paddingTop: Platform.OS === 'android' ? insets.top + 12 : insets.top + 8 }
-      ]}>
-        <View style={styles.headerGradientFill}>
-          <GradientBackground />
+      <View
+        style={[
+          styles.topBackgroundHeader,
+          { paddingTop: Platform.OS === 'android' ? insets.top + 12 : insets.top + 8 },
+        ]}
+      >
+        <View style={styles.headerGradientFill} pointerEvents="none">
+          <GradientBackground id="transactions-header-gradient" />
         </View>
+
         <View style={styles.header}>
-          <TouchableOpacity 
+          <TouchableOpacity
             activeOpacity={0.7}
             onPress={handleBackPress}
-            style={styles.backButton}
+            style={styles.headerActionButton}
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
           >
-            <Ionicons name="chevron-back" size={24} color={theme.colors.white} />
+            <Ionicons name="chevron-back" size={22} color={theme.colors.white} />
           </TouchableOpacity>
           
           <View style={styles.headerContent}>
@@ -459,273 +640,262 @@ function TransactionsScreenContent() {
               setEditingTransaction(null);
               setIsAddModalVisible(true);
             }}
-            style={styles.quickFormTrigger}
+            style={styles.headerActionButton}
+            accessibilityRole="button"
+            accessibilityLabel="Add expense"
           >
-            <Ionicons name="add" size={22} color={COLORS.white} />
+            <Ionicons name="add" size={22} color={theme.colors.white} />
           </TouchableOpacity>
         </View>
       </View>
 
       {/* TRANSACTION LIST WITH PULL-TO-REFRESH */}
-      <ScrollView 
-        ref={scrollViewRef}
-        style={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        onScroll={handleScroll}
-        scrollEventThrottle={16}
-        contentContainerStyle={{ paddingBottom: theme.layout.tabBarClearance, paddingTop: theme.space[16] }}
-        refreshControl={
-          <RefreshControl 
-            refreshing={refreshing} 
-            onRefresh={onRefresh} 
-            tintColor={theme.colors.brand} 
-            colors={[theme.colors.brand]} 
+            <ScrollView 
+              ref={scrollViewRef}
+              style={styles.scrollContent}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+              onScroll={handleScroll}
+              scrollEventThrottle={16}
+              contentContainerStyle={styles.listContent}
+              refreshControl={
+                <RefreshControl 
+                  refreshing={refreshing} 
+                  onRefresh={onRefresh} 
+                  tintColor={theme.colors.olive} 
+                  colors={[theme.colors.olive]} 
+                />
+              }
+            >
+              <View style={styles.topSection}>
+                {/* INLINE SUCCESS ALERT BANNER */}
+                {successMessage && (
+                  <View style={styles.screenInlineSuccessContainer}>
+                    <Ionicons name="checkmark-circle" size={18} color={theme.colors.green} style={styles.bannerIcon} />
+                    <Text style={styles.screenInlineSuccessText}>{successMessage}</Text>
+                    <TouchableOpacity onPress={() => setSuccessMessage(null)} hitSlop={HIT_SLOP}>
+                      <Ionicons name="close" size={16} color={theme.colors.green} />
+                    </TouchableOpacity>
+                  </View>
+                )}
+      
+                {/* HORIZONTAL BUDGET WALLETS CONTAINER */}
+                {budgetWallets.length > 0 && (
+                  <View style={styles.sectionBlock}>
+                    <Text style={styles.sectionTitle}>Budget Wallets</Text>
+                    <ScrollView 
+                      horizontal 
+                      showsHorizontalScrollIndicator={false} 
+                      contentContainerStyle={styles.walletStrip}
+                    >
+                      {/* Sort wallets so the lowest remaining budget appears first */}
+                      {[...budgetWallets]
+                        .sort((a, b) => a.remaining_amount - b.remaining_amount)
+                        .map((wallet) => {
+                          const walletColor = wallet.color || theme.colors.brand;
+                          const isNegative = wallet.remaining_amount < 0;
+                          return (
+                            <View key={wallet.category_id} style={styles.walletCard}>
+                              <View style={styles.walletHeaderRow}>
+                                <View style={[styles.walletIconCircle, { backgroundColor: `${walletColor}15` }]}>
+                                  <Ionicons name={wallet.icon || 'receipt-outline'} size={14} color={walletColor} />
+                                </View>
+                                <Text style={styles.walletName} numberOfLines={1}>
+                                  {wallet.category_name}
+                                </Text>
+                              </View>
+      
+                              <View>
+                                <Text style={styles.walletRemainingLabel}>Remaining</Text>
+                                <Text
+                                  style={[
+                                    styles.walletRemainingAmount,
+                                    isNegative ? styles.walletAmountNegative : styles.walletAmountPositive,
+                                  ]}
+                                  numberOfLines={1}
+                                >
+                                  {isNegative ? '-' : ''}₱{Math.abs(wallet.remaining_amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </Text>
+                              </View>
+                            </View>
+                          );
+                        })}
+                    </ScrollView>
+                  </View>
+                )}
+      
+                <View style={styles.searchContainer}>
+                  <View style={styles.searchWrapper}>
+                    <Ionicons name="search-outline" size={18} color={theme.colors.textSubtle} style={styles.searchIcon} />
+                    <TextInput
+                      style={styles.searchInput}
+                      placeholder="Search transactions or categories..."
+                      placeholderTextColor={theme.colors.textSubtle}
+                      value={searchQuery}
+                      onChangeText={setSearchQuery}
+                    />
+                  </View>
+                </View>
+              </View>
+      
+              {filteredTransactions.length === 0 ? (
+                <View style={styles.emptyTransactions}>
+                  <View style={styles.emptyIconContainer}>
+                    <Ionicons name="receipt-outline" size={28} color={theme.colors.textSubtle} />
+                  </View>
+                  <Text style={styles.emptyText}>No Transactions Found</Text>
+                </View>
+              ) : (
+                <View style={styles.txList}>
+                  {filteredTransactions.map((expense) => {
+                    const catColor = expense.categories?.color || theme.colors.textMuted;
+                    return (
+                      <TouchableOpacity
+                        key={expense.id}
+                        activeOpacity={0.7}
+                        onPress={() => handleOpenEditModal(expense)}
+                        style={styles.txRow}
+                      >
+                        <View style={[styles.txIconBox, { backgroundColor: `${catColor}15` }]}>
+                          <Ionicons name={expense.categories?.icon || 'receipt-outline'} size={20} color={catColor} />
+                        </View>
+                        
+                        <View style={styles.txBody}>
+                          <View style={styles.txTitleRow}>
+                            <Text style={styles.txTitle} numberOfLines={1}>
+                              {expense.description}
+                            </Text>
+                            {expense.photo_url ? (
+                              <TouchableOpacity 
+                                onPress={() => setSelectedImageUri(expense.photo_url!)}
+                                hitSlop={HIT_SLOP_SM}
+                              >
+                                <Ionicons name="image-outline" size={14} color={theme.colors.brand} />
+                              </TouchableOpacity>
+                            ) : null}
+                          </View>
+                          <Text style={styles.txDate}>
+                            {formatDate(expense.spent_at)}
+                          </Text>
+                        </View>
+      
+                        <View style={styles.txRight}>
+                          <Text style={styles.txAmount}>
+                            -₱{(expense.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                          </Text>
+                          <TouchableOpacity 
+                            onPress={() => confirmDeleteExpense(expense)}
+                            style={styles.deleteIconButton}
+                            hitSlop={HIT_SLOP}
+                          >
+                            <Ionicons name="trash-outline" size={16} color={theme.colors.textSubtle} />
+                          </TouchableOpacity>
+                        </View>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              )}
+            </ScrollView>
+
+      {/* ADD / EDIT EXPENSE */}
+      <Sheet
+        visible={isAddModalVisible}
+        title={editingTransaction ? 'Edit Expense' : 'Add Expense'}
+        subtitle={editingTransaction ? 'Update the expense details.' : 'Record what you spent.'}
+        onClose={closeAddModal}
+        footer={
+          <SheetActions
+            onCancel={closeAddModal}
+            onSubmit={handleSaveExpense}
+            submitLabel={editingTransaction ? 'Update Expense' : 'Save Expense'}
+            loading={isSubmitting}
           />
         }
       >
-        <View style={{ paddingHorizontal: theme.space[20], marginBottom: theme.space[12] }}>
-          {/* MODERN INLINE SUCCESS ALERT BANNER */}
-          {successMessage && (
-            <View style={styles.screenInlineSuccessContainer}>
-              <Ionicons name="checkmark-circle" size={18} color={theme.colors.green} style={{ marginRight: theme.space[8] }} />
-              <Text style={styles.screenInlineSuccessText}>{successMessage}</Text>
-              <TouchableOpacity onPress={() => setSuccessMessage(null)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                <Ionicons name="close" size={16} color={theme.colors.green} />
-              </TouchableOpacity>
-            </View>
-          )}
+        <Banner message={modalBanner} />
 
-          <View style={styles.searchContainer}>
-            <View style={styles.searchWrapper}>
-              <Ionicons name="search-outline" size={18} color={theme.colors.textSubtle} style={{ marginRight: theme.space[8] }} />
-              <TextInput
-                style={styles.searchInput}
-                placeholder="Search transactions or categories..."
-                placeholderTextColor={theme.colors.textSubtle}
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-              />
-            </View>
+        <Field label="Amount (PHP)" error={expenseErrors.amount}>
+          <View style={sheetStyles.amountWrapper}>
+            <Text style={sheetStyles.currencyPrefix}>₱</Text>
+            <TextInput
+              style={[sheetStyles.input, sheetStyles.amountInput, !!expenseErrors.amount && sheetStyles.inputError]}
+              placeholder="0.00"
+              placeholderTextColor={theme.colors.textMuted}
+              keyboardType="decimal-pad"
+              value={amountInput}
+              onChangeText={(t) => {
+                setAmountInput(t);
+                clearExpenseError('amount');
+              }}
+            />
           </View>
-        </View>
+        </Field>
 
-        {filteredTransactions.length === 0 ? (
-          <View style={styles.emptyTransactions}>
-            <View style={styles.emptyIconContainer}>
-              <Ionicons name="receipt-outline" size={28} color={theme.colors.textSubtle} />
-            </View>
-            <Text style={styles.emptyText}>No Transactions Found</Text>
-          </View>
-        ) : (
-          <View style={{ paddingHorizontal: theme.space[20], gap: theme.space[8] }}>
-            {filteredTransactions.map((expense) => {
-              const catColor = expense.categories?.color || theme.colors.textMuted;
+        <Field label="Description" error={expenseErrors.description}>
+          <TextInput
+            style={[sheetStyles.input, !!expenseErrors.description && sheetStyles.inputError]}
+            placeholder="e.g., Grocery shopping, Coffee..."
+            placeholderTextColor={theme.colors.textMuted}
+            value={descriptionInput}
+            onChangeText={(t) => {
+              setDescriptionInput(t);
+              clearExpenseError('description');
+            }}
+          />
+        </Field>
+
+        <Field label="Category" error={expenseErrors.category}>
+          <View style={sheetStyles.chipWrap}>
+            {categories.map((cat) => {
+              const isSelected = selectedCategory?.id === cat.id;
               return (
                 <TouchableOpacity
-                  key={expense.id}
-                  activeOpacity={0.7}
-                  onPress={() => handleOpenEditModal(expense)}
-                  style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    paddingVertical: theme.space[12],
-                    paddingHorizontal: theme.space[14],
-                    backgroundColor: theme.colors.background,
-                    borderRadius: theme.radius.soft,
-                    borderWidth: 1,
-                    borderColor: theme.colors.surfaceAlt,
+                  key={cat.id}
+                  activeOpacity={0.8}
+                  onPress={() => {
+                    setSelectedCategory(cat);
+                    clearExpenseError('category');
                   }}
+                  style={[sheetStyles.categoryChip, isSelected && sheetStyles.categoryChipActive]}
                 >
-                  <View style={{ 
-                    width: 40, 
-                    height: 40, 
-                    borderRadius: theme.radius.tight, 
-                    backgroundColor: `${catColor}15`, 
-                    justifyContent: 'center', 
-                    alignItems: 'center', 
-                    marginRight: theme.space[12] 
-                  }}>
-                    <Ionicons name={expense.categories?.icon || 'receipt-outline'} size={18} color={catColor} />
-                  </View>
-                  
-                  <View style={{ flex: 1, justifyContent: 'center' }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.space[6] }}>
-                      <Text style={{ fontSize: theme.fontSize.body, fontFamily: theme.fontFamily.bold, color: theme.colors.text }} numberOfLines={1}>
-                        {expense.description}
-                      </Text>
-                      {expense.photo_url ? (
-                        <TouchableOpacity 
-                          onPress={() => setSelectedImageUri(expense.photo_url!)}
-                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                        >
-                          <Ionicons name="image-outline" size={14} color={theme.colors.brand} />
-                        </TouchableOpacity>
-                      ) : null}
-                    </View>
-                    <Text style={{ fontSize: theme.fontSize.tiny, fontFamily: theme.fontFamily.medium, color: theme.colors.textMuted, marginTop: theme.space[2] }}>
-                      {formatDate(expense.spent_at)}
-                    </Text>
-                  </View>
-
-                  <View style={{ alignItems: 'flex-end', flexDirection: 'row', gap: theme.space[10] }}>
-                    <Text style={{ fontSize: theme.fontSize.body, fontFamily: theme.fontFamily.bold, color: theme.colors.danger }}>
-                      -₱{(expense.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                    </Text>
-                    <TouchableOpacity 
-                      onPress={() => confirmDeleteExpense(expense)}
-                      style={styles.deleteIconButton}
-                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                    >
-                      <Ionicons name="trash-outline" size={16} color={theme.colors.textSubtle} />
-                    </TouchableOpacity>
-                  </View>
+                  <Ionicons
+                    name={cat.icon || 'receipt-outline'}
+                    size={15}
+                    color={isSelected ? theme.colors.white : cat.color}
+                  />
+                  <Text style={[sheetStyles.categoryChipText, isSelected && sheetStyles.categoryChipTextActive]}>
+                    {cat.name}
+                  </Text>
                 </TouchableOpacity>
               );
             })}
           </View>
-        )}
-      </ScrollView>
+        </Field>
+      </Sheet>
 
-      {/* ADD / EDIT EXPENSE MODAL */}
-      <Modal
-        visible={isAddModalVisible}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={handleCloseModal}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>
-                {editingTransaction ? 'Edit Expense' : 'Add Expense'}
-              </Text>
-              <TouchableOpacity onPress={handleCloseModal}>
-                <Ionicons name="close" size={24} color={theme.colors.textMuted} />
-              </TouchableOpacity>
-            </View>
-
-            {modalError && (
-              <View style={styles.inlineErrorContainer}>
-                <Ionicons name="alert-circle-outline" size={18} color={theme.colors.danger} style={{ marginRight: theme.space[6] }} />
-                <Text style={styles.inlineErrorText}>{modalError}</Text>
-              </View>
-            )}
-
-            {modalSuccess && (
-              <View style={styles.inlineSuccessContainer}>
-                <Ionicons name="checkmark-circle-outline" size={18} color={theme.colors.green} style={{ marginRight: theme.space[6] }} />
-                <Text style={styles.inlineSuccessText}>{modalSuccess}</Text>
-              </View>
-            )}
-
-            <View style={styles.calcInputContainer}>
-              <TextInput
-                style={styles.calcInput}
-                placeholder="₱0.00"
-                placeholderTextColor={theme.colors.borderStrong}
-                keyboardType="numeric"
-                value={amountInput}
-                onChangeText={setAmountInput}
-                autoFocus={true}
-              />
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Description</Text>
-              <TextInput
-                style={styles.textInputStyle}
-                placeholder="e.g., Grocery shopping, Coffee..."
-                placeholderTextColor={theme.colors.textSubtle}
-                value={descriptionInput}
-                onChangeText={setDescriptionInput}
-              />
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Category</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: theme.space[8], paddingVertical: theme.space[4] }}>
-                {categories.map((cat) => {
-                  const isSelected = selectedCategory?.id === cat.id;
-                  return (
-                    <TouchableOpacity
-                      key={cat.id}
-                      onPress={() => setSelectedCategory(cat)}
-                      style={[
-                        styles.categoryChip,
-                        { backgroundColor: isSelected ? theme.colors.brand : theme.colors.background, borderColor: isSelected ? theme.colors.brand : theme.colors.border }
-                      ]}
-                    >
-                      <Ionicons name={cat.icon || 'receipt-outline'} size={16} color={isSelected ? theme.colors.white : cat.color} />
-                      <Text style={[styles.categoryChipText, { color: isSelected ? theme.colors.white : theme.colors.text }]}>
-                        {cat.name}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </ScrollView>
-            </View>
-
-            <TouchableOpacity 
-              style={[styles.submitButton, isSubmitting && { opacity: 0.7 }]}
-              onPress={handleSaveExpense}
-              disabled={isSubmitting}
-            >
-              {isSubmitting ? (
-                <ActivityIndicator color={theme.colors.white} />
-              ) : (
-                <Text style={styles.submitButtonText}>
-                  {editingTransaction ? 'Update Expense' : 'Save Expense'}
-                </Text>
-              )}
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      {/* MODERN DELETE CONFIRMATION MODAL */}
-      <Modal
+      {/* DELETE TRANSACTION */}
+      <Sheet
         visible={isDeleteModalVisible}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setIsDeleteModalVisible(false)}
+        title="Delete Transaction"
+        subtitle="This action cannot be undone."
+        onClose={closeDeleteModal}
+        footer={
+          <SheetActions
+            onCancel={closeDeleteModal}
+            onSubmit={handleDeleteExpense}
+            submitLabel="Delete"
+            loading={isDeleting}
+            danger
+          />
+        }
       >
-        <View style={styles.deleteModalOverlay}>
-          <View style={styles.deleteModalCard}>
-            <View style={styles.deleteIconBadge}>
-              <Ionicons name="trash-outline" size={24} color={theme.colors.danger} />
-            </View>
-
-            <Text style={styles.deleteModalTitle}>Delete Transaction</Text>
-            <Text style={styles.deleteModalMessage}>
-              Are you sure you want to delete <Text style={{ fontFamily: theme.fontFamily.bold, color: theme.colors.text }}>"{transactionToDelete?.description}"</Text>? This action cannot be undone.
-            </Text>
-
-            <View style={styles.deleteModalActions}>
-              <TouchableOpacity
-                style={styles.cancelDeleteButton}
-                activeOpacity={0.7}
-                onPress={() => setIsDeleteModalVisible(false)}
-                disabled={isDeleting}
-              >
-                <Text style={styles.cancelDeleteButtonText}>Cancel</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.confirmDeleteButton, isDeleting && { opacity: 0.7 }]}
-                activeOpacity={0.8}
-                onPress={handleDeleteExpense}
-                disabled={isDeleting}
-              >
-                {isDeleting ? (
-                  <ActivityIndicator color={theme.colors.white} size="small" />
-                ) : (
-                  <Text style={styles.confirmDeleteButtonText}>Delete</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+        <Banner message={deleteBanner} />
+        <Text style={sheetStyles.confirmText}>
+          Are you sure you want to delete{' '}
+          <Text style={sheetStyles.confirmTextStrong}>"{transactionToDelete?.description}"</Text>?
+        </Text>
+      </Sheet>
 
       {/* FULL-SCREEN IMAGE VIEWER MODAL */}
       <Modal
