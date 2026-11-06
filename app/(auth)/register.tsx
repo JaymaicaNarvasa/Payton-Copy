@@ -129,6 +129,24 @@ export default function RegisterScreen() {
     setIsLoading(true);
 
     try {
+      // 1. Check if the email already exists in the profiles table
+      const { data: existingUser, error: checkError } = await supabase
+        .from('profiles')
+        .select('email')
+        .eq('email', trimmedEmail)
+        .maybeSingle();
+
+      if (checkError) {
+        console.error('Error checking existing email:', checkError);
+      }
+
+      if (existingUser) {
+        setErrors(prev => ({ ...prev, email: 'This email is already registered.' }));
+        setIsLoading(false);
+        return;
+      }
+
+      // 2. Proceed with Supabase Auth sign up if email is unique
       const { data, error } = await supabase.auth.signUp({
         email: trimmedEmail,
         password: password,
