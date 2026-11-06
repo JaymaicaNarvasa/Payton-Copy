@@ -255,7 +255,7 @@ export default function PersonalHomeScreen() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [personalName, setPersonalName] = useState('Guian Sumbi');
+  const [personalName, setPersonalName] = useState('Personal Account');
   const [personalRole, setPersonalRole] = useState('Member');
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 

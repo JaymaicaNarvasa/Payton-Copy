@@ -100,18 +100,20 @@ export default function PersonalDetailsScreen() {
       }
 
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ['images'],
         allowsEditing: true,
         aspect: [1, 1],
         quality: 0.6,
-        base64: true,
+        base64: true, // Crucial: ensures base64 data is returned after cropping
       });
 
       if (result.canceled || !result.assets || result.assets.length === 0) return;
 
       const asset = result.assets[0];
+      
+      // Verify base64 exists after cropping
       if (!asset.base64) {
-        showAlert('error', 'Photo Error', 'Failed to process image data. Please try another photo.');
+        showAlert('error', 'Photo Error', 'Cropped image data was not returned. Please try another photo.');
         return;
       }
 
@@ -134,18 +136,19 @@ export default function PersonalDetailsScreen() {
         .from('avatars')
         .getPublicUrl(filePath);
 
+      // Append a timestamp to the public URL to bust local image caching in React Native
+      const cachedBustedUrl = `${publicUrl}?t=${new Date().getTime()}`;
+
       const { error: dbError } = await supabase
         .from('profiles')
-        .update({ avatar_url: publicUrl })
+        .update({ avatar_url: cachedBustedUrl })
         .eq('id', user.id);
 
       if (dbError) throw dbError;
 
-      setAvatarUrl(publicUrl);
+      setAvatarUrl(cachedBustedUrl);
       
-      // Log avatar update activity
       await logActivity(user.id, `updated profile picture.`);
-
       showAlert('success', 'Photo Updated', 'Profile photo updated successfully.');
 
     } catch (error: any) {

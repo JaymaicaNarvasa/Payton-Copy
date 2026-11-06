@@ -45,7 +45,7 @@ export default function TermsScreen() {
           <Text style={styles.heading}>3. Financial Data & Payment Responsibility</Text>
           <Text style={styles.paragraph}>Users must record accurate, legitimate, and non-duplicate financial information.</Text>
           <Text style={[styles.paragraph, styles.paragraphEmphasis]}>
-            PAYTON IS A FINANCIAL TRACKING AND MONITORING SYSTEM AND DOES NOT DIRECTLY PROCESS OR TRANSFER ACTUAL PAYMENTS.
+            Payton is a Financial Tracking and Monitoring System and does not directly process or transfer actual payments.
           </Text>
           <Text style={styles.paragraph}>
             Users are responsible for settling financial obligations through their preferred payment method and updating the payment status in the system.

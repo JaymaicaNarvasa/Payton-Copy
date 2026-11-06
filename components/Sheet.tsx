@@ -191,8 +191,10 @@ export const toDateString = (d: Date) => {
 };
 
 export const parseDateString = (s: string) => {
-  const [y, m, d] = (s || '').split('-').map(Number);
-  const date = new Date(y, (m || 1) - 1, d || 1);
+  // An empty or malformed value falls back to today (otherwise year 0 becomes 1900).
+  if (!s || !/^\d{4}-\d{2}-\d{2}$/.test(s)) return new Date();
+  const [y, m, d] = s.split('-').map(Number);
+  const date = new Date(y, m - 1, d);
   return isNaN(date.getTime()) ? new Date() : date;
 };
 
@@ -315,6 +317,157 @@ export function DatePickerSheet({
           submitLabel="Select Date"
           disabled={!temp}
         />
+      }
+    >
+      <View style={styles.calendarNavRow}>
+        <Text style={styles.calendarMonthTitle}>
+          {month.toLocaleString('en-US', { month: 'long', year: 'numeric' })}
+        </Text>
+        <View style={styles.calendarArrowsContainer}>
+          <TouchableOpacity style={styles.calendarArrowBtn} onPress={() => shiftMonth(-1)}>
+            <Ionicons name="chevron-back" size={18} color={theme.colors.textStrong} />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.calendarArrowBtn} onPress={() => shiftMonth(1)}>
+            <Ionicons name="chevron-forward" size={18} color={theme.colors.textStrong} />
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      <View style={styles.weekDaysRow}>
+        {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d) => (
+          <Text key={d} style={styles.weekDayText}>{d}</Text>
+        ))}
+      </View>
+      <View style={styles.daysGrid}>{renderCells()}</View>
+    </Sheet>
+  );
+}
+
+/* ---------- Date-range picker sheet (start + end, optional earliest selectable day) ---------- */
+export function DateRangePickerSheet({
+  visible,
+  start,
+  end,
+  title = 'Select Date Range',
+  subtitle = 'Tap a start date, then an end date.',
+  minDate,
+  onClose,
+  onConfirm,
+}: {
+  visible: boolean;
+  start: string;
+  end: string;
+  title?: string;
+  subtitle?: string;
+  /** Days before this ("YYYY-MM-DD") are dimmed and cannot be picked. */
+  minDate?: string;
+  onClose: () => void;
+  onConfirm: (start: string, end: string) => void;
+}) {
+  const [month, setMonth] = useState(() => parseDateString(start));
+  const [tStart, setTStart] = useState<string | null>(start || null);
+  const [tEnd, setTEnd] = useState<string | null>(end || null);
+
+  // Every time the picker opens, start from the current range.
+  useEffect(() => {
+    if (visible) {
+      setMonth(parseDateString(start));
+      setTStart(start || null);
+      setTEnd(end || null);
+    }
+  }, [visible]);
+
+  const shiftMonth = (delta: number) =>
+    setMonth(new Date(month.getFullYear(), month.getMonth() + delta, 1));
+
+  const pick = (d: string) => {
+    if (!tStart || (tStart && tEnd)) {
+      setTStart(d);
+      setTEnd(null);
+    } else if (d < tStart) {
+      setTStart(d);
+    } else {
+      setTEnd(d);
+    }
+  };
+
+  const renderCells = () => {
+    const year = month.getFullYear();
+    const m = month.getMonth();
+    const firstDayIndex = new Date(year, m, 1).getDay();
+    const totalDays = new Date(year, m + 1, 0).getDate();
+    const todayStr = toDateString(new Date());
+
+    const cells: ReactNode[] = [];
+    for (let i = 0; i < firstDayIndex; i++) {
+      cells.push(<View key={`empty-${i}`} style={styles.dayCellEmpty} />);
+    }
+    for (let day = 1; day <= totalDays; day++) {
+      const dateStr = toDateString(new Date(year, m, day));
+      const isToday = dateStr === todayStr;
+      const blocked = !!minDate && dateStr < minDate;
+      const isStart = tStart === dateStr;
+      const isEnd = tEnd === dateStr;
+      const inRange = !!(tStart && tEnd && dateStr > tStart && dateStr < tEnd);
+      cells.push(
+        <TouchableOpacity
+          key={dateStr}
+          activeOpacity={0.7}
+          disabled={blocked}
+          style={[
+            styles.dayCell,
+            isToday && styles.dayCellToday,
+            inRange && styles.dayCellInRange,
+            (isStart || isEnd) && styles.dayCellSelected,
+            blocked && { opacity: 0.3 },
+          ]}
+          onPress={() => pick(dateStr)}
+        >
+          <Text
+            style={[
+              styles.dayCellText,
+              isToday && styles.dayCellTextToday,
+              (isStart || isEnd) && styles.dayCellTextSelected,
+            ]}
+          >
+            {day}
+          </Text>
+        </TouchableOpacity>,
+      );
+    }
+    return cells;
+  };
+
+  const ready = !!tStart && !!tEnd;
+
+  return (
+    <Sheet
+      visible={visible}
+      title={title}
+      subtitle={subtitle}
+      onClose={onClose}
+      footer={
+        <View style={styles.actionsRow}>
+          <TouchableOpacity
+            style={[styles.btnSecondary, !tStart && { opacity: 0.5 }]}
+            disabled={!tStart}
+            activeOpacity={0.8}
+            onPress={() => {
+              setTStart(null);
+              setTEnd(null);
+            }}
+          >
+            <Text style={styles.btnSecondaryText}>Reset</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.btnPrimary, !ready && { opacity: 0.5 }]}
+            disabled={!ready}
+            activeOpacity={0.85}
+            onPress={() => tStart && tEnd && onConfirm(tStart, tEnd)}
+          >
+            <Text style={styles.btnPrimaryText}>Apply Range</Text>
+          </TouchableOpacity>
+        </View>
       }
     >
       <View style={styles.calendarNavRow}>
