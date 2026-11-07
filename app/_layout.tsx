@@ -1,8 +1,8 @@
 import { useFonts } from 'expo-font';
 import * as Linking from 'expo-linking';
 import { Stack, useRouter } from "expo-router";
-import { StatusBar } from "expo-status-bar";
 import { useEffect } from 'react';
+import { StatusBar } from 'react-native';
 import { fonts } from '../constants/fonts';
 import { supabase } from '../lib/supabase';
 
@@ -61,7 +61,7 @@ export default function RootLayout() {
 
   return (
     <>
-      <StatusBar style="dark" />
+      <StatusBar style="dark" translucent={true} backgroundColor="transparent" />
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#F7F9F8' } }}>
         <Stack.Screen name="index" />
         <Stack.Screen name="(auth)" />
