@@ -35,7 +35,6 @@ import Svg, {
 
 import { theme } from '@/constants/theme';
 import { sponsorHomeStyles as sheetStyles, homeStyles as styles } from '@/constants/ui.styles';
-import { CategoryDropdown } from '../../components/CategoryDropdown';
 import { GradientBackground } from '../../components/GradientBackground';
 import { useAlert } from '../../components/PaytonAlert';
 import {
@@ -142,6 +141,7 @@ interface ReminderItem {
   categories?: {
     name?: string;
     icon?: string;
+    color?: string;
   } | null;
 }
 
@@ -428,7 +428,7 @@ export default function SpenderHomeScreen() {
             allowance_id,
             category_id,
             spent_at,
-            categories ( id, name, icon )
+            categories ( id, name, icon, color )
           `)
           .in('allowance_id', allowanceIds);
 
@@ -487,7 +487,7 @@ export default function SpenderHomeScreen() {
           due_date,
           status,
           category_id,
-          categories ( name, icon )
+          categories ( name, icon, color )
         `)
         .eq('user_id', user.id)
         .in('status', ['pending', 'paid'])
@@ -813,13 +813,14 @@ export default function SpenderHomeScreen() {
 
     const total = filteredExpenses.reduce((sum: number, exp: any) => sum + Number(exp.amount || 0), 0);
 
-    const map: { [key: string]: { name: string; icon?: string; total: number } } = {};
+    const map: { [key: string]: { name: string; icon?: string; color?: string; total: number } } = {};
     filteredExpenses.forEach((exp: any) => {
       const catId = exp.category_id || 'uncategorized';
       const catName = exp.categories?.name || 'Uncategorized';
       const catIcon = exp.categories?.icon;
+      const catColor = exp.categories?.color;
       const amt = Number(exp.amount || 0);
-      if (!map[catId]) map[catId] = { name: catName, icon: catIcon, total: 0 };
+      if (!map[catId]) map[catId] = { name: catName, icon: catIcon, color: catColor, total: 0 };
       map[catId].total += amt;
     });
 
@@ -832,7 +833,7 @@ export default function SpenderHomeScreen() {
         icon: item.icon,
         total: item.total,
         percentage,
-        color: theme.chart.category[index % theme.chart.category.length],
+        color: item.color || theme.chart.category[index % theme.chart.category.length],
       };
     });
 
@@ -855,7 +856,7 @@ export default function SpenderHomeScreen() {
         index,
         midAngle: (startAngle + endAngle) / 2,
         full,
-        gradient: theme.chart.categoryGradients[index % theme.chart.categoryGradients.length],
+        gradient: { from: stat.color, to: stat.color },
         gx1: full ? center : start.x,
         gy1: full ? 0 : start.y,
         gx2: full ? center : end.x,
@@ -1480,14 +1481,32 @@ export default function SpenderHomeScreen() {
         </Field>
 
         <Field label="Category" error={reminderErrors.category}>
-          <CategoryDropdown
-            categories={categories}
-            value={newCategoryId}
-            onChange={(id) => {
-              setNewCategoryId(id);
-              clearReminderError('category');
-            }}
-          />
+          <View style={sheetStyles.chipWrap}>
+            {categories.map((cat) => {
+              const isSelected = newCategoryId === cat.id;
+              const catColor = cat.color || theme.colors.brand;
+              return (
+                <TouchableOpacity
+                  key={cat.id}
+                  activeOpacity={0.8}
+                  onPress={() => {
+                    setNewCategoryId(cat.id);
+                    clearReminderError('category');
+                  }}
+                  style={[sheetStyles.categoryChip, isSelected && sheetStyles.categoryChipActive]}
+                >
+                  <Ionicons
+                    name={(cat.icon || 'receipt-outline') as any}
+                    size={15}
+                    color={isSelected ? theme.colors.white : catColor}
+                  />
+                  <Text style={[sheetStyles.categoryChipText, isSelected && sheetStyles.categoryChipTextActive]}>
+                    {cat.name}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
         </Field>
 
         <Field label="Due Date" error={reminderErrors.date}>

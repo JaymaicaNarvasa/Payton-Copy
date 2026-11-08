@@ -12,6 +12,7 @@ import {
   Platform,
   RefreshControl,
   ScrollView,
+  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
@@ -39,6 +40,97 @@ const COLORS = {
   white: theme.colors.white,
 };
 
+type PeriodFilter = 'all' | 'today' | 'week' | 'month' | 'year';
+
+const PERIOD_OPTIONS: { key: PeriodFilter; label: string }[] = [
+  { key: 'all', label: 'All time' },
+  { key: 'today', label: 'Today' },
+  { key: 'week', label: 'This Week' },
+  { key: 'month', label: 'This Month' },
+  { key: 'year', label: 'This Year' },
+];
+
+/** Returns the start of the selected period (local time), or null for "all time". Weeks start on Sunday. */
+const getPeriodStart = (period: PeriodFilter): Date | null => {
+  const now = new Date();
+  switch (period) {
+    case 'today':
+      return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    case 'week': {
+      return new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay());
+    }
+    case 'month':
+      return new Date(now.getFullYear(), now.getMonth(), 1);
+    case 'year':
+      return new Date(now.getFullYear(), 0, 1);
+    default:
+      return null;
+  }
+};
+
+const filterStyles = StyleSheet.create({
+  filterRow: {
+    flexDirection: 'row',
+    gap: theme.space[8],
+    marginTop: theme.space[12],
+  },
+  dropdown: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    paddingHorizontal: theme.space[12],
+    borderRadius: theme.radius.lg,
+    borderWidth: 1,
+    borderColor: theme.colors.surfaceAlt,
+    backgroundColor: theme.colors.background,
+  },
+  dropdownActive: {
+    borderColor: theme.colors.brand,
+  },
+  dropdownText: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '600',
+    color: theme.colors.textSubtle,
+  },
+  dropdownTextActive: {
+    color: theme.colors.brand,
+  },
+  option: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.space[12],
+    paddingVertical: theme.space[12],
+    paddingHorizontal: theme.space[14],
+    borderRadius: theme.radius.soft,
+    borderWidth: 1,
+    borderColor: theme.colors.surfaceAlt,
+    backgroundColor: theme.colors.background,
+  },
+  optionActive: {
+    borderColor: theme.colors.brand,
+  },
+  optionText: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '600',
+    color: theme.colors.textSubtle,
+  },
+  optionTextActive: {
+    color: theme.colors.brand,
+  },
+  optionList: {
+    gap: theme.space[8],
+  },
+  walletAllocated: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: theme.colors.textSubtle,
+  },
+});
+
 interface Transaction {
   id: string;
   amount: number;
@@ -46,6 +138,7 @@ interface Transaction {
   spent_at: string;
   photo_url?: string | null;
   allowance_id?: string | null;
+  category_id?: string | null;
   categories: {
     name: string;
     icon: keyof typeof Ionicons.glyphMap;
@@ -80,6 +173,9 @@ function TransactionsScreenContent() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [budgetWallets, setBudgetWallets] = useState<BudgetWallet[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [periodFilter, setPeriodFilter] = useState<PeriodFilter>('all');
+  const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
+  const [openFilter, setOpenFilter] = useState<'period' | 'category' | null>(null);
   const [showScrollTop, setShowScrollTop] = useState(false);
 
     // Global Inline Success Alert State (for screen-level notices like deletion)
@@ -516,6 +612,16 @@ function TransactionsScreenContent() {
 
   const filteredTransactions = useMemo(() => {
     let filtered = transactions;
+
+    const periodStart = getPeriodStart(periodFilter);
+    if (periodStart) {
+      filtered = filtered.filter(tx => new Date(tx.spent_at) >= periodStart);
+    }
+
+    if (categoryFilter) {
+      filtered = filtered.filter(tx => tx.category_id === categoryFilter);
+    }
+
     const query = searchQuery.toLowerCase().trim();
     if (query) {
       filtered = filtered.filter(tx => {
@@ -525,7 +631,7 @@ function TransactionsScreenContent() {
       });
     }
     return filtered;
-  }, [searchQuery, transactions]);
+  }, [searchQuery, transactions, periodFilter, categoryFilter]);
 
   const formatDate = (dateString: string) => {
     if (!dateString) return '';
@@ -715,6 +821,9 @@ function TransactionsScreenContent() {
                                   numberOfLines={1}
                                 >
                                   {isNegative ? '-' : ''}₱{Math.abs(wallet.remaining_amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                  <Text style={filterStyles.walletAllocated}>
+                                    {' '}/ ₱{wallet.allocated_amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                  </Text>
                                 </Text>
                               </View>
                             </View>
@@ -733,8 +842,56 @@ function TransactionsScreenContent() {
                       placeholderTextColor={theme.colors.textSubtle}
                       value={searchQuery}
                       onChangeText={setSearchQuery}
+                      returnKeyType="search"
                     />
+                    {searchQuery.length > 0 && (
+                      <TouchableOpacity
+                        onPress={() => setSearchQuery('')}
+                        hitSlop={HIT_SLOP}
+                        accessibilityRole="button"
+                        accessibilityLabel="Clear search"
+                      >
+                        <Ionicons name="close-circle" size={18} color={theme.colors.textSubtle} />
+                      </TouchableOpacity>
+                    )}
                   </View>
+                </View>
+
+                {/* PERIOD + CATEGORY FILTER DROPDOWNS */}
+                <View style={filterStyles.filterRow}>
+                  <TouchableOpacity
+                    activeOpacity={0.8}
+                    onPress={() => setOpenFilter('period')}
+                    style={[filterStyles.dropdown, periodFilter !== 'all' && filterStyles.dropdownActive]}
+                    accessibilityRole="button"
+                    accessibilityLabel="Filter by period"
+                  >
+                    <Ionicons name="calendar-outline" size={16} color={periodFilter !== 'all' ? theme.colors.brand : theme.colors.textSubtle} />
+                    <Text
+                      style={[filterStyles.dropdownText, periodFilter !== 'all' && filterStyles.dropdownTextActive]}
+                      numberOfLines={1}
+                    >
+                      {PERIOD_OPTIONS.find((o) => o.key === periodFilter)?.label}
+                    </Text>
+                    <Ionicons name="chevron-down" size={16} color={theme.colors.textSubtle} />
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    activeOpacity={0.8}
+                    onPress={() => setOpenFilter('category')}
+                    style={[filterStyles.dropdown, categoryFilter !== null && filterStyles.dropdownActive]}
+                    accessibilityRole="button"
+                    accessibilityLabel="Filter by category"
+                  >
+                    <Ionicons name="pricetag-outline" size={16} color={categoryFilter !== null ? theme.colors.brand : theme.colors.textSubtle} />
+                    <Text
+                      style={[filterStyles.dropdownText, categoryFilter !== null && filterStyles.dropdownTextActive]}
+                      numberOfLines={1}
+                    >
+                      {categories.find((c) => c.id === categoryFilter)?.name ?? 'All categories'}
+                    </Text>
+                    <Ionicons name="chevron-down" size={16} color={theme.colors.textSubtle} />
+                  </TouchableOpacity>
                 </View>
               </View>
       
@@ -797,6 +954,76 @@ function TransactionsScreenContent() {
                 </View>
               )}
             </ScrollView>
+
+      {/* PERIOD FILTER */}
+      <Sheet
+        visible={openFilter === 'period'}
+        title="Filter by Period"
+        subtitle="Show transactions from a specific time range."
+        onClose={() => setOpenFilter(null)}
+      >
+        <View style={filterStyles.optionList}>
+          {PERIOD_OPTIONS.map((opt) => {
+            const active = periodFilter === opt.key;
+            return (
+              <TouchableOpacity
+                key={opt.key}
+                activeOpacity={0.8}
+                onPress={() => {
+                  setPeriodFilter(opt.key);
+                  setOpenFilter(null);
+                }}
+                style={[filterStyles.option, active && filterStyles.optionActive]}
+              >
+                <Text style={[filterStyles.optionText, active && filterStyles.optionTextActive]}>{opt.label}</Text>
+                {active ? <Ionicons name="checkmark" size={18} color={theme.colors.brand} /> : null}
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      </Sheet>
+
+      {/* CATEGORY FILTER */}
+      <Sheet
+        visible={openFilter === 'category'}
+        title="Filter by Category"
+        subtitle="Show transactions from a single category."
+        onClose={() => setOpenFilter(null)}
+      >
+        <View style={filterStyles.optionList}>
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => {
+              setCategoryFilter(null);
+              setOpenFilter(null);
+            }}
+            style={[filterStyles.option, categoryFilter === null && filterStyles.optionActive]}
+          >
+            <Text style={[filterStyles.optionText, categoryFilter === null && filterStyles.optionTextActive]}>
+              All categories
+            </Text>
+            {categoryFilter === null ? <Ionicons name="checkmark" size={18} color={theme.colors.brand} /> : null}
+          </TouchableOpacity>
+          {categories.map((cat) => {
+            const active = categoryFilter === cat.id;
+            return (
+              <TouchableOpacity
+                key={cat.id}
+                activeOpacity={0.8}
+                onPress={() => {
+                  setCategoryFilter(cat.id);
+                  setOpenFilter(null);
+                }}
+                style={[filterStyles.option, active && filterStyles.optionActive]}
+              >
+                <Ionicons name={cat.icon || 'receipt-outline'} size={18} color={cat.color} />
+                <Text style={[filterStyles.optionText, active && filterStyles.optionTextActive]}>{cat.name}</Text>
+                {active ? <Ionicons name="checkmark" size={18} color={theme.colors.brand} /> : null}
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      </Sheet>
 
       {/* ADD / EDIT EXPENSE */}
       <Sheet

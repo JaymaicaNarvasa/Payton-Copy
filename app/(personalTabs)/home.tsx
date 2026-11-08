@@ -35,7 +35,6 @@ import Svg, {
 
 import { theme } from '@/constants/theme';
 import { sponsorHomeStyles as sheetStyles, homeStyles as styles } from '@/constants/ui.styles';
-import { CategoryDropdown } from '../../components/CategoryDropdown';
 import { GradientBackground } from '../../components/GradientBackground';
 import { useAlert } from '../../components/PaytonAlert';
 import {
@@ -142,6 +141,7 @@ interface ReminderItem {
   categories?: {
     name?: string;
     icon?: string;
+    color?: string;
   } | null;
 }
 
@@ -428,7 +428,7 @@ export default function PersonalHomeScreen() {
             income_id,
             category_id,
             spent_at,
-            categories ( id, name, icon )
+            categories ( id, name, icon, color )
           `)
           .in('income_id', incomeIds);
 
@@ -487,7 +487,7 @@ export default function PersonalHomeScreen() {
           due_date,
           status,
           category_id,
-          categories ( name, icon )
+          categories ( name, icon, color )
         `)
         .eq('user_id', user.id)
         .in('status', ['pending', 'paid'])
@@ -813,13 +813,14 @@ export default function PersonalHomeScreen() {
 
     const total = filteredExpenses.reduce((sum: number, exp: any) => sum + Number(exp.amount || 0), 0);
 
-    const map: { [key: string]: { name: string; icon?: string; total: number } } = {};
+    const map: { [key: string]: { name: string; icon?: string; color?: string; total: number } } = {};
     filteredExpenses.forEach((exp: any) => {
       const catId = exp.category_id || 'uncategorized';
       const catName = exp.categories?.name || 'Uncategorized';
       const catIcon = exp.categories?.icon;
+      const catColor = exp.categories?.color;
       const amt = Number(exp.amount || 0);
-      if (!map[catId]) map[catId] = { name: catName, icon: catIcon, total: 0 };
+      if (!map[catId]) map[catId] = { name: catName, icon: catIcon, color: catColor, total: 0 };
       map[catId].total += amt;
     });
 
@@ -832,7 +833,7 @@ export default function PersonalHomeScreen() {
         icon: item.icon,
         total: item.total,
         percentage,
-        color: theme.chart.category[index % theme.chart.category.length],
+        color: item.color || theme.chart.category[index % theme.chart.category.length],
       };
     });
 
@@ -855,7 +856,7 @@ export default function PersonalHomeScreen() {
         index,
         midAngle: (startAngle + endAngle) / 2,
         full,
-        gradient: theme.chart.categoryGradients[index % theme.chart.categoryGradients.length],
+        gradient: { from: stat.color, to: stat.color },
         gx1: full ? center : start.x,
         gy1: full ? 0 : start.y,
         gx2: full ? center : end.x,
@@ -1014,10 +1015,6 @@ export default function PersonalHomeScreen() {
           <View style={styles.sectionHeaderRow}>
             <Text style={styles.sectionTitle}>Upcoming Dues</Text>
             <View style={styles.duesActions}>
-              {/* Calendar of due dates (Personal). Uncomment to show the calendar button next to "Set Reminders". */}
-              {/* <TouchableOpacity style={styles.dueIconButton} onPress={() => setIsCalendarModalVisible(true)} activeOpacity={0.8}>
-                <Ionicons name="calendar-outline" size={15} color={theme.colors.mintPillText} />
-              </TouchableOpacity> */}
               <TouchableOpacity style={styles.addReminderPill} onPress={() => setAddModalVisible(true)} activeOpacity={0.8}>
                 <View style={styles.pillPlusCircle}>
                   <Ionicons name="add" size={12} color={theme.colors.white} />
@@ -1028,57 +1025,57 @@ export default function PersonalHomeScreen() {
           </View>
 
           {(() => {
-                      const pendingDues = upcomingDues
-                        .filter((due) => due.status === 'pending')
-                        .sort((x, y) => x.due_date.localeCompare(y.due_date));
-          
-                      if (pendingDues.length === 0) {
-                        return (
-                          <View style={styles.dueEmpty}>
-                            <Text style={styles.dueEmptyText}>No upcoming dues. Tap “Set Reminders” to add one.</Text>
-                          </View>
-                        );
-                      }
-          
-                      return (
-                        <ScrollView
-                          horizontal
-                          showsHorizontalScrollIndicator={false}
-                          contentContainerStyle={styles.dueStripContainer}
-                        >
-                          {pendingDues.map((due, index) => {
-                            const [y, m, d] = due.due_date.split('-').map(Number);
-                            const monthShort = new Date(y, m - 1, d).toLocaleString('en-US', { month: 'short' });
-                            const daysInfo = getDaysInfo(due.due_date);
-          
-                            return (
-                              <TouchableOpacity
-                                key={due.id}
-                                activeOpacity={0.85}
-                                onPress={() => handleDatePress(due.due_date)}
-                                style={styles.dueCard}
-                              >
-                                <View style={[styles.dueDateBlock, index % 2 === 1 && styles.dueDateBlockAlt]}>
-                                  <Text style={styles.dueDay}>{d}</Text>
-                                  <Text style={styles.dueMonth}>{monthShort}</Text>
-                                </View>
-                                <View style={styles.dueInfo}>
-                                  <Text style={styles.dueTitle} numberOfLines={1}>{due.title}</Text>
-                                  <Text style={styles.dueAmount} numberOfLines={1}>
-                                    ₱{Number(due.amount).toLocaleString('en-US')}
-                                  </Text>
-                                  <Text style={[styles.dueMeta, daysInfo.urgent && styles.dueMetaUrgent]} numberOfLines={2}>
-                                    Due {monthShort} {d} · {daysInfo.text}
-                                  </Text>
-                                </View>
-                                <Ionicons name="chevron-forward" size={14} color={theme.colors.textSubtle} />
-                              </TouchableOpacity>
-                            );
-                          })}
-                        </ScrollView>
-                      );
-                    })()}
-                  </View>
+            const pendingDues = upcomingDues
+              .filter((due) => due.status === 'pending')
+              .sort((x, y) => x.due_date.localeCompare(y.due_date));
+
+            if (pendingDues.length === 0) {
+              return (
+                <View style={styles.dueEmpty}>
+                  <Text style={styles.dueEmptyText}>No upcoming dues. Tap “Set Reminders” to add one.</Text>
+                </View>
+              );
+            }
+
+            return (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.dueStripContainer}
+              >
+                {pendingDues.map((due, index) => {
+                  const [y, m, d] = due.due_date.split('-').map(Number);
+                  const monthShort = new Date(y, m - 1, d).toLocaleString('en-US', { month: 'short' });
+                  const daysInfo = getDaysInfo(due.due_date);
+
+                  return (
+                    <TouchableOpacity
+                      key={due.id}
+                      activeOpacity={0.85}
+                      onPress={() => handleDatePress(due.due_date)}
+                      style={styles.dueCard}
+                    >
+                      <View style={[styles.dueDateBlock, index % 2 === 1 && styles.dueDateBlockAlt]}>
+                        <Text style={styles.dueDay}>{d}</Text>
+                        <Text style={styles.dueMonth}>{monthShort}</Text>
+                      </View>
+                      <View style={styles.dueInfo}>
+                        <Text style={styles.dueTitle} numberOfLines={1}>{due.title}</Text>
+                        <Text style={styles.dueAmount} numberOfLines={1}>
+                          ₱{Number(due.amount).toLocaleString('en-US')}
+                        </Text>
+                        <Text style={[styles.dueMeta, daysInfo.urgent && styles.dueMetaUrgent]} numberOfLines={2}>
+                          Due {monthShort} {d} · {daysInfo.text}
+                        </Text>
+                      </View>
+                      <Ionicons name="chevron-forward" size={14} color={theme.colors.textSubtle} />
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            );
+          })()}
+        </View>
 
         {/* STATISTICS SECTION */}
         <View style={styles.sectionBlock}>
@@ -1355,196 +1352,214 @@ export default function PersonalHomeScreen() {
       </Animated.ScrollView>
 
       {/* SCHEDULED DUES */}
-            <Sheet
-              visible={modalVisible}
-              title="Scheduled Dues"
-              subtitle={formatReadableDate(selectedDate)}
-              onClose={closeDuesModal}
+      <Sheet
+        visible={modalVisible}
+        title="Scheduled Dues"
+        subtitle={formatReadableDate(selectedDate)}
+        onClose={closeDuesModal}
+      >
+        <Banner message={duesBanner} />
+
+        {filteredDues.some((d) => d.status === 'pending') && (
+          <View
+            style={[
+              sheetStyles.dueDaysBadge,
+              { backgroundColor: selectedDaysInfo.urgent ? theme.colors.dangerBg : theme.colors.alpha.brand[10] },
+            ]}
+          >
+            <Text
+              style={[
+                sheetStyles.dueDaysBadgeText,
+                { color: selectedDaysInfo.urgent ? theme.colors.danger : theme.colors.brand },
+              ]}
             >
-              <Banner message={duesBanner} />
-      
-              {filteredDues.some((d) => d.status === 'pending') && (
+              {selectedDaysInfo.text}
+            </Text>
+          </View>
+        )}
+
+        {filteredDues.length > 0 ? (
+          <View style={{ gap: theme.space[10] }}>
+            {filteredDues.map((due, index) => {
+              const cardBgColor = theme.chart.lightCards[index % theme.chart.lightCards.length];
+              const categoryIcon = due.categories?.icon || 'pricetag-outline';
+              const isPaid = due.status === 'paid';
+
+              return (
                 <View
-                  style={[
-                    sheetStyles.dueDaysBadge,
-                    { backgroundColor: selectedDaysInfo.urgent ? theme.colors.dangerBg : theme.colors.alpha.brand[10] },
-                  ]}
+                  key={due.id}
+                  style={[styles.reminderCardHome, { backgroundColor: cardBgColor, opacity: isPaid ? 0.75 : 1 }]}
                 >
-                  <Text
-                    style={[
-                      sheetStyles.dueDaysBadgeText,
-                      { color: selectedDaysInfo.urgent ? theme.colors.danger : theme.colors.brand },
-                    ]}
-                  >
-                    {selectedDaysInfo.text}
-                  </Text>
-                </View>
-              )}
-      
-              {filteredDues.length > 0 ? (
-                <View style={{ gap: theme.space[10] }}>
-                  {filteredDues.map((due, index) => {
-                    const cardBgColor = theme.chart.lightCards[index % theme.chart.lightCards.length];
-                    const categoryIcon = due.categories?.icon || 'pricetag-outline';
-                    const isPaid = due.status === 'paid';
-      
-                    return (
-                      <View
-                        key={due.id}
-                        style={[styles.reminderCardHome, { backgroundColor: cardBgColor, opacity: isPaid ? 0.75 : 1 }]}
-                      >
-                        <View style={styles.calendarBadgeHome}>
-                          <Ionicons name={categoryIcon as any} size={22} color={theme.colors.brand} />
-                        </View>
-      
-                        <View style={styles.cardContentHome}>
-                          <Text style={[styles.reminderTitleHome, isPaid && { textDecorationLine: 'line-through', color: theme.colors.textMuted }]}>
-                            {due.title}
-                          </Text>
-                          <Text style={styles.reminderSubHome}>₱{Number(due.amount).toFixed(2)}</Text>
-                        </View>
-      
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.space[8] }}>
-                          {isPaid ? (
-                            <View style={{ paddingHorizontal: theme.space[12], paddingVertical: theme.space[6], backgroundColor: theme.colors.alpha.olive[15], borderRadius: theme.radius.sm, marginRight: theme.space[4] }}>
-                              <Text style={{ color: theme.colors.olive, fontFamily: theme.fontFamily.semibold, fontSize: theme.fontSize.caption }}>Paid</Text>
-                            </View>
-                          ) : (
-                            <TouchableOpacity
-                              style={[styles.deleteButtonHome, { backgroundColor: theme.colors.alpha.brand[10] }]}
-                              onPress={() => handleSettleReminder(due)}
-                              activeOpacity={0.7}
-                            >
-                              <Ionicons name="checkmark-outline" size={18} color={theme.colors.brand} />
-                            </TouchableOpacity>
-                          )}
-      
-                          <TouchableOpacity
-                            style={styles.deleteButtonHome}
-                            onPress={() => handleDeleteReminder(due.id, due.title)}
-                            activeOpacity={0.7}
-                          >
-                            <Ionicons name="trash-outline" size={18} color={theme.colors.danger} />
-                          </TouchableOpacity>
-                        </View>
-                      </View>
-                    );
-                  })}
-                </View>
-              ) : (
-                <View style={sheetStyles.emptyState}>
-                  <View style={sheetStyles.emptyIcon}>
-                    <Ionicons name="checkmark-circle-outline" size={22} color={theme.colors.textMuted} />
+                  <View style={styles.calendarBadgeHome}>
+                    <Ionicons name={categoryIcon as any} size={22} color={theme.colors.brand} />
                   </View>
-                  <Text style={sheetStyles.emptyTitle}>All Clear!</Text>
-                  <Text style={sheetStyles.emptySubtitle}>No reminders set for this date.</Text>
+
+                  <View style={styles.cardContentHome}>
+                    <Text style={[styles.reminderTitleHome, isPaid && { textDecorationLine: 'line-through', color: theme.colors.textMuted }]}>
+                      {due.title}
+                    </Text>
+                    <Text style={styles.reminderSubHome}>₱{Number(due.amount).toFixed(2)}</Text>
+                  </View>
+
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.space[8] }}>
+                    {isPaid ? (
+                      <View style={{ paddingHorizontal: theme.space[12], paddingVertical: theme.space[6], backgroundColor: theme.colors.alpha.olive[15], borderRadius: theme.radius.sm, marginRight: theme.space[4] }}>
+                        <Text style={{ color: theme.colors.olive, fontFamily: theme.fontFamily.semibold, fontSize: theme.fontSize.caption }}>Paid</Text>
+                      </View>
+                    ) : (
+                      <TouchableOpacity
+                        style={[styles.deleteButtonHome, { backgroundColor: theme.colors.alpha.brand[10] }]}
+                        onPress={() => handleSettleReminder(due)}
+                        activeOpacity={0.7}
+                      >
+                        <Ionicons name="checkmark-outline" size={18} color={theme.colors.brand} />
+                      </TouchableOpacity>
+                    )}
+
+                    <TouchableOpacity
+                      style={styles.deleteButtonHome}
+                      onPress={() => handleDeleteReminder(due.id, due.title)}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons name="trash-outline" size={18} color={theme.colors.danger} />
+                    </TouchableOpacity>
+                  </View>
                 </View>
-              )}
-            </Sheet>
-      
-            {/* DELETE REMINDER */}
-            <Sheet
-              visible={deleteModalVisible}
-              title="Delete Reminder"
-              subtitle="This action cannot be undone."
-              onClose={closeDeleteModal}
-              footer={
-                <SheetActions
-                  onCancel={closeDeleteModal}
-                  onSubmit={confirmDeleteReminder}
-                  submitLabel="Delete"
-                  loading={isDeleting}
-                  danger
-                />
-              }
-            >
-              <Banner message={deleteBanner} />
-              <Text style={sheetStyles.confirmText}>
-                Are you sure you want to delete{' '}
-                <Text style={sheetStyles.confirmTextStrong}>"{reminderToDelete?.title}"</Text>?
-              </Text>
-            </Sheet>
-      
-            {/* ADD REMINDER */}
-            <Sheet
-              visible={addModalVisible}
-              title="Add New Reminder"
-              subtitle="Fill in reminder details."
-              onClose={closeAddModal}
-              footer={
-                <SheetActions
-                  onCancel={closeAddModal}
-                  onSubmit={handleCreateReminder}
-                  submitLabel="Save Reminder"
-                  loading={submitting}
-                />
-              }
-            >
-              <Banner message={addBanner} />
-      
-              <Field label="Title" error={reminderErrors.title}>
-                <TextInput
-                  style={[sheetStyles.input, !!reminderErrors.title && sheetStyles.inputError]}
-                  placeholder="e.g., Electricity Bill"
-                  placeholderTextColor={theme.colors.textMuted}
-                  value={newTitle}
-                  onChangeText={(t) => {
-                    setNewTitle(t);
-                    clearReminderError('title');
-                  }}
-                />
-              </Field>
-      
-              <Field label="Amount (PHP)" error={reminderErrors.amount}>
-                <View style={sheetStyles.amountWrapper}>
-                  <Text style={sheetStyles.currencyPrefix}>₱</Text>
-                  <TextInput
-                    style={[sheetStyles.input, sheetStyles.amountInput, !!reminderErrors.amount && sheetStyles.inputError]}
-                    placeholder="0.00"
-                    placeholderTextColor={theme.colors.textMuted}
-                    keyboardType="decimal-pad"
-                    value={newAmount}
-                    onChangeText={(t) => {
-                      setNewAmount(t);
-                      clearReminderError('amount');
-                    }}
-                  />
-                </View>
-              </Field>
-      
-              <Field label="Category" error={reminderErrors.category}>
-                <CategoryDropdown
-                  categories={categories}
-                  value={newCategoryId}
-                  onChange={(id) => {
-                    setNewCategoryId(id);
-                    clearReminderError('category');
-                  }}
-                />
-              </Field>
-      
-              <Field label="Due Date" error={reminderErrors.date}>
-                <DateButton
-                  value={newDueDate}
-                  hasError={!!reminderErrors.date}
-                  onPress={() => setDatePickerVisible(true)}
-                />
-              </Field>
-            </Sheet>
-      
-            {/* DUE DATE PICKER */}
-            <DatePickerSheet
-              visible={datePickerVisible}
-              value={newDueDate}
-              title="Select Due Date"
-              subtitle="Tap the day this reminder is due."
-              onClose={() => setDatePickerVisible(false)}
-              onConfirm={(dateStr) => {
-                setNewDueDate(dateStr);
-                clearReminderError('date');
-                setDatePickerVisible(false);
+              );
+            })}
+          </View>
+        ) : (
+          <View style={sheetStyles.emptyState}>
+            <View style={sheetStyles.emptyIcon}>
+              <Ionicons name="checkmark-circle-outline" size={22} color={theme.colors.textMuted} />
+            </View>
+            <Text style={sheetStyles.emptyTitle}>All Clear!</Text>
+            <Text style={sheetStyles.emptySubtitle}>No reminders set for this date.</Text>
+          </View>
+        )}
+      </Sheet>
+
+      {/* DELETE REMINDER */}
+      <Sheet
+        visible={deleteModalVisible}
+        title="Delete Reminder"
+        subtitle="This action cannot be undone."
+        onClose={closeDeleteModal}
+        footer={
+          <SheetActions
+            onCancel={closeDeleteModal}
+            onSubmit={confirmDeleteReminder}
+            submitLabel="Delete"
+            loading={isDeleting}
+            danger
+          />
+        }
+      >
+        <Banner message={deleteBanner} />
+        <Text style={sheetStyles.confirmText}>
+          Are you sure you want to delete{' '}
+          <Text style={sheetStyles.confirmTextStrong}>"{reminderToDelete?.title}"</Text>?
+        </Text>
+      </Sheet>
+
+      {/* ADD REMINDER */}
+      <Sheet
+        visible={addModalVisible}
+        title="Add New Reminder"
+        subtitle="Fill in reminder details."
+        onClose={closeAddModal}
+        footer={
+          <SheetActions
+            onCancel={closeAddModal}
+            onSubmit={handleCreateReminder}
+            submitLabel="Save Reminder"
+            loading={submitting}
+          />
+        }
+      >
+        <Banner message={addBanner} />
+
+        <Field label="Title" error={reminderErrors.title}>
+          <TextInput
+            style={[sheetStyles.input, !!reminderErrors.title && sheetStyles.inputError]}
+            placeholder="e.g., Electricity Bill"
+            placeholderTextColor={theme.colors.textMuted}
+            value={newTitle}
+            onChangeText={(t) => {
+              setNewTitle(t);
+              clearReminderError('title');
+            }}
+          />
+        </Field>
+
+        <Field label="Amount (PHP)" error={reminderErrors.amount}>
+          <View style={sheetStyles.amountWrapper}>
+            <Text style={sheetStyles.currencyPrefix}>₱</Text>
+            <TextInput
+              style={[sheetStyles.input, sheetStyles.amountInput, !!reminderErrors.amount && sheetStyles.inputError]}
+              placeholder="0.00"
+              placeholderTextColor={theme.colors.textMuted}
+              keyboardType="decimal-pad"
+              value={newAmount}
+              onChangeText={(t) => {
+                setNewAmount(t);
+                clearReminderError('amount');
               }}
             />
           </View>
-        );
-      }
+        </Field>
+
+        <Field label="Category" error={reminderErrors.category}>
+          <View style={sheetStyles.chipWrap}>
+            {categories.map((cat) => {
+              const isSelected = newCategoryId === cat.id;
+              const catColor = cat.color || theme.colors.brand;
+              return (
+                <TouchableOpacity
+                  key={cat.id}
+                  activeOpacity={0.8}
+                  onPress={() => {
+                    setNewCategoryId(cat.id);
+                    clearReminderError('category');
+                  }}
+                  style={[sheetStyles.categoryChip, isSelected && sheetStyles.categoryChipActive]}
+                >
+                  <Ionicons
+                    name={(cat.icon || 'receipt-outline') as any}
+                    size={15}
+                    color={isSelected ? theme.colors.white : catColor}
+                  />
+                  <Text style={[sheetStyles.categoryChipText, isSelected && sheetStyles.categoryChipTextActive]}>
+                    {cat.name}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </Field>
+
+        <Field label="Due Date" error={reminderErrors.date}>
+          <DateButton
+            value={newDueDate}
+            hasError={!!reminderErrors.date}
+            onPress={() => setDatePickerVisible(true)}
+          />
+        </Field>
+      </Sheet>
+
+      {/* DUE DATE PICKER */}
+      <DatePickerSheet
+        visible={datePickerVisible}
+        value={newDueDate}
+        title="Select Due Date"
+        subtitle="Tap the day this reminder is due."
+        onClose={() => setDatePickerVisible(false)}
+        onConfirm={(dateStr) => {
+          setNewDueDate(dateStr);
+          clearReminderError('date');
+          setDatePickerVisible(false);
+        }}
+      />
+    </View>
+  );
+}

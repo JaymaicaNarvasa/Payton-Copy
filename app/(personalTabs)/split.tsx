@@ -172,7 +172,7 @@ function Avatar({ uri, size = 40 }: { uri?: string | null; size?: number }) {
       <Ionicons
         name="person"
         size={Math.round(size * 0.82)}
-        color={colors.borderStrong}
+        color={colors.textMuted}
         style={{ marginBottom: -Math.round(size * 0.07) }}
       />
     </View>
@@ -1980,12 +1980,12 @@ const s = StyleSheet.create({
   // avatar
   avatarImage: { backgroundColor: colors.surfaceAlt },
   avatarSilhouette: {
-    backgroundColor: colors.surfaceAlt,
+    backgroundColor: colors.border,
     overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'flex-end',
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
+    borderColor: colors.borderStrong,
   },
 
   // summary
