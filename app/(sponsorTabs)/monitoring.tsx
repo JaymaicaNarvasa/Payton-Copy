@@ -33,6 +33,7 @@ interface ExpenseItem {
   categories?: {
     name?: string;
     icon?: string;
+    color?: string;
   };
 }
 
@@ -72,24 +73,26 @@ const FILTERS: { key: ExpenseFilter; label: string; caption: string }[] = [
   { key: 'year', label: 'This Year', caption: 'This Year' },
 ];
 
-// Expanded dynamic color palette so every category row/item can have a unique distinct color
-const EXTENDED_COLORS = [
-  '#F2B84B', // Gold/Yellow
-  '#4C9AE0', // Blue
-  '#E0608A', // Pink/Red
-  '#34D399', // Emerald Green
-  '#A78BFA', // Purple
-  '#FB923C', // Orange
-  '#38BDF8', // Sky Blue
-  '#F472B6', // Light Pink
-  '#4ADE80', // Green
-  '#818CF8', // Indigo
-];
+
 
 const RECENT_LIMIT = 5;
 
 const C = theme.colors;
 const F = theme.fontFamily;
+
+// Fallback color palette (brand family) if a category has no color assigned in the database
+const EXTENDED_COLORS = [
+  C.olive,
+  C.aqua,
+  C.dueTeal,
+  C.amber,
+  C.dueGreen,
+  C.brandMid,
+  C.rose,
+  C.teal,
+  C.oliveBright,
+  C.info,
+];
 
 /* ---------- Helpers ---------- */
 const formatPeso = (n: number, fixed = true) =>
@@ -170,7 +173,7 @@ const MonitoringSkeleton = () => (
         width: '48%',
         height: 18,
         borderRadius: 9,
-        backgroundColor: '#E8ECF2',
+        backgroundColor: theme.colors.border,
         marginBottom: 20,
       }}
     />
@@ -182,7 +185,7 @@ const MonitoringSkeleton = () => (
           alignItems: 'center',
           paddingVertical: 16,
           borderBottomWidth: 1,
-          borderBottomColor: '#EEF0F4',
+          borderBottomColor: theme.colors.surfaceAlt,
         }}
       >
         <View
@@ -190,7 +193,7 @@ const MonitoringSkeleton = () => (
             width: 42,
             height: 42,
             borderRadius: 14,
-            backgroundColor: '#E8ECF2',
+            backgroundColor: theme.colors.border,
             marginRight: 12,
           }}
         />
@@ -200,7 +203,7 @@ const MonitoringSkeleton = () => (
               width: '70%',
               height: 14,
               borderRadius: 7,
-              backgroundColor: '#E8ECF2',
+              backgroundColor: theme.colors.border,
               marginBottom: 8,
             }}
           />
@@ -209,7 +212,7 @@ const MonitoringSkeleton = () => (
               width: '44%',
               height: 11,
               borderRadius: 6,
-              backgroundColor: '#EEF0F4',
+              backgroundColor: theme.colors.surfaceAlt,
             }}
           />
         </View>
@@ -218,7 +221,7 @@ const MonitoringSkeleton = () => (
             width: 58,
             height: 14,
             borderRadius: 7,
-            backgroundColor: '#E8ECF2',
+            backgroundColor: theme.colors.border,
             marginLeft: 12,
           }}
         />
@@ -251,6 +254,8 @@ export default function MonitoringScreen() {
   const [categoryFilter, setCategoryFilter] = useState<ExpenseFilter>('all');
   
   const [selectedCategory, setSelectedCategory] = useState<CategoryGroup | null>(null);
+  const [categorySourceView, setCategorySourceView] = useState<'overview' | 'other_categories'>('overview');
+  
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedImageUri, setSelectedImageUri] = useState<string | null>(null);
   const [periodMenuOpen, setPeriodMenuOpen] = useState(false);
@@ -293,12 +298,13 @@ export default function MonitoringScreen() {
         setLatestEndDate(allowancesData[0].end_date);
       }
 
+      // Fetch categories including color from database
       const { data: expenseData, error: expenseError } = await supabase
         .from('expenses')
         .select(`
           id, description, amount, spent_at, category_id, photo_url,
           allowances!inner (spender_id, is_archived),
-          categories (name, icon)
+          categories (name, icon, color)
         `)
         .eq('allowances.spender_id', spenderId)
         .eq('allowances.is_archived', false)
@@ -378,16 +384,13 @@ export default function MonitoringScreen() {
           icon: exp.categories?.icon || 'pricetag-outline',
           total: Number(exp.amount),
           count: 1,
+          color: exp.categories?.color || EXTENDED_COLORS[0],
         });
       }
     });
     
-    const sorted = Array.from(map.values()).sort((a, b) => b.total - a.total);
-    // Assign unique distinct colors to every single category group sequentially
-    return sorted.map((g, index) => ({
-      ...g,
-      color: EXTENDED_COLORS[index % EXTENDED_COLORS.length],
-    }));
+    // Sort descending by total amount
+    return Array.from(map.values()).sort((a, b) => b.total - a.total);
   }, [expenses, categoryFilter]);
 
   const spendRows = useMemo<SpendRow[]>(() => {
@@ -415,7 +418,7 @@ export default function MonitoringScreen() {
         icon: 'ellipsis-horizontal',
         total: restTotal,
         pct: pctOf(restTotal),
-        color: EXTENDED_COLORS[3],
+        color: '#6B7280',
         isOtherGroup: true,
       });
     }
@@ -453,14 +456,29 @@ export default function MonitoringScreen() {
     setSearchQuery('');
     setView('all');
   };
-  const openCategory = (category: CategoryGroup) => {
+  const openCategoryFromOverview = (category: CategoryGroup) => {
     setSearchQuery('');
     setSelectedCategory(category);
+    setCategorySourceView('overview');
+    setView('category');
+  };
+  const openCategoryFromOther = (category: CategoryGroup) => {
+    setSearchQuery('');
+    setSelectedCategory(category);
+    setCategorySourceView('other_categories');
     setView('category');
   };
   const openOtherCategoriesList = () => {
     setSearchQuery('');
     setView('other_categories');
+  };
+
+  const handleCategoryBack = () => {
+    if (categorySourceView === 'other_categories') {
+      openOtherCategoriesList();
+    } else {
+      goOverview();
+    }
   };
 
   const renderHeader = () => (
@@ -570,7 +588,7 @@ export default function MonitoringScreen() {
 
     if (!row.group) return <View key={row.key}>{body}</View>;
     return (
-      <TouchableOpacity key={row.key} activeOpacity={0.7} onPress={() => openCategory(row.group!)}>
+      <TouchableOpacity key={row.key} activeOpacity={0.7} onPress={() => openCategoryFromOverview(row.group!)}>
         {body}
       </TouchableOpacity>
     );
@@ -656,7 +674,7 @@ export default function MonitoringScreen() {
   const renderCategoryHeader = () => (
     <View>
       <View style={styles.subHeader}>
-        <TouchableOpacity style={styles.subBack} onPress={() => categoryGroups.length > 4 ? openOtherCategoriesList() : goOverview()} activeOpacity={0.7}>
+        <TouchableOpacity style={styles.subBack} onPress={handleCategoryBack} activeOpacity={0.7}>
           <Ionicons name="chevron-back" size={18} color={C.textStrong} />
         </TouchableOpacity>
         <View style={styles.subHeaderText}>
@@ -671,7 +689,6 @@ export default function MonitoringScreen() {
     </View>
   );
 
-  // Header for the list of other/remaining categories
   const renderOtherCategoriesHeader = () => (
     <View>
       <View style={styles.subHeader}>
@@ -690,7 +707,7 @@ export default function MonitoringScreen() {
 
   const renderTransaction = ({ item: exp, index }: { item: ExpenseItem; index: number }) => {
     const matchedGroup = categoryGroups.find((g) => g.key === getCategoryKey(exp));
-    const color = matchedGroup?.color || EXTENDED_COLORS[3];
+    const color = matchedGroup?.color || exp.categories?.color || EXTENDED_COLORS[0];
     const list = view === 'overview' ? recentExpenses : view === 'all' ? allTabExpenses : categoryExpenses;
     const isLast = index === list.length - 1;
 
@@ -727,16 +744,15 @@ export default function MonitoringScreen() {
     );
   };
 
-  // Renders each remaining category item when viewing the "Other Categories" list
   const renderOtherCategoryItem = ({ item: group, index }: { item: CategoryGroup; index: number }) => {
     const totalSum = categoryGroups.reduce((s, g) => s + g.total, 0);
     const pct = totalSum > 0 ? Math.round((group.total / totalSum) * 100) : 0;
-    const color = group.color || EXTENDED_COLORS[index % EXTENDED_COLORS.length];
+    const color = group.color || EXTENDED_COLORS[0];
 
     return (
       <TouchableOpacity
         activeOpacity={0.7}
-        onPress={() => openCategory(group)}
+        onPress={() => openCategoryFromOther(group)}
       >
         <View style={styles.spendRow}>
           <Text style={[styles.spendRank, { color }]}>{index + 4}</Text>
@@ -774,7 +790,6 @@ export default function MonitoringScreen() {
     />
   );
 
-  // Determine data source and header components based on current view
   let listData: any = [];
   let listHeader: any = null;
   let renderItemFunc: any = renderTransaction;
@@ -789,7 +804,7 @@ export default function MonitoringScreen() {
     listData = categoryExpenses;
     listHeader = renderCategoryHeader();
   } else if (view === 'other_categories') {
-    listData = categoryGroups.slice(3); // All categories after the top 3
+    listData = categoryGroups.slice(3);
     listHeader = renderOtherCategoriesHeader();
     renderItemFunc = renderOtherCategoryItem;
   }
@@ -820,7 +835,7 @@ export default function MonitoringScreen() {
                   <Ionicons
                     name={expenses.length === 0 ? 'receipt-outline' : 'search-outline'}
                     size={22}
-                    color={C.textMuted}
+                    color={C.dueGreen}
                   />
                 </View>
                 <Text style={styles.emptyTitle}>

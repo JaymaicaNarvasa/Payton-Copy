@@ -3929,7 +3929,7 @@ export const sponsorHomeStyles = StyleSheet.create({
   roleBadgeText: { fontSize: theme.fontSize.small, fontFamily: theme.fontFamily.bold, color: theme.colors.gradientEnd },
 
   /* Body */
-  bodyContent: { flex: 1 },
+  bodyContent: { flex: 1, backgroundColor: theme.colors.canvas },
   listScrollContent: { paddingHorizontal: theme.space[20], paddingBottom: theme.space[100] },
   sectionGap: { marginTop: theme.space[24] },
   skeletonGap: { marginTop: theme.space[24], marginBottom: theme.space[12] },
@@ -3959,36 +3959,37 @@ export const sponsorHomeStyles = StyleSheet.create({
   quickActionTile: {
     width: '31.5%',
     minHeight: 92,
-    backgroundColor: theme.colors.successPale,
-    borderRadius: theme.radius.lg,
+    backgroundColor: theme.colors.white,
+    borderRadius: theme.radius.xl,
     borderWidth: 1,
-    borderColor: theme.colors.successPaleBorder,
+    borderColor: theme.colors.mintLine,
     paddingVertical: theme.space[14],
     alignItems: 'center',
+    ...theme.shadow.sm,
   },
-  quickActionIconCircle: { width: 36, height: 36, borderRadius: 18, backgroundColor: theme.colors.mintPill, alignItems: 'center', justifyContent: 'center', marginBottom: theme.space[8] },
-  quickActionLabel: { fontSize: theme.fontSize.small, fontFamily: theme.fontFamily.bold, color: theme.colors.mintPillText, textAlign: 'center', lineHeight: 15 },
+  quickActionIconCircle: { width: 40, height: 40, borderRadius: 20, backgroundColor: theme.colors.mintTint, alignItems: 'center', justifyContent: 'center', marginBottom: theme.space[8] },
+  quickActionLabel: { fontSize: theme.fontSize.small, fontFamily: theme.fontFamily.bold, color: theme.colors.brandInk, textAlign: 'center', lineHeight: 15 },
 
   /* Recipients */
   recipientsRow: { gap: theme.space[16], paddingVertical: theme.space[4], paddingRight: theme.space[8] },
   recipientItem: { alignItems: 'center', width: 56 },
   recipientName: { fontSize: theme.fontSize.caption, fontFamily: theme.fontFamily.medium, color: theme.colors.brandInk, marginTop: theme.space[6], textAlign: 'center' },
-  moreCircle: { width: 50, height: 50, borderRadius: 25, backgroundColor: theme.colors.borderStrong, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: theme.space[4] },
-  moreDot: { width: 7, height: 7, borderRadius: 3.5, backgroundColor: theme.colors.white },
+  moreCircle: { width: 50, height: 50, borderRadius: 25, backgroundColor: theme.colors.mintTint, borderWidth: 1, borderColor: theme.colors.mintBorder, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: theme.space[4] },
+  moreDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: theme.colors.dueGreen },
   recipientsHint: { fontSize: theme.fontSize.caption, fontFamily: theme.fontFamily.regular, color: theme.colors.textMuted, marginTop: theme.space[8] },
   skeletonRecipients: { flexDirection: 'row', gap: theme.space[14] },
   skeletonRecipient: { alignItems: 'center' },
 
   /* Transaction history */
-  rangePill: { flexDirection: 'row', alignItems: 'center', gap: theme.space[4], backgroundColor: theme.colors.mintPill, paddingHorizontal: theme.space[12], paddingVertical: theme.space[6], borderRadius: theme.radius.pill },
+  rangePill: { flexDirection: 'row', alignItems: 'center', gap: theme.space[4], backgroundColor: theme.colors.mintTint, paddingHorizontal: theme.space[12], paddingVertical: theme.space[6], borderRadius: theme.radius.pill },
   rangePillText: { fontSize: theme.fontSize.small, fontFamily: theme.fontFamily.semibold, color: theme.colors.gradientEnd },
   chipRow: { flexDirection: 'row', gap: theme.space[8], marginBottom: theme.space[14] },
-  chip: { height: 28, paddingHorizontal: theme.space[18], justifyContent: 'center', borderRadius: theme.radius.pill, borderWidth: 1, borderColor: theme.colors.successPaleBorder, backgroundColor: theme.colors.successPale },
-  chipActive: { backgroundColor: theme.colors.mintPill, borderColor: theme.colors.dueGreen },
-  chipText: { fontSize: theme.fontSize.tiny, fontFamily: theme.fontFamily.semibold, color: theme.colors.textGray },
-  chipTextActive: { color: theme.colors.gradientEnd },
+  chip: { height: 28, paddingHorizontal: theme.space[18], justifyContent: 'center', borderRadius: theme.radius.pill, borderWidth: 1, borderColor: theme.colors.border, backgroundColor: theme.colors.white },
+  chipActive: { backgroundColor: theme.colors.gradientEnd, borderColor: theme.colors.gradientEnd },
+  chipText: { fontSize: theme.fontSize.tiny, fontFamily: theme.fontFamily.semibold, color: theme.colors.textSecondary },
+  chipTextActive: { color: theme.colors.white },
   transactionsListContainer: { gap: theme.space[10] },
-  txCardItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: theme.colors.white, padding: theme.space[12], borderRadius: theme.radius.lg, borderWidth: 1, borderColor: theme.colors.border },
+  txCardItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: theme.colors.white, padding: theme.space[12], borderRadius: theme.radius.lg, borderWidth: 1, borderColor: theme.colors.mintLine, ...theme.shadow.sm },
   txIconBox: { width: 40, height: 40, borderRadius: theme.radius.md, justifyContent: 'center', alignItems: 'center' },
   txDescText: { fontSize: theme.fontSize.body, fontFamily: theme.fontFamily.bold, color: theme.colors.textStrong },
   txDateText: { fontSize: theme.fontSize.tiny, fontFamily: theme.fontFamily.regular, color: theme.colors.textMuted, marginTop: theme.space[2] },
@@ -3996,14 +3997,14 @@ export const sponsorHomeStyles = StyleSheet.create({
 
   /* Period dropdown */
   menuOverlay: { flex: 1 },
-  menuCard: { position: 'absolute', minWidth: 140, backgroundColor: theme.colors.white, borderRadius: theme.radius.lg, paddingVertical: theme.space[6], ...theme.shadow.lg },
+  menuCard: { position: 'absolute', minWidth: 140, backgroundColor: theme.colors.white, borderRadius: theme.radius.lg, borderWidth: 1, borderColor: theme.colors.border, paddingVertical: theme.space[6], ...theme.shadow.lg },
   menuItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: theme.space[12], paddingHorizontal: theme.space[16], paddingVertical: theme.space[12] },
   menuItemText: { fontSize: theme.fontSize.body, fontFamily: theme.fontFamily.medium, color: theme.colors.text },
   menuItemTextActive: { color: theme.colors.mintPillText, fontFamily: theme.fontFamily.bold },
 
   /* Empty state */
-  emptyState: { alignItems: 'center', justifyContent: 'center', paddingVertical: theme.space[28] },
-  emptyIcon: { width: 48, height: 48, borderRadius: 24, backgroundColor: theme.colors.surfaceAlt, alignItems: 'center', justifyContent: 'center', marginBottom: theme.space[10] },
+  emptyState: { alignItems: 'center', justifyContent: 'center', paddingVertical: theme.space[28], backgroundColor: theme.colors.white, borderRadius: theme.radius.xl, borderWidth: 1, borderColor: theme.colors.mintLine, borderStyle: 'dashed' },
+  emptyIcon: { width: 48, height: 48, borderRadius: 24, backgroundColor: theme.colors.mintTint, alignItems: 'center', justifyContent: 'center', marginBottom: theme.space[10] },
   emptyTitle: { fontSize: theme.fontSize.caption, fontFamily: theme.fontFamily.semibold, color: theme.colors.textGray },
   emptySubtitle: { fontSize: theme.fontSize.small, fontFamily: theme.fontFamily.regular, color: theme.colors.textMuted, textAlign: 'center', marginTop: theme.space[4] },
 
@@ -4148,7 +4149,7 @@ export const sponsorAllowancesStyles = StyleSheet.create({
     borderTopLeftRadius: theme.layout.sheetRadius,
     borderTopRightRadius: theme.layout.sheetRadius,
     overflow: 'hidden',
-    backgroundColor: theme.colors.background,
+    backgroundColor: theme.colors.canvas,
   },
   listContent: { paddingHorizontal: theme.space[20], paddingTop: theme.space[24], paddingBottom: theme.layout.tabBarClearance },
 
@@ -4169,7 +4170,7 @@ export const sponsorAllowancesStyles = StyleSheet.create({
   addPillText: { fontSize: theme.fontSize.small, fontFamily: theme.fontFamily.semibold, color: theme.colors.gradientEnd },
 
   /* Spender card */
-  card: { backgroundColor: theme.colors.white, borderRadius: theme.radius.xl, borderWidth: 1, borderColor: theme.colors.border, padding: theme.space[14], marginBottom: theme.space[14], ...theme.shadow.sm },
+  card: { backgroundColor: theme.colors.white, borderRadius: theme.radius.xl, borderWidth: 1, borderColor: theme.colors.mintLine, padding: theme.space[14], marginBottom: theme.space[14], ...theme.shadow.md },
   cardHeader: { flexDirection: 'row', alignItems: 'center', gap: theme.space[12] },
   cardTitleBlock: { flex: 1 },
   cardTitle: { fontSize: theme.fontSize.bodyLg, fontFamily: theme.fontFamily.bold, color: theme.colors.textStrong },
@@ -4186,20 +4187,20 @@ export const sponsorAllowancesStyles = StyleSheet.create({
   healthTextCritical: { color: theme.colors.danger },
 
   /* Stats */
-  statsRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: theme.colors.background, borderRadius: theme.radius.lg, paddingVertical: theme.space[12], marginTop: theme.space[14] },
+  statsRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: theme.colors.mintBg, borderRadius: theme.radius.lg, borderWidth: 1, borderColor: theme.colors.mintLine, paddingVertical: theme.space[12], marginTop: theme.space[14] },
   statCol: { flex: 1, paddingHorizontal: theme.space[10], alignItems: 'center', gap: theme.space[2] },
   statLabel: { fontSize: theme.fontSize.tiny, fontFamily: theme.fontFamily.regular, color: theme.colors.textMuted },
   statValue: { fontSize: theme.fontSize.bodyLg, fontFamily: theme.fontFamily.extrabold, color: theme.colors.brandInk },
-  statDivider: { width: 1, height: 28, backgroundColor: theme.colors.border },
+  statDivider: { width: 1, height: 28, backgroundColor: theme.colors.mintBorder },
 
   /* Footer */
-  cardFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: theme.space[14], marginTop: theme.space[4] },
+  cardFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: theme.space[14], marginTop: theme.space[14], borderTopWidth: 1, borderTopColor: theme.colors.mintLine },
   footerLeft: { flexDirection: 'row', alignItems: 'center', gap: theme.space[8] },
   footerIconCircle: { width: 26, height: 26, borderRadius: 13, backgroundColor: theme.colors.mintPill, alignItems: 'center', justifyContent: 'center' },
-  footerText: { fontSize: theme.fontSize.caption, fontFamily: theme.fontFamily.semibold, color: theme.colors.textSecondary },
+  footerText: { fontSize: theme.fontSize.caption, fontFamily: theme.fontFamily.semibold, color: theme.colors.brandInk },
 
   /* Allowance rows */
-  allowanceRow: { backgroundColor: theme.colors.background, borderRadius: theme.radius.lg, borderWidth: 1, borderColor: theme.colors.border, padding: theme.space[12], marginTop: theme.space[10] },
+  allowanceRow: { backgroundColor: theme.colors.mintBg, borderRadius: theme.radius.lg, borderWidth: 1, borderColor: theme.colors.mintLine, padding: theme.space[12], marginTop: theme.space[10] },
   allowanceTop: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: theme.space[10] },
   allowanceInfo: { flex: 1 },
   allowanceNameRow: { flexDirection: 'row', alignItems: 'center', gap: theme.space[8] },
@@ -4239,8 +4240,8 @@ export const sponsorAllowancesStyles = StyleSheet.create({
   toastText: { flexShrink: 1, fontSize: theme.fontSize.caption, fontFamily: theme.fontFamily.semibold, color: theme.colors.textStrong },
 
   /* Empty state */
-  emptyState: { alignItems: 'center', justifyContent: 'center', paddingVertical: theme.space[32] },
-  emptyIcon: { width: 48, height: 48, borderRadius: 24, backgroundColor: theme.colors.surfaceAlt, alignItems: 'center', justifyContent: 'center', marginBottom: theme.space[10] },
+  emptyState: { alignItems: 'center', justifyContent: 'center', paddingVertical: theme.space[32], backgroundColor: theme.colors.white, borderRadius: theme.radius.xl, borderWidth: 1, borderColor: theme.colors.mintLine, borderStyle: 'dashed' },
+  emptyIcon: { width: 48, height: 48, borderRadius: 24, backgroundColor: theme.colors.mintTint, alignItems: 'center', justifyContent: 'center', marginBottom: theme.space[10] },
   emptyTitle: { fontSize: theme.fontSize.bodyLg, fontFamily: theme.fontFamily.bold, color: theme.colors.textSoft },
   emptySubtitle: { fontSize: theme.fontSize.small, fontFamily: theme.fontFamily.regular, color: theme.colors.textMuted, textAlign: 'center', marginTop: theme.space[4], paddingHorizontal: theme.space[24] },
 });
@@ -4254,7 +4255,7 @@ export const sponsorAllowancesStyles = StyleSheet.create({
 const MONITORING_STATUS_TOP = (Platform.OS === 'android' ? StatusBar.currentHeight || 24 : 50) + theme.space[10];
 
 export const monitoringStyles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: theme.colors.white },
+  container: { flex: 1, backgroundColor: theme.colors.canvas },
 
   /* Header (gradient is drawn by <GradientBackground /> inside headerGradient) */
   header: {
@@ -4287,7 +4288,7 @@ export const monitoringStyles = StyleSheet.create({
   heroCaption: { fontSize: theme.fontSize.tiny, fontFamily: theme.fontFamily.regular, color: theme.colors.alpha.white[82], textAlign: 'center', marginTop: theme.space[10] },
 
   /* Body */
-  bodyContent: { flex: 1 },
+  bodyContent: { flex: 1, backgroundColor: theme.colors.canvas },
   listContent: { paddingHorizontal: 22, paddingTop: 22, paddingBottom: theme.layout.tabBarClearance },
 
   /* Section headers */
@@ -4295,11 +4296,11 @@ export const monitoringStyles = StyleSheet.create({
   sectionHeaderSpaced: { marginTop: 26 },
   sectionTitle: { fontSize: theme.fontSize.title, fontFamily: theme.fontFamily.extrabold, color: theme.colors.brandInk, letterSpacing: -0.3 },
   seeAll: { fontSize: theme.fontSize.caption, fontFamily: theme.fontFamily.bold, color: theme.colors.mintPillText },
-  periodPill: { flexDirection: 'row', alignItems: 'center', gap: theme.space[4], backgroundColor: theme.colors.mintPill, paddingHorizontal: theme.space[14], paddingVertical: 7, borderRadius: theme.radius.pill },
+  periodPill: { flexDirection: 'row', alignItems: 'center', gap: theme.space[4], backgroundColor: theme.colors.mintTint, paddingHorizontal: theme.space[14], paddingVertical: 7, borderRadius: theme.radius.pill },
   periodPillText: { fontSize: theme.fontSize.caption, fontFamily: theme.fontFamily.semibold, color: theme.colors.mintPillText },
 
   /* Top spendings card */
-  spendCard: { backgroundColor: theme.colors.white, borderRadius: theme.radius.xxl, borderWidth: 1, borderColor: theme.colors.border, paddingHorizontal: theme.space[14], paddingVertical: theme.space[8], ...theme.shadow.sm },
+  spendCard: { backgroundColor: theme.colors.white, borderRadius: theme.radius.xxl, borderWidth: 1, borderColor: theme.colors.mintLine, paddingHorizontal: theme.space[14], paddingVertical: theme.space[8], ...theme.shadow.md },
   spendRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 9 },
   spendRank: { width: theme.space[16], fontSize: theme.fontSize.body, fontFamily: theme.fontFamily.extrabold },
   spendIconBox: { width: 42, height: 42, borderRadius: 13, alignItems: 'center', justifyContent: 'center', marginHorizontal: theme.space[10] },
@@ -4308,14 +4309,14 @@ export const monitoringStyles = StyleSheet.create({
   spendName: { flexShrink: 1, fontSize: theme.fontSize.body, fontFamily: theme.fontFamily.semibold, color: theme.colors.brandInk, marginRight: theme.space[8] },
   spendAmount: { fontSize: theme.fontSize.body, fontFamily: theme.fontFamily.extrabold, color: theme.colors.brandInk },
   spendBarRow: { flexDirection: 'row', alignItems: 'center', gap: theme.space[10], marginTop: 7 },
-  spendTrack: { flex: 1, height: 7, borderRadius: theme.radius.xs, backgroundColor: '#E5ECE7', overflow: 'hidden' },
+  spendTrack: { flex: 1, height: 7, borderRadius: theme.radius.xs, backgroundColor: theme.colors.mintTint, overflow: 'hidden' },
   spendFill: { height: '100%', borderRadius: theme.radius.xs },
   spendPct: { width: theme.space[32], fontSize: theme.fontSize.tiny, fontFamily: theme.fontFamily.semibold, color: theme.colors.textMuted, textAlign: 'right' },
   spendEmpty: { fontSize: theme.fontSize.caption, fontFamily: theme.fontFamily.regular, color: theme.colors.textMuted, textAlign: 'center', paddingVertical: theme.space[24] },
 
   /* Transactions */
-  txRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: theme.space[12], borderBottomWidth: 1, borderBottomColor: theme.colors.surfaceAlt },
-  txRowLast: { borderBottomWidth: 0 },
+  txRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: theme.space[12], paddingHorizontal: theme.space[12], marginBottom: theme.space[10], backgroundColor: theme.colors.white, borderRadius: theme.radius.lg, borderWidth: 1, borderColor: theme.colors.mintLine, ...theme.shadow.sm },
+  txRowLast: { marginBottom: 0 },
   txIconBox: { width: 46, height: 46, borderRadius: theme.radius.soft, alignItems: 'center', justifyContent: 'center' },
   txBody: { flex: 1, marginLeft: theme.space[12], marginRight: theme.space[8] },
   txNameRow: { flexDirection: 'row', alignItems: 'center', gap: theme.space[6] },
@@ -4329,31 +4330,31 @@ export const monitoringStyles = StyleSheet.create({
   /* Sub views (See All / category detail) */
   subHeader: { flexDirection: 'row', alignItems: 'center', gap: theme.space[12], marginBottom: theme.space[14] },
   subHeaderText: { flex: 1 },
-  subBack: { width: 34, height: 34, borderRadius: 17, backgroundColor: theme.colors.surfaceAlt, alignItems: 'center', justifyContent: 'center' },
+  subBack: { width: 34, height: 34, borderRadius: 17, backgroundColor: theme.colors.white, borderWidth: 1, borderColor: theme.colors.mintLine, alignItems: 'center', justifyContent: 'center' },
   subTitle: { fontSize: 17, fontFamily: theme.fontFamily.extrabold, color: theme.colors.brandInk, letterSpacing: -0.3 },
   subSubtitle: { fontSize: theme.fontSize.small, fontFamily: theme.fontFamily.regular, color: theme.colors.textMuted, marginTop: theme.space[2] },
   subTotal: { fontSize: theme.fontSize.subtitle, fontFamily: theme.fontFamily.extrabold, color: theme.colors.danger },
 
   /* Search + filters */
-  searchContainer: { flexDirection: 'row', alignItems: 'center', gap: theme.space[8], height: 46, backgroundColor: theme.colors.white, borderRadius: theme.radius.soft, borderWidth: 1, borderColor: theme.colors.border, paddingHorizontal: theme.space[14], marginBottom: theme.space[12] },
+  searchContainer: { flexDirection: 'row', alignItems: 'center', gap: theme.space[8], height: 46, backgroundColor: theme.colors.white, borderRadius: theme.radius.soft, borderWidth: 1, borderColor: theme.colors.mintLine, paddingHorizontal: theme.space[14], marginBottom: theme.space[12], ...theme.shadow.sm },
   searchInput: { flex: 1, fontSize: theme.fontSize.body, fontFamily: theme.fontFamily.regular, color: theme.colors.textStrong, paddingVertical: 0 },
   filterScroll: { flexGrow: 0 },
   filterRow: { gap: theme.space[8], paddingBottom: theme.space[12], paddingRight: theme.space[8] },
-  filterChip: { paddingHorizontal: theme.space[16], height: 36, borderRadius: 18, backgroundColor: theme.colors.white, borderWidth: 1, borderColor: theme.colors.border, alignItems: 'center', justifyContent: 'center' },
+  filterChip: { paddingHorizontal: theme.space[16], height: 36, borderRadius: 18, backgroundColor: theme.colors.white, borderWidth: 1, borderColor: theme.colors.mintBorder, alignItems: 'center', justifyContent: 'center' },
   filterChipActive: { backgroundColor: theme.colors.gradientEnd, borderColor: theme.colors.gradientEnd },
   filterChipText: { fontSize: theme.fontSize.small, fontFamily: theme.fontFamily.semibold, color: theme.colors.textGray },
   filterChipTextActive: { color: theme.colors.white, fontFamily: theme.fontFamily.bold },
 
   /* Period menu */
   menuOverlay: { flex: 1, backgroundColor: theme.colors.overlay, alignItems: 'center', justifyContent: 'center', paddingHorizontal: theme.space[40] },
-  menuCard: { width: '100%', maxWidth: 260, backgroundColor: theme.colors.white, borderRadius: 18, paddingVertical: theme.space[6], ...theme.shadow.lg },
+  menuCard: { width: '100%', maxWidth: 260, backgroundColor: theme.colors.white, borderRadius: 18, borderWidth: 1, borderColor: theme.colors.border, paddingVertical: theme.space[6], ...theme.shadow.lg },
   menuItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 18, paddingVertical: 13 },
   menuItemText: { fontSize: theme.fontSize.body, fontFamily: theme.fontFamily.medium, color: theme.colors.text },
   menuItemTextActive: { color: theme.colors.mintPillText, fontFamily: theme.fontFamily.bold },
 
   /* Empty */
-  emptyState: { alignItems: 'center', paddingVertical: 36, paddingHorizontal: theme.space[24], backgroundColor: theme.colors.background, borderRadius: 22, borderWidth: 1, borderColor: theme.colors.border },
-  emptyIcon: { width: 48, height: 48, borderRadius: 24, backgroundColor: '#EBEFF4', alignItems: 'center', justifyContent: 'center', marginBottom: theme.space[10] },
+  emptyState: { alignItems: 'center', paddingVertical: 36, paddingHorizontal: theme.space[24], backgroundColor: theme.colors.white, borderRadius: 22, borderWidth: 1, borderColor: theme.colors.mintLine, borderStyle: 'dashed' },
+  emptyIcon: { width: 48, height: 48, borderRadius: 24, backgroundColor: theme.colors.mintTint, alignItems: 'center', justifyContent: 'center', marginBottom: theme.space[10] },
   emptyTitle: { fontSize: theme.fontSize.body, fontFamily: theme.fontFamily.bold, color: theme.colors.textStrong },
   emptySubtitle: { fontSize: theme.fontSize.small, fontFamily: theme.fontFamily.regular, color: theme.colors.textMuted, textAlign: 'center', marginTop: theme.space[4], lineHeight: 17 },
 
@@ -4363,7 +4364,7 @@ export const monitoringStyles = StyleSheet.create({
   closeImageButton: { position: 'absolute', top: MONITORING_STATUS_TOP, right: theme.space[20], zIndex: 10, width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.16)', alignItems: 'center', justifyContent: 'center' },
 
   /* Skeleton */
-  skeletonBlock: { backgroundColor: '#DFE5EC' },
+  skeletonBlock: { backgroundColor: theme.colors.border },
   skeletonBlockLight: { backgroundColor: theme.colors.alpha.white[30] },
   skeletonSectionTitle: { marginTop: theme.space[24], marginBottom: theme.space[14] },
   skeletonRowBody: { marginLeft: theme.space[12], flex: 1, gap: theme.space[8] },

@@ -243,7 +243,7 @@ function Avatar({ uri, size = 42 }: { uri?: string | null; size?: number }) {
         width: size,
         height: size,
         borderRadius: size / 2,
-        backgroundColor: theme.colors.mintTint,
+        backgroundColor: theme.colors.surfaceAlt, // Changed from theme.colors.mintTint to gray
         overflow: 'hidden',
       }}
     >
@@ -253,7 +253,7 @@ function Avatar({ uri, size = 42 }: { uri?: string | null; size?: number }) {
           width: head,
           height: head,
           borderRadius: head / 2,
-          backgroundColor: theme.colors.gradientStart,
+          backgroundColor: theme.colors.textMuted, // Changed from theme.colors.gradientStart to gray/muted text color
           top: size * 0.2,
           left: (size - head) / 2,
         }}
@@ -264,7 +264,7 @@ function Avatar({ uri, size = 42 }: { uri?: string | null; size?: number }) {
           width: body,
           height: body,
           borderRadius: body / 2,
-          backgroundColor: theme.colors.gradientStart,
+          backgroundColor: theme.colors.textMuted, // Changed from theme.colors.gradientStart to gray/muted text color
           top: size * 0.6,
           left: (size - body) / 2,
         }}
@@ -1465,7 +1465,7 @@ export default function HomeScreen() {
                   onPress={a.onPress}
                 >
                   <View style={styles.quickActionIconCircle}>
-                    <Ionicons name={a.icon} size={18} color={theme.colors.gradientEnd} />
+                    <Ionicons name={a.icon} size={19} color={theme.colors.dueGreen} />
                   </View>
                   <Text style={styles.quickActionLabel}>{a.label}</Text>
                 </TouchableOpacity>

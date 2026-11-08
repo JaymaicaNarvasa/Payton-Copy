@@ -163,7 +163,7 @@ function Avatar({ uri, size = 42 }: { uri?: string | null; size?: number }) {
         width: size,
         height: size,
         borderRadius: size / 2,
-        backgroundColor: theme.colors.mintTint,
+        backgroundColor: theme.colors.surfaceAlt,
         overflow: 'hidden',
       }}
     >
@@ -173,7 +173,7 @@ function Avatar({ uri, size = 42 }: { uri?: string | null; size?: number }) {
           width: head,
           height: head,
           borderRadius: head / 2,
-          backgroundColor: theme.colors.gradientStart,
+          backgroundColor: theme.colors.textMuted,
           top: size * 0.2,
           left: (size - head) / 2,
         }}
@@ -184,7 +184,7 @@ function Avatar({ uri, size = 42 }: { uri?: string | null; size?: number }) {
           width: body,
           height: body,
           borderRadius: body / 2,
-          backgroundColor: theme.colors.gradientStart,
+          backgroundColor: theme.colors.textMuted,
           top: size * 0.6,
           left: (size - body) / 2,
         }}
@@ -651,7 +651,7 @@ export default function AllowancesScreen() {
             ListEmptyComponent={
               <View style={styles.emptyState}>
                 <View style={styles.emptyIcon}>
-                  <Ionicons name="wallet-outline" size={22} color={theme.colors.textMuted} />
+                  <Ionicons name="wallet-outline" size={22} color={theme.colors.dueGreen} />
                 </View>
                 <Text style={styles.emptyTitle}>No allowances found</Text>
                 <Text style={styles.emptySubtitle}>
