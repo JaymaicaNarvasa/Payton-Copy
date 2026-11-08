@@ -1,19 +1,20 @@
 // app/profile/change-password.tsx
-// Built ONLY from existing exports of constants/ui.styles.ts:
-//   profileStyles (gradient header + mint sheet), resetPasswordStyles (password input / eye icon / button),
-//   incomeStyles (instruction text). Messages are shown with the shared PaytonAlertDialog.
-// All Supabase / business logic below is unchanged.
+// Validation messages appear directly below each input. Server-side results (success / unexpected errors)
+// appear in an inline banner under the fields. All Supabase / business logic is unchanged.
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import { useState } from 'react';
-import { ActivityIndicator, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useRef, useState } from 'react';
+import { Text, TextInput, View } from 'react-native';
 
-import GradientBackground from '../../components/GradientBackground';
-import { AlertType, PaytonAlertDialog } from '../../components/PaytonAlert';
+import { FormField } from '../../components/profile/FormField';
+import InlineMessage, { FormMessage } from '../../components/profile/InlineMessage';
+import PrimaryButton from '../../components/profile/PrimaryButton';
+import ProfileScreen from '../../components/profile/ProfileScreen';
 import { theme } from '../../constants/theme';
-import { incomeStyles, profileStyles, resetPasswordStyles } from '../../constants/ui.styles';
+import { incomeStyles, profileStyles } from '../../constants/ui.styles';
 import { supabase } from '../../lib/supabase';
+
+type FieldErrors = { old?: string; next?: string; confirm?: string };
 
 export default function ChangePasswordScreen() {
   const router = useRouter();
@@ -21,21 +22,19 @@ export default function ChangePasswordScreen() {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isUpdating, setIsUpdating] = useState(false);
-  const [showOldPassword, setShowOldPassword] = useState(false);
-  const [showNewPassword, setShowNewPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [completed, setCompleted] = useState(false);
 
-  // Shared alert dialog (local-state API) - replaces the old inline banner
-  const [alert, setAlert] = useState<{ visible: boolean; type: AlertType; title: string; message: string }>({
-    visible: false,
-    type: 'info',
-    title: '',
-    message: '',
-  });
+  const [errors, setErrors] = useState<FieldErrors>({});
+  const [formMessage, setFormMessage] = useState<FormMessage>(null);
 
-  const showAlert = (type: AlertType, title: string, message: string) =>
-    setAlert({ visible: true, type, title, message });
-  const hideAlert = () => setAlert((prev) => ({ ...prev, visible: false }));
+  const oldRef = useRef<TextInput>(null);
+  const newRef = useRef<TextInput>(null);
+  const confirmRef = useRef<TextInput>(null);
+
+  const clearError = (key: keyof FieldErrors) => {
+    setErrors((prev) => (prev[key] ? { ...prev, [key]: undefined } : prev));
+    if (formMessage) setFormMessage(null);
+  };
 
   // Helper function to insert logs into Supabase
   const logActivity = async (userId: string, details: string) => {
@@ -44,27 +43,31 @@ export default function ChangePasswordScreen() {
         {
           user_id: userId,
           details: details,
-        }
+        },
       ]);
     } catch (logError) {
       console.error('Failed to write log:', logError);
     }
   };
 
-  const handleChangePassword = async () => {
-    // Clear any previous alert on a new submission attempt
-    hideAlert();
+  const validate = (): FieldErrors => {
+    const next: FieldErrors = {};
+    if (!oldPassword) next.old = 'Enter your current password.';
+    if (!newPassword) next.next = 'Enter a new password.';
+    else if (newPassword.length < 8) next.next = 'Your new password must be at least 8 characters long.';
+    if (!confirmPassword) next.confirm = 'Confirm your new password.';
+    else if (newPassword && newPassword !== confirmPassword) next.confirm = 'New passwords do not match. Please verify.';
+    return next;
+  };
 
-    if (!oldPassword || !newPassword || !confirmPassword) {
-      showAlert('warning', 'Missing Information', 'Please fill in all fields to proceed.');
-      return;
-    }
-    if (newPassword.length < 8) {
-      showAlert('warning', 'Password Too Short', 'Your new password must be at least 8 characters long.');
-      return;
-    }
-    if (newPassword !== confirmPassword) {
-      showAlert('error', 'Passwords Do Not Match', 'New passwords do not match. Please verify.');
+  const handleChangePassword = async () => {
+    setFormMessage(null);
+
+    const nextErrors = validate();
+    setErrors(nextErrors);
+    const firstInvalid = nextErrors.old ? oldRef : nextErrors.next ? newRef : nextErrors.confirm ? confirmRef : null;
+    if (firstInvalid) {
+      firstInvalid.current?.focus();
       return;
     }
 
@@ -86,12 +89,14 @@ export default function ChangePasswordScreen() {
       if (signInError) {
         // Log failed password change attempt due to incorrect old password
         await logActivity(user.id, `entered an incorrect current password.`);
-        throw new Error('The current password you entered is incorrect.');
+        setErrors({ old: 'The current password you entered is incorrect.' });
+        oldRef.current?.focus();
+        return;
       }
 
       // 3. Update password
       const { error: updateError } = await supabase.auth.updateUser({
-        password: newPassword
+        password: newPassword,
       });
       if (updateError) throw updateError;
 
@@ -104,107 +109,124 @@ export default function ChangePasswordScreen() {
       // Log automatic sign out
       await logActivity(user.id, `signed out successfully.`);
 
-      showAlert('success', 'Password Updated', 'Password updated successfully! Redirecting to login...');
+      setCompleted(true);
+      setFormMessage({ type: 'success', message: 'Password updated successfully! Redirecting to login...' });
 
       // Delay navigation slightly so the user can read the success message
       setTimeout(() => {
         router.replace('/');
       }, 1500);
-
     } catch (error: any) {
-      showAlert('error', 'Update Failed', error.message || 'An unexpected error occurred.');
+      setFormMessage({ type: 'error', message: error.message || 'An unexpected error occurred.' });
     } finally {
       setIsUpdating(false);
     }
   };
 
-  // One password field (label + lock icon + input + eye toggle), all from resetPasswordStyles
-  const renderField = (
-    label: string,
-    value: string,
-    onChange: (t: string) => void,
-    placeholder: string,
-    visible: boolean,
-    toggle: () => void,
-  ) => (
-    <View style={{ marginBottom: theme.space[16] }}>
-      <Text style={profileStyles.groupContextLabel}>{label}</Text>
-      <View style={resetPasswordStyles.inputWrapper}>
-        <Ionicons name="lock-closed-outline" size={20} color={theme.colors.auth.greenDark} style={resetPasswordStyles.inputIcon} />
-        <TextInput
-          style={resetPasswordStyles.input}
-          value={value}
-          onChangeText={onChange}
-          placeholder={placeholder}
-          secureTextEntry={!visible}
-          placeholderTextColor={theme.colors.auth.placeholder}
-          autoCapitalize="none"
-        />
-        <TouchableOpacity onPress={toggle} style={resetPasswordStyles.eyeIcon}>
-          <Ionicons name={visible ? 'eye-outline' : 'eye-off-outline'} size={20} color={theme.colors.auth.muted} />
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
-
   return (
-    <View style={profileStyles.container}>
-      <StatusBar style="light" />
-
-      {/* Gradient header (same as Profile / About) */}
-      <View style={profileStyles.modernHeader}>
-        <View style={profileStyles.headerGradientFill} pointerEvents="none">
-          <GradientBackground />
-        </View>
-        <TouchableOpacity onPress={() => router.back()} style={profileStyles.backBtnTouchable} hitSlop={12}>
-          <Ionicons name="chevron-back" size={22} color={theme.colors.white} />
-        </TouchableOpacity>
-        <Text style={profileStyles.headerTitleCentered}>Change Password</Text>
-        <View style={profileStyles.backBtnTouchable} />
-      </View>
-
-      {/* Mint sheet over the gradient */}
-      <View style={profileStyles.sheet}>
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-          contentContainerStyle={[profileStyles.scrollContent, { paddingBottom: theme.space[24] }]}
-        >
-          <View style={profileStyles.modernCardGroup}>
-            <Text style={incomeStyles.confirmMessage}>
-              Enter your current password and a new password to keep your Payton account secure.
-            </Text>
-
-            {renderField('Current Password', oldPassword, setOldPassword, 'Enter current password', showOldPassword, () => setShowOldPassword(!showOldPassword))}
-            {renderField('New Password', newPassword, setNewPassword, 'Min. 8 characters', showNewPassword, () => setShowNewPassword(!showNewPassword))}
-            {renderField('Confirm New Password', confirmPassword, setConfirmPassword, 'Repeat new password', showConfirmPassword, () => setShowConfirmPassword(!showConfirmPassword))}
-          </View>
-        </ScrollView>
-
-        {/* Bottom Save Action Button */}
-        <View style={{ paddingHorizontal: theme.space[20], paddingBottom: theme.space[24] }}>
-          <TouchableOpacity
-            style={[resetPasswordStyles.primaryButton, isUpdating && profileStyles.disabledButton]}
-            onPress={handleChangePassword}
-            disabled={isUpdating}
+    <ProfileScreen
+      title="Change Password"
+      onBack={() => router.back()}
+      keyboardAware
+      footer={
+        <PrimaryButton
+          label="UPDATE PASSWORD"
+          onPress={handleChangePassword}
+          loading={isUpdating}
+          disabled={completed}
+        />
+      }
+    >
+      <View style={profileStyles.modernCardGroup}>
+        {/* Intro */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: theme.space[20] }}>
+          <View
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: 20,
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: theme.colors.brandWash,
+              marginRight: theme.space[12],
+            }}
           >
-            {isUpdating ? (
-              <ActivityIndicator color={theme.colors.white} />
-            ) : (
-              <Text style={resetPasswordStyles.buttonText}>UPDATE PASSWORD</Text>
-            )}
-          </TouchableOpacity>
+            <Ionicons name="shield-checkmark-outline" size={20} color={theme.colors.brand} />
+          </View>
+          <Text style={[incomeStyles.toggleSubtext, { flex: 1, lineHeight: 20 }]}>
+            Enter your current password and a new password to keep your Payton account secure.
+          </Text>
         </View>
-      </View>
 
-      {/* Shared Payton alert (empty fields, validation, errors, success) */}
-      <PaytonAlertDialog
-        visible={alert.visible}
-        type={alert.type}
-        title={alert.title}
-        message={alert.message}
-        onDismiss={hideAlert}
-      />
-    </View>
+        <FormField
+          ref={oldRef}
+          label="Current Password"
+          icon="lock-closed-outline"
+          placeholder="Enter current password"
+          value={oldPassword}
+          onChangeText={(t) => {
+            setOldPassword(t);
+            clearError('old');
+          }}
+          error={errors.old}
+          passwordToggle
+          autoCapitalize="none"
+          autoComplete="current-password"
+          textContentType="password"
+          returnKeyType="next"
+          onSubmitEditing={() => newRef.current?.focus()}
+          editable={!isUpdating && !completed}
+        />
+
+        <FormField
+          ref={newRef}
+          label="New Password"
+          icon="lock-closed-outline"
+          placeholder="Min. 8 characters"
+          value={newPassword}
+          onChangeText={(t) => {
+            setNewPassword(t);
+            clearError('next');
+          }}
+          error={errors.next}
+          hint="Use at least 8 characters."
+          passwordToggle
+          autoCapitalize="none"
+          autoComplete="new-password"
+          textContentType="newPassword"
+          returnKeyType="next"
+          onSubmitEditing={() => confirmRef.current?.focus()}
+          editable={!isUpdating && !completed}
+        />
+
+        <FormField
+          ref={confirmRef}
+          label="Confirm New Password"
+          icon="lock-closed-outline"
+          placeholder="Repeat new password"
+          value={confirmPassword}
+          onChangeText={(t) => {
+            setConfirmPassword(t);
+            clearError('confirm');
+          }}
+          error={errors.confirm}
+          passwordToggle
+          autoCapitalize="none"
+          autoComplete="new-password"
+          textContentType="newPassword"
+          returnKeyType="done"
+          onSubmitEditing={handleChangePassword}
+          editable={!isUpdating && !completed}
+        />
+
+        {formMessage ? (
+          <InlineMessage
+            type={formMessage.type}
+            message={formMessage.message}
+            onDismiss={formMessage.type === 'error' ? () => setFormMessage(null) : undefined}
+          />
+        ) : null}
+      </View>
+    </ProfileScreen>
   );
 }

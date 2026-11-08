@@ -1,22 +1,14 @@
-// app/logs.tsx
-// Built ONLY from existing exports of constants/ui.styles.ts:
-//   profileStyles (gradient header + mint sheet), incomeStyles (log cards, count badge, empty state),
-//   monitoringStyles (search bar). The Supabase fetch / refresh / filter logic below is unchanged.
+// app/profile/logs.tsx
+// Skeleton rows while loading, inline error with Retry if the fetch fails.
+// The Supabase fetch / refresh / filter logic is unchanged.
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useState } from 'react';
-import {
-  ActivityIndicator,
-  RefreshControl,
-  ScrollView,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View
-} from 'react-native';
+import { FlatList, RefreshControl, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
-import GradientBackground from '../../components/GradientBackground';
+import InlineMessage from '../../components/profile/InlineMessage';
+import ProfileScreen from '../../components/profile/ProfileScreen';
+import { SkeletonGroup, SkeletonLogItem } from '../../components/profile/Skeleton';
 import { theme } from '../../constants/theme';
 import { incomeStyles, monitoringStyles, profileStyles } from '../../constants/ui.styles';
 import { supabase } from '../../lib/supabase';
@@ -33,6 +25,7 @@ export default function ActivityLogsScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // Function to fetch logs from Supabase
   const fetchLogs = async () => {
@@ -48,11 +41,14 @@ export default function ActivityLogsScreen() {
 
       if (error) {
         console.error('Error fetching logs:', error.message);
+        setLoadError('Could not load your activity logs.');
       } else if (data) {
+        setLoadError(null);
         setLogs(data);
       }
     } catch (err) {
       console.error('Unexpected error fetching logs:', err);
+      setLoadError('Could not load your activity logs.');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -67,6 +63,12 @@ export default function ActivityLogsScreen() {
     setRefreshing(true);
     fetchLogs();
   }, []);
+
+  const retry = () => {
+    setLoading(true);
+    setLoadError(null);
+    fetchLogs();
+  };
 
   // Format timestamp nicely
   const formatTimestamp = (timestamp: string) => {
@@ -86,93 +88,105 @@ export default function ActivityLogsScreen() {
     return processedDetails.includes(query);
   });
 
-  return (
-    <View style={profileStyles.container}>
-      <StatusBar style="light" />
-
-      {/* Gradient header (same as Profile / About) */}
-      <View style={profileStyles.modernHeader}>
-        <View style={profileStyles.headerGradientFill} pointerEvents="none">
-          <GradientBackground />
-        </View>
-        <TouchableOpacity onPress={() => router.back()} style={profileStyles.backBtnTouchable} activeOpacity={0.7} hitSlop={12}>
-          <Ionicons name="chevron-back" size={22} color={theme.colors.white} />
-        </TouchableOpacity>
-        <Text style={profileStyles.headerTitleCentered}>Activity Logs</Text>
-        <View style={profileStyles.backBtnTouchable} />
+  const listHeader = (
+    <View>
+      {/* Search Input Bar */}
+      <View style={monitoringStyles.searchContainer}>
+        <Ionicons name="search" size={18} color={theme.colors.textMuted} />
+        <TextInput
+          style={monitoringStyles.searchInput}
+          placeholder="Search activity logs..."
+          placeholderTextColor={theme.colors.textSubtle}
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          returnKeyType="search"
+          accessibilityLabel="Search activity logs"
+        />
+        {searchQuery.length > 0 && (
+          <TouchableOpacity
+            onPress={() => setSearchQuery('')}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel="Clear search"
+          >
+            <Ionicons name="close-circle" size={18} color={theme.colors.textSubtle} />
+          </TouchableOpacity>
+        )}
       </View>
 
-      {/* Mint sheet over the gradient */}
-      <View style={profileStyles.sheet}>
-        <ScrollView
-          contentContainerStyle={[profileStyles.scrollContent, { paddingBottom: theme.space[40] }]}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              tintColor={theme.colors.brandDark}
-              colors={[theme.colors.brandDark]}
-            />
-          }
-        >
-          <View style={profileStyles.modernCardGroup}>
-            {/* Search Input Bar */}
-            <View style={monitoringStyles.searchContainer}>
-              <Ionicons name="search" size={18} color={theme.colors.textMuted} />
-              <TextInput
-                style={monitoringStyles.searchInput}
-                placeholder="Search activity logs..."
-                placeholderTextColor={theme.colors.textSubtle}
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-              />
-              {searchQuery.length > 0 && (
-                <TouchableOpacity onPress={() => setSearchQuery('')} activeOpacity={0.7}>
-                  <Ionicons name="close-circle" size={18} color={theme.colors.textSubtle} />
-                </TouchableOpacity>
-              )}
-            </View>
-
-            <View style={[incomeStyles.sectionHeaderRow, { marginTop: theme.space[12] }]}>
-              <Text style={[profileStyles.groupContextLabel, { marginBottom: 0 }]}>Recent System Transactions</Text>
-              <View style={incomeStyles.countBadge}>
-                <Text style={incomeStyles.countBadgeText}>{filteredLogs.length} logs</Text>
-              </View>
-            </View>
-
-            {loading ? (
-              <ActivityIndicator size="large" color={theme.colors.brandDark} style={{ marginTop: theme.space[40] }} />
-            ) : filteredLogs.length === 0 ? (
-              <View style={incomeStyles.emptyContainer}>
-                <View style={incomeStyles.emptyIconBox}>
-                  <Ionicons name="file-tray-outline" size={26} color={theme.colors.brand} />
-                </View>
-                <Text style={incomeStyles.emptyText}>
-                  {searchQuery ? 'No matching activity logs found.' : 'No activity logs found.'}
-                </Text>
-              </View>
-            ) : (
-              filteredLogs.map((item) => (
-                <View key={item.id} style={incomeStyles.incomeCard}>
-                  <View style={incomeStyles.cardHeaderLeft}>
-                    <View style={incomeStyles.statusBadge}>
-                      <Ionicons name="document-text" size={20} color={theme.colors.success} />
-                    </View>
-                    <View style={incomeStyles.titleWrapper}>
-                      <Text style={profileStyles.rowPrimaryLabel}>You {item.details}</Text>
-                      <View style={[incomeStyles.dateContainer, { marginTop: theme.space[6] }]}>
-                        <Ionicons name="time-outline" size={12} color={theme.colors.textSubtle} />
-                        <Text style={incomeStyles.dateText}>{formatTimestamp(item.created_at)}</Text>
-                      </View>
-                    </View>
-                  </View>
-                </View>
-              ))
-            )}
+      <View style={[incomeStyles.sectionHeaderRow, { marginTop: theme.space[12] }]}>
+        <Text style={[profileStyles.groupContextLabel, { marginBottom: 0 }]}>Recent System Transactions</Text>
+        {!loading && (
+          <View style={incomeStyles.countBadge}>
+            <Text style={incomeStyles.countBadgeText}>{filteredLogs.length} logs</Text>
           </View>
-        </ScrollView>
+        )}
       </View>
+
+      {loadError ? (
+        <InlineMessage
+          type="error"
+          message={loadError}
+          actionLabel="Retry"
+          onAction={retry}
+          style={{ marginTop: theme.space[12] }}
+        />
+      ) : null}
     </View>
+  );
+
+  const listEmpty = loading ? (
+    <SkeletonGroup>
+      {Array.from({ length: 6 }).map((_, i) => (
+        <SkeletonLogItem key={i} />
+      ))}
+    </SkeletonGroup>
+  ) : loadError ? null : (
+    <View style={incomeStyles.emptyContainer}>
+      <View style={incomeStyles.emptyIconBox}>
+        <Ionicons name="file-tray-outline" size={26} color={theme.colors.brand} />
+      </View>
+      <Text style={incomeStyles.emptyText}>
+        {searchQuery ? 'No matching activity logs found.' : 'No activity logs found.'}
+      </Text>
+    </View>
+  );
+
+  return (
+    <ProfileScreen title="Activity Logs" onBack={() => router.back()} scroll={false}>
+      <FlatList
+        data={loading ? [] : filteredLogs}
+        keyExtractor={(item) => item.id}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={monitoringStyles.listContent}
+        ListHeaderComponent={listHeader}
+        ListEmptyComponent={listEmpty}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={theme.colors.brandDark}
+            colors={[theme.colors.brandDark]}
+          />
+        }
+        renderItem={({ item }) => (
+          <View style={incomeStyles.incomeCard}>
+            <View style={incomeStyles.cardHeaderLeft}>
+              <View style={incomeStyles.statusBadge}>
+                <Ionicons name="document-text" size={20} color={theme.colors.success} />
+              </View>
+              <View style={incomeStyles.titleWrapper}>
+                <Text style={profileStyles.rowPrimaryLabel}>You {item.details}</Text>
+                <View style={[incomeStyles.dateContainer, { marginTop: theme.space[6] }]}>
+                  <Ionicons name="time-outline" size={12} color={theme.colors.textSubtle} />
+                  <Text style={incomeStyles.dateText}>{formatTimestamp(item.created_at)}</Text>
+                </View>
+              </View>
+            </View>
+          </View>
+        )}
+      />
+    </ProfileScreen>
   );
 }

@@ -1,27 +1,17 @@
 // app/profile/feedback.tsx - Send Feedback screen
-// Built ONLY from existing exports of constants/ui.styles.ts:
-//   profileStyles (gradient header + mint sheet), incomeStyles (input, helper text, disabled state),
-//   monitoringStyles (filter chips), resetPasswordStyles (primary button).
-// Messages are shown with the shared PaytonAlertDialog. Supabase / submit logic below is unchanged.
+// Validation shows below the message box; send results show in an inline banner under it.
+// Supabase / submit logic is unchanged.
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
 import { useRef, useState } from 'react';
-import {
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { Text, TouchableOpacity, View } from 'react-native';
 
-import GradientBackground from '../../components/GradientBackground';
-import { AlertType, PaytonAlertDialog } from '../../components/PaytonAlert';
+import { FieldLabel, FormField } from '../../components/profile/FormField';
+import InlineMessage, { FormMessage } from '../../components/profile/InlineMessage';
+import PrimaryButton from '../../components/profile/PrimaryButton';
+import ProfileScreen from '../../components/profile/ProfileScreen';
 import { theme } from '../../constants/theme';
-import { incomeStyles, monitoringStyles, profileStyles, resetPasswordStyles } from '../../constants/ui.styles';
+import { incomeStyles, monitoringStyles, profileStyles } from '../../constants/ui.styles';
 import { supabase } from '../../lib/supabase';
 
 const CATEGORIES = [
@@ -40,31 +30,22 @@ export default function FeedbackScreen() {
   const [category, setCategory] = useState<string>('other');
   const [message, setMessage] = useState('');
   const [sending, setSending] = useState(false);
+  const [messageError, setMessageError] = useState<string | null>(null);
+  const [result, setResult] = useState<FormMessage>(null);
   const locked = useRef(false); // blocks a second tap before the first request finishes
 
-  // Shared alert dialog (local-state API) - replaces the old inline banner
-  const [alert, setAlert] = useState<{ visible: boolean; type: AlertType; title: string; message: string }>({
-    visible: false,
-    type: 'info',
-    title: '',
-    message: '',
-  });
-  const showAlert = (type: AlertType, title: string, text: string) =>
-    setAlert({ visible: true, type, title, message: text });
-  const hideAlert = () => setAlert((prev) => ({ ...prev, visible: false }));
-
   const trimmed = message.trim();
-  const canSend = trimmed.length >= MIN_LENGTH && !sending;
 
   async function handleSend() {
     if (locked.current) return;
     if (trimmed.length < MIN_LENGTH) {
-      showAlert('warning', 'Message Too Short', `Please write at least ${MIN_LENGTH} characters.`);
+      setMessageError(`Please write at least ${MIN_LENGTH} characters.`);
       return;
     }
     locked.current = true;
     setSending(true);
-    hideAlert();
+    setResult(null);
+    setMessageError(null);
 
     // user_id is filled in by the database from the signed-in session; it is never sent from here.
     const { error } = await supabase.from('user_feedback').insert({ category, message: trimmed });
@@ -75,104 +56,93 @@ export default function FeedbackScreen() {
     if (error) {
       const known =
         error.message.includes('already sent') || error.message.includes('limit reached') ? error.message : null;
-      showAlert('error', 'Could Not Send', known ?? 'Could not send your feedback. Please check your connection and try again.');
+      setResult({
+        type: 'error',
+        message: known ?? 'Could not send your feedback. Please check your connection and try again.',
+      });
       return;
     }
     setMessage('');
     setCategory('other');
-    showAlert('success', 'Feedback Sent', 'Thank you! Your feedback was sent to the Payton team.');
+    setResult({ type: 'success', message: 'Thank you! Your feedback was sent to the Payton team.' });
   }
 
   return (
-    <View style={profileStyles.container}>
-      <StatusBar style="light" />
-
-      {/* Gradient header (same as Profile / About) */}
-      <View style={profileStyles.modernHeader}>
-        <View style={profileStyles.headerGradientFill} pointerEvents="none">
-          <GradientBackground />
-        </View>
-        <TouchableOpacity onPress={() => router.back()} style={profileStyles.backBtnTouchable} hitSlop={12}>
-          <Ionicons name="chevron-back" size={22} color={theme.colors.white} />
-        </TouchableOpacity>
-        <Text style={profileStyles.headerTitleCentered}>Send Feedback</Text>
-        <View style={profileStyles.backBtnTouchable} />
-      </View>
-
-      {/* Mint sheet over the gradient */}
-      <View style={profileStyles.sheet}>
-        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-          <ScrollView
-            contentContainerStyle={[profileStyles.scrollContent, { paddingBottom: theme.space[40] }]}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
-          >
-            <View style={profileStyles.modernCardGroup}>
-              <Text style={profileStyles.groupContextLabel}>Category</Text>
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: theme.space[8], marginBottom: theme.space[24] }}>
-                {CATEGORIES.map((c) => {
-                  const active = category === c.value;
-                  return (
-                    <TouchableOpacity
-                      key={c.value}
-                      style={[monitoringStyles.filterChip, active && monitoringStyles.filterChipActive]}
-                      onPress={() => setCategory(c.value)}
-                      disabled={sending}
-                    >
-                      <Text style={[monitoringStyles.filterChipText, active && monitoringStyles.filterChipTextActive]}>
-                        {c.label}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-
-              <Text style={profileStyles.groupContextLabel}>Your message</Text>
-              <TextInput
-                style={[incomeStyles.modalInput, { height: 160, paddingTop: theme.space[14], textAlignVertical: 'top' }]}
-                placeholder="Tell us what happened or what you would like to see..."
-                placeholderTextColor={theme.colors.textSubtle}
-                value={message}
-                onChangeText={setMessage}
-                multiline
-                maxLength={MAX_LENGTH}
-                textAlignVertical="top"
-                editable={!sending}
-              />
-              <Text style={[incomeStyles.dateText, { alignSelf: 'flex-end', marginTop: theme.space[6] }]}>
-                {trimmed.length}/{MAX_LENGTH}
-              </Text>
-              <Text style={[incomeStyles.toggleSubtext, { marginTop: theme.space[8], lineHeight: 18 }]}>
-                Please do not include passwords, card numbers, or account balances. Only the Payton admin team can read this.
-              </Text>
-
+    <ProfileScreen
+      title="Send Feedback"
+      onBack={() => router.back()}
+      keyboardAware
+      footer={
+        <PrimaryButton label="Send feedback" icon="send" onPress={handleSend} loading={sending} />
+      }
+    >
+      <View style={profileStyles.modernCardGroup}>
+        <FieldLabel>Category</FieldLabel>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: theme.space[8], marginBottom: theme.space[24] }}>
+          {CATEGORIES.map((c) => {
+            const active = category === c.value;
+            return (
               <TouchableOpacity
-                style={[resetPasswordStyles.primaryButton, !canSend && incomeStyles.buttonDisabled]}
-                onPress={handleSend}
-                disabled={!canSend}
+                key={c.value}
+                style={[monitoringStyles.filterChip, active && monitoringStyles.filterChipActive]}
+                onPress={() => setCategory(c.value)}
+                disabled={sending}
+                accessibilityRole="button"
+                accessibilityState={{ selected: active, disabled: sending }}
               >
-                {sending ? (
-                  <ActivityIndicator color={theme.colors.white} />
-                ) : (
-                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    <Ionicons name="send" size={16} color={theme.colors.white} style={{ marginRight: theme.space[8] }} />
-                    <Text style={resetPasswordStyles.buttonText}>Send feedback</Text>
-                  </View>
-                )}
+                <Text style={[monitoringStyles.filterChipText, active && monitoringStyles.filterChipTextActive]}>
+                  {c.label}
+                </Text>
               </TouchableOpacity>
-            </View>
-          </ScrollView>
-        </KeyboardAvoidingView>
-      </View>
+            );
+          })}
+        </View>
 
-      {/* Shared Payton alert (validation, errors, success) */}
-      <PaytonAlertDialog
-        visible={alert.visible}
-        type={alert.type}
-        title={alert.title}
-        message={alert.message}
-        onDismiss={hideAlert}
-      />
-    </View>
+        <FormField
+          label="Your message"
+          placeholder="Tell us what happened or what you would like to see..."
+          value={message}
+          onChangeText={(t) => {
+            setMessage(t);
+            if (messageError) setMessageError(null);
+            if (result) setResult(null);
+          }}
+          error={messageError}
+          counter={`${trimmed.length}/${MAX_LENGTH}`}
+          multiline
+          maxLength={MAX_LENGTH}
+          editable={!sending}
+        />
+
+        {result ? (
+          <InlineMessage
+            type={result.type}
+            message={result.message}
+            onDismiss={() => setResult(null)}
+          />
+        ) : null}
+
+        {/* Privacy note */}
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'flex-start',
+            backgroundColor: theme.colors.surfaceAlt,
+            borderRadius: 14,
+            padding: theme.space[12],
+          }}
+        >
+          <Ionicons
+            name="lock-closed-outline"
+            size={16}
+            color={theme.colors.textMuted}
+            style={{ marginRight: theme.space[8], marginTop: 1 }}
+          />
+          <Text style={[incomeStyles.toggleSubtext, { flex: 1, lineHeight: 18 }]}>
+            Please do not include passwords, card numbers, or account balances. Only the Payton admin team can read this.
+          </Text>
+        </View>
+      </View>
+    </ProfileScreen>
   );
 }

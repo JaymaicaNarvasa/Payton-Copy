@@ -1,21 +1,28 @@
 // app/profile/export.tsx
-// Built ONLY from existing exports of constants/ui.styles.ts:
-//   profileStyles (gradient header + mint sheet), incomeStyles (card, option rows, badges, empty text),
-//   resetPasswordStyles (primary button). Messages are shown with the shared PaytonAlertDialog.
-// All Supabase / CSV / sharing logic below is unchanged.
+// Skeleton while options load; selection problems show directly below the related list;
+// success / failure show in an inline banner above the button. Supabase / CSV / sharing logic is unchanged.
 import { Ionicons } from '@expo/vector-icons';
 import { File, Paths } from 'expo-file-system';
 import { useRouter } from 'expo-router';
 import * as Sharing from 'expo-sharing';
-import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { Text, TouchableOpacity, View } from 'react-native';
 
-import GradientBackground from '../../components/GradientBackground';
-import { AlertType, PaytonAlertDialog } from '../../components/PaytonAlert';
+import { FieldError, FieldLabel } from '../../components/profile/FormField';
+import InlineMessage, { FormMessage } from '../../components/profile/InlineMessage';
+import PrimaryButton from '../../components/profile/PrimaryButton';
+import ProfileScreen from '../../components/profile/ProfileScreen';
+import {
+  Skeleton,
+  SkeletonButton,
+  SkeletonGroup,
+  SkeletonOption,
+} from '../../components/profile/Skeleton';
 import { theme } from '../../constants/theme';
-import { incomeStyles, profileStyles, resetPasswordStyles } from '../../constants/ui.styles';
+import { incomeStyles, profileStyles } from '../../constants/ui.styles';
 import { supabase } from '../../lib/supabase';
+
+type SelectionErrors = { spender?: string; period?: string };
 
 export default function ExportScreen() {
   const router = useRouter();
@@ -36,17 +43,10 @@ export default function ExportScreen() {
   const [incomePeriods, setIncomePeriods] = useState<any[]>([]);
   const [selectedIncomeId, setSelectedIncomeId] = useState<string | null>(null);
 
-  // Shared alert dialog (local-state API) - replaces the old inline banner
-  const [alert, setAlert] = useState<{ visible: boolean; type: AlertType; title: string; message: string }>({
-    visible: false,
-    type: 'info',
-    title: '',
-    message: '',
-  });
-
-  const showAlert = (type: AlertType, title: string, message: string) =>
-    setAlert({ visible: true, type, title, message });
-  const hideAlert = () => setAlert((prev) => ({ ...prev, visible: false }));
+  // Inline feedback
+  const [selectionErrors, setSelectionErrors] = useState<SelectionErrors>({});
+  const [formMessage, setFormMessage] = useState<FormMessage>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchUserRoleAndOptions();
@@ -56,7 +56,8 @@ export default function ExportScreen() {
   const fetchUserRoleAndOptions = async () => {
     try {
       setLoadingMeta(true);
-      hideAlert();
+      setFormMessage(null);
+      setLoadError(null);
       const { data: { user }, error: authError } = await supabase.auth.getUser();
       if (authError || !user) throw new Error("No authenticated user found.");
 
@@ -119,7 +120,7 @@ export default function ExportScreen() {
       }
     } catch (error: any) {
       console.error("Error fetching export metadata:", error.message);
-      showAlert('error', 'Could Not Load Options', "Failed to load export options based on your role.");
+      setLoadError("Failed to load export options based on your role.");
     } finally {
       setLoadingMeta(false);
     }
@@ -153,7 +154,8 @@ export default function ExportScreen() {
   const handleExport = async () => {
     if (!userId) return;
     setIsExporting(true);
-    hideAlert();
+    setFormMessage(null);
+    setSelectionErrors({});
 
     try {
       let csvContent = "";
@@ -191,12 +193,12 @@ export default function ExportScreen() {
 
       if (userRole === 'Sponsor') {
         if (!selectedSpenderId) {
-          showAlert('warning', 'Select a Spender', "Please select a spender first before exporting.");
+          setSelectionErrors({ spender: 'Please select a spender first before exporting.' });
           setIsExporting(false);
           return;
         }
         if (!selectedAllowanceId) {
-          showAlert('warning', 'Select an Allowance Period', "Please select an allowance period to export.");
+          setSelectionErrors({ period: 'Please select an allowance period to export.' });
           setIsExporting(false);
           return;
         }
@@ -233,7 +235,7 @@ export default function ExportScreen() {
 
       } else if (userRole === 'Spender') {
         if (!selectedAllowanceId) {
-          showAlert('warning', 'Select an Allowance Period', "Please select an allowance period to export.");
+          setSelectionErrors({ period: 'Please select an allowance period to export.' });
           setIsExporting(false);
           return;
         }
@@ -270,7 +272,7 @@ export default function ExportScreen() {
 
       } else {
         if (!selectedIncomeId) {
-          showAlert('warning', 'Select an Income Period', "Please select an income period to export.");
+          setSelectionErrors({ period: 'Please select an income period to export.' });
           setIsExporting(false);
           return;
         }
@@ -315,9 +317,9 @@ export default function ExportScreen() {
 
       if (await Sharing.isAvailableAsync()) {
         await Sharing.shareAsync(file.uri);
-        showAlert('success', 'Export Ready', "File generated successfully!");
+        setFormMessage({ type: 'success', message: 'File generated successfully!' });
       } else {
-        showAlert('success', 'Export Ready', `File generated successfully at: ${file.uri}`);
+        setFormMessage({ type: 'success', message: `File generated successfully at: ${file.uri}` });
       }
 
       // Insert log into the Supabase 'logs' table
@@ -330,7 +332,7 @@ export default function ExportScreen() {
 
     } catch (error: any) {
       console.error("Export error:", error.message);
-      showAlert('error', 'Export Failed', error.message || "An error occurred while generating your report.");
+      setFormMessage({ type: 'error', message: error.message || 'An error occurred while generating your report.' });
     } finally {
       setIsExporting(false);
     }
@@ -355,6 +357,8 @@ export default function ExportScreen() {
       ]}
       onPress={onPress}
       activeOpacity={0.8}
+      accessibilityRole={iconOn === 'radio-button-on' ? 'radio' : 'checkbox'}
+      accessibilityState={{ checked: isSelected }}
     >
       <View style={incomeStyles.toggleTextContainer}>
         <Text style={[incomeStyles.toggleLabel, isSelected && { color: theme.colors.brand }]}>{title}</Text>
@@ -372,146 +376,151 @@ export default function ExportScreen() {
     </TouchableOpacity>
   );
 
+  /* ---------- Loading: skeleton (header stays) ---------- */
   if (loadingMeta) {
     return (
-      <View style={[profileStyles.container, profileStyles.centerLoading]}>
-        <ActivityIndicator size="large" color={theme.colors.brandDark} />
-        <Text style={[incomeStyles.emptyText, { marginTop: theme.space[12] }]}>Loading export settings...</Text>
-      </View>
+      <ProfileScreen title="Export Data" onBack={() => router.back()} footer={<SkeletonButton />}>
+        <SkeletonGroup style={profileStyles.modernCardGroup}>
+          <View style={incomeStyles.incomeCard}>
+            <View style={{ alignItems: 'center', marginBottom: theme.space[16] }}>
+              <Skeleton width={56} height={56} radius={28} />
+              <Skeleton width={150} height={18} style={{ marginTop: theme.space[12] }} />
+              <Skeleton width={100} height={22} radius={11} style={{ marginTop: theme.space[10] }} />
+            </View>
+            <Skeleton width={130} height={12} style={{ marginBottom: theme.space[8] }} />
+            <SkeletonOption />
+            <SkeletonOption />
+            <SkeletonOption />
+          </View>
+        </SkeletonGroup>
+      </ProfileScreen>
     );
   }
 
   return (
-    <View style={profileStyles.container}>
-      <StatusBar style="light" />
+    <ProfileScreen
+      title="Export Data"
+      onBack={() => router.back()}
+      footer={
+        <PrimaryButton
+          label="GENERATE & DOWNLOAD CSV"
+          icon="download-outline"
+          onPress={handleExport}
+          loading={isExporting}
+        />
+      }
+    >
+      <View style={profileStyles.modernCardGroup}>
+        {loadError ? (
+          <InlineMessage type="error" message={loadError} actionLabel="Retry" onAction={fetchUserRoleAndOptions} />
+        ) : null}
 
-      {/* Gradient header (same as Profile / About) */}
-      <View style={profileStyles.modernHeader}>
-        <View style={profileStyles.headerGradientFill} pointerEvents="none">
-          <GradientBackground />
-        </View>
-        <TouchableOpacity onPress={() => router.back()} style={profileStyles.backBtnTouchable} hitSlop={12}>
-          <Ionicons name="chevron-back" size={22} color={theme.colors.white} />
-        </TouchableOpacity>
-        <Text style={profileStyles.headerTitleCentered}>Export Data</Text>
-        <View style={profileStyles.backBtnTouchable} />
-      </View>
-
-      {/* Mint sheet over the gradient */}
-      <View style={profileStyles.sheet}>
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={[profileStyles.scrollContent, { paddingBottom: theme.space[24] }]}
-        >
-          <View style={profileStyles.modernCardGroup}>
-            <View style={incomeStyles.incomeCard}>
-              {/* Title block */}
-              <View style={{ alignItems: 'center', marginBottom: theme.space[16] }}>
-                <View style={incomeStyles.emptyIconBox}>
-                  <Ionicons name="cloud-download-outline" size={28} color={theme.colors.brand} />
-                </View>
-                <Text style={incomeStyles.emptyTitle}>Data CSV Ledger</Text>
-                <View style={incomeStyles.countBadge}>
-                  <Text style={incomeStyles.countBadgeText}>Role: {userRole}</Text>
-                </View>
-              </View>
-
-              {/* SPONSOR FLOW: Select Spender First */}
-              {userRole === 'Sponsor' && (
-                <View style={{ marginBottom: theme.space[16] }}>
-                  <Text style={profileStyles.groupContextLabel}>1. Select Spender</Text>
-                  {linkedSpenders.length === 0 ? (
-                    <Text style={incomeStyles.allocationEmptyText}>No linked spenders found.</Text>
-                  ) : (
-                    linkedSpenders.map((spender) =>
-                      renderOption(
-                        spender.id,
-                        spender.full_name || spender.email,
-                        null,
-                        selectedSpenderId === spender.id,
-                        () => {
-                          setSelectedSpenderId(spender.id);
-                          if (userId) fetchAllowancesForSpender(spender.id, userId);
-                        },
-                        'radio-button-on',
-                        'radio-button-off',
-                      )
-                    )
-                  )}
-                </View>
-              )}
-
-              {/* ALLOWANCE SELECTION (For Spender or Sponsor) */}
-              {(userRole === 'Spender' || userRole === 'Sponsor') ? (
-                <View style={{ marginBottom: theme.space[16] }}>
-                  <Text style={profileStyles.groupContextLabel}>
-                    {userRole === 'Sponsor' ? '2. Select Allowance Period' : 'Select Allowance Period'}
-                  </Text>
-                  {loadingAllowances ? (
-                    <ActivityIndicator color={theme.colors.brandDark} style={{ marginVertical: theme.space[12] }} />
-                  ) : allowanceOptions.length === 0 ? (
-                    <Text style={incomeStyles.allocationEmptyText}>No allowance periods found for this selection.</Text>
-                  ) : (
-                    allowanceOptions.map((item) =>
-                      renderOption(
-                        item.id,
-                        item.allowance_name,
-                        item.amount,
-                        selectedAllowanceId === item.id,
-                        () => setSelectedAllowanceId(item.id),
-                        'checkbox',
-                        'square-outline',
-                      )
-                    )
-                  )}
-                </View>
-              ) : (
-                // PERSONAL FLOW: Select Income Period
-                <View style={{ marginBottom: theme.space[16] }}>
-                  <Text style={profileStyles.groupContextLabel}>Select Income Period</Text>
-                  {incomePeriods.length === 0 ? (
-                    <Text style={incomeStyles.allocationEmptyText}>No income sources found.</Text>
-                  ) : (
-                    incomePeriods.map((item) =>
-                      renderOption(
-                        item.id,
-                        item.source_name,
-                        item.amount,
-                        selectedIncomeId === item.id,
-                        () => setSelectedIncomeId(item.id),
-                        'checkbox',
-                        'square-outline',
-                      )
-                    )
-                  )}
-                </View>
-              )}
-
-              <TouchableOpacity
-                style={[resetPasswordStyles.primaryButton, { marginTop: theme.space[8] }, isExporting && profileStyles.disabledButton]}
-                onPress={handleExport}
-                disabled={isExporting}
-                activeOpacity={0.85}
-              >
-                {isExporting ? (
-                  <ActivityIndicator color={theme.colors.white} />
-                ) : (
-                  <Text style={resetPasswordStyles.buttonText}>GENERATE & DOWNLOAD CSV</Text>
-                )}
-              </TouchableOpacity>
+        <View style={incomeStyles.incomeCard}>
+          {/* Title block */}
+          <View style={{ alignItems: 'center', marginBottom: theme.space[16] }}>
+            <View style={incomeStyles.emptyIconBox}>
+              <Ionicons name="cloud-download-outline" size={28} color={theme.colors.brand} />
+            </View>
+            <Text style={incomeStyles.emptyTitle}>Data CSV Ledger</Text>
+            <View style={incomeStyles.countBadge}>
+              <Text style={incomeStyles.countBadgeText}>Role: {userRole}</Text>
             </View>
           </View>
-        </ScrollView>
-      </View>
 
-      {/* Shared Payton alert (validation, errors, success) */}
-      <PaytonAlertDialog
-        visible={alert.visible}
-        type={alert.type}
-        title={alert.title}
-        message={alert.message}
-        onDismiss={hideAlert}
-      />
-    </View>
+          {/* SPONSOR FLOW: Select Spender First */}
+          {userRole === 'Sponsor' && (
+            <View style={{ marginBottom: theme.space[16] }}>
+              <FieldLabel>1. Select Spender</FieldLabel>
+              {linkedSpenders.length === 0 ? (
+                <Text style={incomeStyles.allocationEmptyText}>No linked spenders found.</Text>
+              ) : (
+                linkedSpenders.map((spender) =>
+                  renderOption(
+                    spender.id,
+                    spender.full_name || spender.email,
+                    null,
+                    selectedSpenderId === spender.id,
+                    () => {
+                      setSelectedSpenderId(spender.id);
+                      setSelectionErrors((prev) => ({ ...prev, spender: undefined }));
+                      if (userId) fetchAllowancesForSpender(spender.id, userId);
+                    },
+                    'radio-button-on',
+                    'radio-button-off',
+                  )
+                )
+              )}
+              <FieldError message={selectionErrors.spender} style={{ marginTop: theme.space[6] }} />
+            </View>
+          )}
+
+          {/* ALLOWANCE SELECTION (For Spender or Sponsor) */}
+          {(userRole === 'Spender' || userRole === 'Sponsor') ? (
+            <View style={{ marginBottom: theme.space[16] }}>
+              <FieldLabel>
+                {userRole === 'Sponsor' ? '2. Select Allowance Period' : 'Select Allowance Period'}
+              </FieldLabel>
+              {loadingAllowances ? (
+                <SkeletonGroup>
+                  <SkeletonOption />
+                  <SkeletonOption />
+                </SkeletonGroup>
+              ) : allowanceOptions.length === 0 ? (
+                <Text style={incomeStyles.allocationEmptyText}>No allowance periods found for this selection.</Text>
+              ) : (
+                allowanceOptions.map((item) =>
+                  renderOption(
+                    item.id,
+                    item.allowance_name,
+                    item.amount,
+                    selectedAllowanceId === item.id,
+                    () => {
+                      setSelectedAllowanceId(item.id);
+                      setSelectionErrors((prev) => ({ ...prev, period: undefined }));
+                    },
+                    'checkbox',
+                    'square-outline',
+                  )
+                )
+              )}
+              <FieldError message={selectionErrors.period} style={{ marginTop: theme.space[6] }} />
+            </View>
+          ) : (
+            // PERSONAL FLOW: Select Income Period
+            <View style={{ marginBottom: theme.space[16] }}>
+              <FieldLabel>Select Income Period</FieldLabel>
+              {incomePeriods.length === 0 ? (
+                <Text style={incomeStyles.allocationEmptyText}>No income sources found.</Text>
+              ) : (
+                incomePeriods.map((item) =>
+                  renderOption(
+                    item.id,
+                    item.source_name,
+                    item.amount,
+                    selectedIncomeId === item.id,
+                    () => {
+                      setSelectedIncomeId(item.id);
+                      setSelectionErrors((prev) => ({ ...prev, period: undefined }));
+                    },
+                    'checkbox',
+                    'square-outline',
+                  )
+                )
+              )}
+              <FieldError message={selectionErrors.period} style={{ marginTop: theme.space[6] }} />
+            </View>
+          )}
+
+          {formMessage ? (
+            <InlineMessage
+              type={formMessage.type}
+              message={formMessage.message}
+              onDismiss={() => setFormMessage(null)}
+              style={{ marginBottom: 0 }}
+            />
+          ) : null}
+        </View>
+      </View>
+    </ProfileScreen>
   );
 }

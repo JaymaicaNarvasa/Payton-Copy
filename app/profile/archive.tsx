@@ -1,16 +1,15 @@
-// app/(...)/archive.tsx
-// Built ONLY from existing exports of constants/ui.styles.ts:
-//   profileStyles (gradient header + mint sheet), incomeStyles (cards, banners, empty state, buttons),
-//   monitoringStyles (search, transaction rows, progress bar, photo viewer). Confirm dialog = PaytonAlertDialog.
-// All Supabase / business logic below is unchanged.
+// app/profile/archive.tsx
+// Skeleton cards / rows while loading, shared InlineMessage banner, shared header shell.
+// Delete / restore confirmation still uses PaytonAlertDialog. All Supabase / business logic is unchanged.
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import { useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, Image, Modal, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { FlatList, Image, Modal, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
-import GradientBackground from '../../components/GradientBackground';
 import { PaytonAlertDialog } from '../../components/PaytonAlert';
+import InlineMessage, { MessageType } from '../../components/profile/InlineMessage';
+import ProfileScreen from '../../components/profile/ProfileScreen';
+import { SkeletonArchiveCard, SkeletonGroup, SkeletonTxRow } from '../../components/profile/Skeleton';
 import { theme } from '../../constants/theme';
 import { incomeStyles, monitoringStyles, profileStyles } from '../../constants/ui.styles';
 import { supabase } from '../../lib/supabase';
@@ -34,13 +33,14 @@ export default function ArchiveScreen() {
   // Inline alert banner state
   const [alertBanner, setAlertBanner] = useState<{
     visible: boolean;
-    type: 'success' | 'error' | 'info' | 'warning';
+    type: MessageType;
     message: string;
   }>({
     visible: false,
     type: 'info',
     message: '',
   });
+  const bannerTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Confirmation dialog state (delete / restore) -> rendered with PaytonAlertDialog
   const [dialogConfig, setDialogConfig] = useState<{
@@ -59,14 +59,18 @@ export default function ArchiveScreen() {
 
   useEffect(() => {
     fetchArchivedData();
+    return () => {
+      if (bannerTimer.current) clearTimeout(bannerTimer.current);
+    };
   }, []);
 
-  const showAlertBanner = (type: 'success' | 'error' | 'info' | 'warning', message: string, autoDismiss = true) => {
+  const hideBanner = () => setAlertBanner((prev) => ({ ...prev, visible: false }));
+
+  const showAlertBanner = (type: MessageType, message: string, autoDismiss = true) => {
+    if (bannerTimer.current) clearTimeout(bannerTimer.current);
     setAlertBanner({ visible: true, type, message });
     if (autoDismiss) {
-      setTimeout(() => {
-        setAlertBanner((prev) => ({ ...prev, visible: false }));
-      }, 4000);
+      bannerTimer.current = setTimeout(hideBanner, 4000);
     }
   };
 
@@ -86,8 +90,6 @@ export default function ArchiveScreen() {
 
       if (profileError || !profile) return;
       setUserRole(profile.role);
-
-      const today = new Date().toISOString().split('T')[0];
 
       if (profile.role === 'Personal') {
         const { data: income, error } = await supabase
@@ -323,32 +325,6 @@ export default function ArchiveScreen() {
     return desc.includes(query) || categoryName.includes(query);
   });
 
-  // Banner look per type, built from the shared theme tokens / incomeStyles banners
-  const getBannerLook = (type: string) => {
-    switch (type) {
-      case 'success':
-        return { box: incomeStyles.bannerSuccess, text: incomeStyles.bannerTextSuccess, color: theme.colors.green, icon: 'checkmark-circle-outline' };
-      case 'error':
-        return { box: incomeStyles.bannerError, text: incomeStyles.bannerTextError, color: theme.colors.danger, icon: 'alert-circle-outline' };
-      case 'warning':
-        return {
-          box: { backgroundColor: theme.colors.warningBg, borderColor: theme.colors.warningBorder },
-          text: { color: theme.colors.warningDeep },
-          color: theme.colors.warningMid,
-          icon: 'warning-outline',
-        };
-      default:
-        return {
-          box: { backgroundColor: theme.colors.accentTint, borderColor: theme.colors.accentSoft },
-          text: { color: theme.colors.brand },
-          color: theme.colors.accent,
-          icon: 'information-circle-outline',
-        };
-    }
-  };
-
-  const bannerLook = getBannerLook(alertBanner.type);
-
   /* ---------- Detail view pieces ---------- */
   const detailHeader = selectedItem ? (
     <View>
@@ -413,9 +389,11 @@ export default function ArchiveScreen() {
             placeholderTextColor={theme.colors.textSubtle}
             value={searchQuery}
             onChangeText={setSearchQuery}
+            returnKeyType="search"
+            accessibilityLabel="Search expenses"
           />
           {searchQuery.length > 0 && (
-            <TouchableOpacity onPress={() => setSearchQuery('')}>
+            <TouchableOpacity onPress={() => setSearchQuery('')} accessibilityRole="button" accessibilityLabel="Clear search">
               <Ionicons name="close-circle" size={16} color={theme.colors.textSubtle} />
             </TouchableOpacity>
           )}
@@ -425,7 +403,11 @@ export default function ArchiveScreen() {
   ) : null;
 
   const detailEmpty = loadingExpenses ? (
-    <ActivityIndicator size="small" color={theme.colors.brandDark} style={{ marginTop: theme.space[20] }} />
+    <SkeletonGroup>
+      {Array.from({ length: 4 }).map((_, i) => (
+        <SkeletonTxRow key={i} />
+      ))}
+    </SkeletonGroup>
   ) : (
     <View style={incomeStyles.emptyContainer}>
       <View style={incomeStyles.emptyIconBox}>
@@ -438,162 +420,150 @@ export default function ArchiveScreen() {
   );
 
   return (
-    <View style={profileStyles.container}>
-      <StatusBar style="light" />
-
-      {/* Gradient header (same as Profile / About) */}
-      <View style={profileStyles.modernHeader}>
-        <View style={profileStyles.headerGradientFill} pointerEvents="none">
-          <GradientBackground />
+    <ProfileScreen
+      title={selectedItem ? (selectedItem.allowance_name || selectedItem.source_name) : 'Archive Data'}
+      onBack={selectedItem ? handleBackToArchiveList : () => router.back()}
+      scroll={false}
+    >
+      {/* Inline alert banner */}
+      {alertBanner.visible && (
+        <View style={profileStyles.modernCardGroup}>
+          <InlineMessage type={alertBanner.type} message={alertBanner.message} onDismiss={hideBanner} />
         </View>
-        <TouchableOpacity
-          onPress={selectedItem ? handleBackToArchiveList : () => router.back()}
-          style={profileStyles.backBtnTouchable}
-          hitSlop={12}
-        >
-          <Ionicons name="chevron-back" size={22} color={theme.colors.white} />
-        </TouchableOpacity>
-        <Text style={profileStyles.headerTitleCentered} numberOfLines={1}>
-          {selectedItem ? (selectedItem.allowance_name || selectedItem.source_name) : 'Archive Data'}
-        </Text>
-        <View style={profileStyles.backBtnTouchable} />
-      </View>
+      )}
 
-      {/* Mint sheet over the gradient */}
-      <View style={profileStyles.sheet}>
-        {/* Inline alert banner */}
-        {alertBanner.visible && (
-          <View style={profileStyles.modernCardGroup}>
-            <View style={[incomeStyles.inlineBanner, bannerLook.box]}>
-              <Ionicons name={bannerLook.icon as any} size={18} color={bannerLook.color} />
-              <Text style={[incomeStyles.bannerText, bannerLook.text]}>{alertBanner.message}</Text>
-              <TouchableOpacity onPress={() => setAlertBanner((prev) => ({ ...prev, visible: false }))} hitSlop={8}>
-                <Ionicons name="close" size={16} color={bannerLook.color} />
-              </TouchableOpacity>
-            </View>
-          </View>
-        )}
+      {loading ? (
+        <SkeletonGroup style={monitoringStyles.listContent}>
+          {Array.from({ length: 4 }).map((_, i) => (
+            <SkeletonArchiveCard key={i} />
+          ))}
+        </SkeletonGroup>
+      ) : selectedItem ? (
+        <FlatList
+          data={loadingExpenses ? [] : filteredExpenses}
+          keyExtractor={(item) => item.id}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={monitoringStyles.listContent}
+          ListHeaderComponent={detailHeader}
+          ListEmptyComponent={detailEmpty}
+          renderItem={({ item }) => {
+            const category = item.categories;
+            const iconName = (category?.icon || 'pricetag-outline') as any;
+            const iconBgColor = category?.color || theme.colors.border;
 
-        {loading ? (
-          <View style={profileStyles.centerLoading}>
-            <ActivityIndicator size="large" color={theme.colors.brandDark} />
-          </View>
-        ) : selectedItem ? (
-          <FlatList
-            data={loadingExpenses ? [] : filteredExpenses}
-            keyExtractor={(item) => item.id}
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-            contentContainerStyle={monitoringStyles.listContent}
-            ListHeaderComponent={detailHeader}
-            ListEmptyComponent={detailEmpty}
-            renderItem={({ item }) => {
-              const category = item.categories;
-              const iconName = (category?.icon || 'pricetag-outline') as any;
-              const iconBgColor = category?.color || theme.colors.border;
-
-              return (
-                <View style={monitoringStyles.txRow}>
-                  <View style={[monitoringStyles.txIconBox, { backgroundColor: iconBgColor }]}>
-                    <Ionicons name={iconName} size={18} color={theme.colors.brandDark} />
-                  </View>
-
-                  <View style={monitoringStyles.txBody}>
-                    <View style={monitoringStyles.txNameRow}>
-                      <Text style={monitoringStyles.txName} numberOfLines={1}>
-                        {item.description || 'No Description'}
-                      </Text>
-                      {item.photo_url ? (
-                        <TouchableOpacity onPress={() => setSelectedPhoto(item.photo_url)} style={monitoringStyles.photoBadge}>
-                          <Ionicons name="image-outline" size={13} color={theme.colors.mintPillText} />
-                        </TouchableOpacity>
-                      ) : null}
-                    </View>
-                    <Text style={monitoringStyles.txMeta}>{formatDateTimeString(item.spent_at)}</Text>
-                  </View>
-                  <Text style={monitoringStyles.txAmount}>-₱{Number(item.amount).toLocaleString()}</Text>
+            return (
+              <View style={monitoringStyles.txRow}>
+                <View style={[monitoringStyles.txIconBox, { backgroundColor: iconBgColor }]}>
+                  <Ionicons name={iconName} size={18} color={theme.colors.brandDark} />
                 </View>
-              );
-            }}
-          />
-        ) : inactiveItems.length === 0 ? (
-          <View style={[profileStyles.centerLoading, { paddingHorizontal: theme.space[24] }]}>
-            <View style={[incomeStyles.emptyContainer, { alignSelf: 'stretch' }]}>
-              <View style={incomeStyles.emptyIconBox}>
-                <Ionicons name="archive-outline" size={26} color={theme.colors.brand} />
-              </View>
-              <Text style={incomeStyles.emptyTitle}>Archive Empty</Text>
-              <Text style={incomeStyles.emptyText}>You have no inactive records at this moment.</Text>
-            </View>
-          </View>
-        ) : (
-          <FlatList
-            data={inactiveItems}
-            keyExtractor={(item) => item.id}
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={monitoringStyles.listContent}
-            renderItem={({ item }) => (
-              <View style={incomeStyles.incomeCard}>
-                <TouchableOpacity activeOpacity={0.7} onPress={() => handleSelectItem(item)}>
-                  <View style={incomeStyles.cardHeaderRow}>
-                    <View style={incomeStyles.cardHeaderLeft}>
-                      <View style={incomeStyles.statusBadge}>
-                        <Ionicons name="archive-outline" size={20} color={theme.colors.success} />
-                      </View>
-                      <View style={incomeStyles.titleWrapper}>
-                        <Text style={incomeStyles.sourceText} numberOfLines={1}>
-                          {item.allowance_name || item.source_name}
-                        </Text>
-                      </View>
-                    </View>
-                    <View style={incomeStyles.amountContainer}>
-                      <Text style={incomeStyles.amountText}>₱{Number(item.amount).toLocaleString()}</Text>
-                    </View>
-                  </View>
-                </TouchableOpacity>
 
-                <View style={incomeStyles.cardDivider} />
-
-                <View style={incomeStyles.cardFooterRow}>
-                  <View style={incomeStyles.dateContainer}>
-                    <Ionicons name="time-outline" size={12} color={theme.colors.textMuted} />
-                    <Text style={incomeStyles.dateText} numberOfLines={1}>
-                      {formatDateRange(item.start_date, item.end_date)}
+                <View style={monitoringStyles.txBody}>
+                  <View style={monitoringStyles.txNameRow}>
+                    <Text style={monitoringStyles.txName} numberOfLines={1}>
+                      {item.description || 'No Description'}
                     </Text>
+                    {item.photo_url ? (
+                      <TouchableOpacity
+                        onPress={() => setSelectedPhoto(item.photo_url)}
+                        style={monitoringStyles.photoBadge}
+                        accessibilityRole="button"
+                        accessibilityLabel="View receipt photo"
+                      >
+                        <Ionicons name="image-outline" size={13} color={theme.colors.mintPillText} />
+                      </TouchableOpacity>
+                    ) : null}
                   </View>
+                  <Text style={monitoringStyles.txMeta}>{formatDateTimeString(item.spent_at)}</Text>
+                </View>
+                <Text style={monitoringStyles.txAmount}>-₱{Number(item.amount).toLocaleString()}</Text>
+              </View>
+            );
+          }}
+        />
+      ) : inactiveItems.length === 0 ? (
+        <View style={[profileStyles.centerLoading, { paddingHorizontal: theme.space[24] }]}>
+          <View style={[incomeStyles.emptyContainer, { alignSelf: 'stretch' }]}>
+            <View style={incomeStyles.emptyIconBox}>
+              <Ionicons name="archive-outline" size={26} color={theme.colors.brand} />
+            </View>
+            <Text style={incomeStyles.emptyTitle}>Archive Empty</Text>
+            <Text style={incomeStyles.emptyText}>You have no inactive records at this moment.</Text>
+          </View>
+        </View>
+      ) : (
+        <FlatList
+          data={inactiveItems}
+          keyExtractor={(item) => item.id}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={monitoringStyles.listContent}
+          renderItem={({ item }) => (
+            <View style={incomeStyles.incomeCard}>
+              <TouchableOpacity activeOpacity={0.7} onPress={() => handleSelectItem(item)}>
+                <View style={incomeStyles.cardHeaderRow}>
+                  <View style={incomeStyles.cardHeaderLeft}>
+                    <View style={incomeStyles.statusBadge}>
+                      <Ionicons name="archive-outline" size={20} color={theme.colors.success} />
+                    </View>
+                    <View style={incomeStyles.titleWrapper}>
+                      <Text style={incomeStyles.sourceText} numberOfLines={1}>
+                        {item.allowance_name || item.source_name}
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={incomeStyles.amountContainer}>
+                    <Text style={incomeStyles.amountText}>₱{Number(item.amount).toLocaleString()}</Text>
+                  </View>
+                </View>
+              </TouchableOpacity>
 
-                  <View style={incomeStyles.actionButtonsRow}>
+              <View style={incomeStyles.cardDivider} />
+
+              <View style={incomeStyles.cardFooterRow}>
+                <View style={incomeStyles.dateContainer}>
+                  <Ionicons name="time-outline" size={12} color={theme.colors.textMuted} />
+                  <Text style={incomeStyles.dateText} numberOfLines={1}>
+                    {formatDateRange(item.start_date, item.end_date)}
+                  </Text>
+                </View>
+
+                <View style={incomeStyles.actionButtonsRow}>
+                  <TouchableOpacity
+                    style={[incomeStyles.actionButton, incomeStyles.archiveButtonBorder]}
+                    onPress={() => handleSelectItem(item)}
+                    accessibilityRole="button"
+                    accessibilityLabel="View expenses"
+                  >
+                    <Ionicons name="chevron-forward" size={16} color={theme.colors.brand} />
+                  </TouchableOpacity>
+
+                  {userRole !== 'Spender' && (
                     <TouchableOpacity
                       style={[incomeStyles.actionButton, incomeStyles.archiveButtonBorder]}
-                      onPress={() => handleSelectItem(item)}
+                      onPress={() => confirmUnarchiveItem(item)}
+                      accessibilityRole="button"
+                      accessibilityLabel="Restore record"
                     >
-                      <Ionicons name="chevron-forward" size={16} color={theme.colors.brand} />
+                      <Ionicons name="arrow-undo-outline" size={16} color={theme.colors.brand} />
                     </TouchableOpacity>
+                  )}
 
-                    {userRole !== 'Spender' && (
-                      <TouchableOpacity
-                        style={[incomeStyles.actionButton, incomeStyles.archiveButtonBorder]}
-                        onPress={() => confirmUnarchiveItem(item)}
-                      >
-                        <Ionicons name="arrow-undo-outline" size={16} color={theme.colors.brand} />
-                      </TouchableOpacity>
-                    )}
-
-                    {userRole !== 'Spender' && (
-                      <TouchableOpacity
-                        style={[incomeStyles.actionButton, incomeStyles.deleteButtonBorder]}
-                        onPress={() => confirmDeleteItem(item)}
-                      >
-                        <Ionicons name="trash-outline" size={16} color={theme.colors.danger} />
-                      </TouchableOpacity>
-                    )}
-                  </View>
+                  {userRole !== 'Spender' && (
+                    <TouchableOpacity
+                      style={[incomeStyles.actionButton, incomeStyles.deleteButtonBorder]}
+                      onPress={() => confirmDeleteItem(item)}
+                      accessibilityRole="button"
+                      accessibilityLabel="Delete record"
+                    >
+                      <Ionicons name="trash-outline" size={16} color={theme.colors.danger} />
+                    </TouchableOpacity>
+                  )}
                 </View>
               </View>
-            )}
-          />
-        )}
-      </View>
+            </View>
+          )}
+        />
+      )}
 
       {/* Delete / Restore confirmation (shared PaytonAlertDialog, local-state API) */}
       <PaytonAlertDialog
@@ -615,7 +585,12 @@ export default function ArchiveScreen() {
       {/* Fullscreen photo viewer */}
       <Modal visible={!!selectedPhoto} transparent animationType="fade" onRequestClose={() => setSelectedPhoto(null)}>
         <View style={monitoringStyles.imageOverlay}>
-          <TouchableOpacity style={monitoringStyles.closeImageButton} onPress={() => setSelectedPhoto(null)}>
+          <TouchableOpacity
+            style={monitoringStyles.closeImageButton}
+            onPress={() => setSelectedPhoto(null)}
+            accessibilityRole="button"
+            accessibilityLabel="Close photo"
+          >
             <Ionicons name="close" size={24} color={theme.colors.white} />
           </TouchableOpacity>
           {selectedPhoto && (
@@ -623,6 +598,6 @@ export default function ArchiveScreen() {
           )}
         </View>
       </Modal>
-    </View>
+    </ProfileScreen>
   );
 }

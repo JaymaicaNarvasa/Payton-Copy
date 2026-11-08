@@ -1,14 +1,10 @@
-// app/help.tsx
-// Built ONLY from existing exports of constants/ui.styles.ts:
-//   profileStyles (gradient header + mint sheet), incomeStyles (FAQ cards, bottom-sheet chat modal),
-//   insightStyles (chat bubbles, typing indicator, input row, send button), resetPasswordStyles (primary button).
-// The AI call (getAiModel), the system instruction and the chat logic below are unchanged.
+// app/profile/help.tsx
+// FAQ accordion + "Ask Payton" chat sheet. While Payton is answering, a skeleton bubble is shown.
+// The AI call (getAiModel), the system instruction and the chat logic are unchanged.
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
 import { useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -16,12 +12,14 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View
+  View,
 } from 'react-native';
 
-import GradientBackground from '../../components/GradientBackground';
+import PrimaryButton from '../../components/profile/PrimaryButton';
+import ProfileScreen from '../../components/profile/ProfileScreen';
+import { Skeleton, SkeletonGroup } from '../../components/profile/Skeleton';
 import { theme } from '../../constants/theme';
-import { incomeStyles, insightStyles, profileStyles, resetPasswordStyles } from '../../constants/ui.styles';
+import { incomeStyles, insightStyles, profileStyles } from '../../constants/ui.styles';
 import { getAiModel } from '../../services/aiClient';
 
 interface Message {
@@ -40,12 +38,13 @@ const FAQS = [
 export default function HelpScreen() {
   const router = useRouter();
   const [chatVisible, setChatVisible] = useState(false);
+  const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [messages, setMessages] = useState<Message[]>([
     { id: '1', sender: 'payton', text: "Hello! I am Payton, your AI assistant. How can I help you today regarding system help, FAQs, or general financial guidance?" }
   ]);
   const [inputText, setInputText] = useState('');
   const [loading, setLoading] = useState(false);
-  const flatListRef = useRef<ScrollView>(null);
+  const scrollRef = useRef<ScrollView>(null);
 
   const handleSendMessage = async () => {
     if (!inputText.trim()) return;
@@ -62,7 +61,7 @@ export default function HelpScreen() {
     setLoading(true);
 
     try {
-      const model = getAiModel('help', { 
+      const model = getAiModel('help', {
         model: "gemini-3.5-flash-lite",
       });
 
@@ -78,7 +77,7 @@ export default function HelpScreen() {
 
       const result = await model.generateContent([systemInstruction, `User Input: ${currentInput}`]);
       const responseText = result.response.text();
-      
+
       const paytonMessage: Message = {
         id: (Date.now() + 1).toString(),
         sender: 'payton',
@@ -100,46 +99,47 @@ export default function HelpScreen() {
     }
   };
 
+  const canSend = !loading && inputText.trim().length > 0;
+
   return (
-    <View style={profileStyles.container}>
-      <StatusBar style="light" />
+    <ProfileScreen
+      title="Help Desk"
+      onBack={() => router.back()}
+      footer={
+        <PrimaryButton
+          label="Ask Payton for help"
+          icon="chatbubble-ellipses-outline"
+          onPress={() => setChatVisible(true)}
+        />
+      }
+    >
+      <View style={profileStyles.modernCardGroup}>
+        <Text style={profileStyles.groupContextLabel}>Frequently Asked Questions</Text>
 
-      {/* Gradient header (same as Profile / About) */}
-      <View style={profileStyles.modernHeader}>
-        <View style={profileStyles.headerGradientFill} pointerEvents="none">
-          <GradientBackground />
-        </View>
-        <TouchableOpacity onPress={() => router.back()} style={profileStyles.backBtnTouchable} hitSlop={12}>
-          <Ionicons name="chevron-back" size={22} color={theme.colors.white} />
-        </TouchableOpacity>
-        <Text style={profileStyles.headerTitleCentered}>Help Desk</Text>
-        <View style={profileStyles.backBtnTouchable} />
-      </View>
-
-      {/* Mint sheet over the gradient */}
-      <View style={profileStyles.sheet}>
-        <ScrollView
-          contentContainerStyle={[profileStyles.scrollContent, { paddingBottom: theme.space[40] }]}
-          showsVerticalScrollIndicator={false}
-        >
-          <View style={profileStyles.modernCardGroup}>
-            <Text style={profileStyles.groupContextLabel}>Frequently Asked Questions</Text>
-
-            {FAQS.map((faq, idx) => (
-              <View key={idx} style={incomeStyles.incomeCard}>
-                <Text style={incomeStyles.sourceText}>{faq.q}</Text>
-                <Text style={[incomeStyles.toggleSubtext, { marginTop: theme.space[6], lineHeight: 20 }]}>{faq.a}</Text>
-              </View>
-            ))}
-
-            <TouchableOpacity style={resetPasswordStyles.primaryButton} onPress={() => setChatVisible(true)}>
-              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <Ionicons name="chatbubble-ellipses-outline" size={18} color={theme.colors.white} style={{ marginRight: theme.space[8] }} />
-                <Text style={resetPasswordStyles.buttonText}>Ask Payton for help</Text>
-              </View>
-            </TouchableOpacity>
-          </View>
-        </ScrollView>
+        {FAQS.map((faq, idx) => {
+          const open = openFaq === idx;
+          return (
+            <View key={idx} style={incomeStyles.incomeCard}>
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={() => setOpenFaq(open ? null : idx)}
+                accessibilityRole="button"
+                accessibilityState={{ expanded: open }}
+                style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
+              >
+                <Text style={[incomeStyles.sourceText, { flex: 1, marginRight: theme.space[12] }]}>{faq.q}</Text>
+                <Ionicons
+                  name={open ? 'chevron-up' : 'chevron-down'}
+                  size={18}
+                  color={open ? theme.colors.brand : theme.colors.textMuted}
+                />
+              </TouchableOpacity>
+              {open ? (
+                <Text style={[incomeStyles.toggleSubtext, { marginTop: theme.space[10], lineHeight: 20 }]}>{faq.a}</Text>
+              ) : null}
+            </View>
+          );
+        })}
       </View>
 
       {/* Interactive Chat Modal (bottom sheet) */}
@@ -166,17 +166,23 @@ export default function HelpScreen() {
                     <Text style={incomeStyles.dateText}>AI Assistant & System Support</Text>
                   </View>
                 </View>
-                <TouchableOpacity onPress={() => setChatVisible(false)} style={incomeStyles.modalCloseBtn}>
+                <TouchableOpacity
+                  onPress={() => setChatVisible(false)}
+                  style={incomeStyles.modalCloseBtn}
+                  accessibilityRole="button"
+                  accessibilityLabel="Close chat"
+                >
                   <Ionicons name="close" size={20} color={theme.colors.textStrong} />
                 </TouchableOpacity>
               </View>
 
               {/* Chat Messages */}
               <ScrollView
-                ref={flatListRef}
+                ref={scrollRef}
                 contentContainerStyle={insightStyles.chatScrollContent}
                 showsVerticalScrollIndicator={false}
-                onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
+                keyboardShouldPersistTaps="handled"
+                onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}
               >
                 {messages.map((msg) =>
                   msg.sender === 'user' ? (
@@ -195,9 +201,13 @@ export default function HelpScreen() {
                 )}
                 {loading && (
                   <View style={insightStyles.coachMessageRow}>
-                    <View style={insightStyles.typingBubble}>
-                      <ActivityIndicator size="small" color={theme.colors.brandDark} />
-                      <Text style={insightStyles.typingText}>Thinking...</Text>
+                    {/* Skeleton "typing" bubble */}
+                    <View style={insightStyles.coachBubble}>
+                      <SkeletonGroup style={{ width: 190 }}>
+                        <Skeleton width="100%" height={12} />
+                        <Skeleton width="80%" height={12} style={{ marginTop: theme.space[8] }} />
+                        <Skeleton width="55%" height={12} style={{ marginTop: theme.space[8] }} />
+                      </SkeletonGroup>
                     </View>
                   </View>
                 )}
@@ -212,11 +222,14 @@ export default function HelpScreen() {
                   value={inputText}
                   onChangeText={setInputText}
                   multiline
+                  accessibilityLabel="Message Payton"
                 />
                 <TouchableOpacity
-                  style={[insightStyles.sendButton, loading && insightStyles.sendButtonDisabled]}
+                  style={[insightStyles.sendButton, !canSend && insightStyles.sendButtonDisabled]}
                   onPress={handleSendMessage}
-                  disabled={loading}
+                  disabled={!canSend}
+                  accessibilityRole="button"
+                  accessibilityLabel="Send message"
                 >
                   <Ionicons name="send" size={18} color={theme.colors.white} />
                 </TouchableOpacity>
@@ -225,6 +238,6 @@ export default function HelpScreen() {
           </KeyboardAvoidingView>
         </View>
       </Modal>
-    </View>
+    </ProfileScreen>
   );
 }
