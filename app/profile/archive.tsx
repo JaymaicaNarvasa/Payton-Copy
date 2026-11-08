@@ -14,6 +14,37 @@ import { theme } from '../../constants/theme';
 import { incomeStyles, monitoringStyles, profileStyles } from '../../constants/ui.styles';
 import { supabase } from '../../lib/supabase';
 
+// Builds the soft tile + matching icon color from a category color.
+// - Saturated color (e.g. #F97316) -> 15% tint background, icon uses the color itself
+// - Already-pastel color (e.g. #FFE8D6) -> used as the background, icon gets a darker shade
+const hexToRgb = (hex: string) => {
+  const h = hex.replace('#', '');
+  const full = h.length === 3 ? h.split('').map((c) => c + c).join('') : h.slice(0, 6);
+  const n = parseInt(full, 16);
+  if (isNaN(n)) return null;
+  return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
+};
+
+const getCategoryTile = (color?: string | null) => {
+  const fallback = { bg: theme.colors.surfaceAlt, icon: theme.colors.brand };
+  if (!color || !color.startsWith('#')) return fallback;
+  const rgb = hexToRgb(color);
+  if (!rgb) return fallback;
+
+  const luminance = (0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b) / 255;
+  if (luminance > 0.8) {
+    const dark = (v: number) => Math.round(v * 0.55);
+    return { bg: color, icon: `rgb(${dark(rgb.r)}, ${dark(rgb.g)}, ${dark(rgb.b)})` };
+  }
+  return { bg: `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.15)`, icon: color };
+};
+
+// Prefer the filled Ionicon (fast-food, flash, car) over the -outline one, like in the picture
+const getFilledIcon = (name: string) => {
+  const filled = name.replace(/-outline$/, '');
+  return (Ionicons.glyphMap as Record<string, number>)[filled] ? filled : name;
+};
+
 export default function ArchiveScreen() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
@@ -448,15 +479,27 @@ export default function ArchiveScreen() {
           ListHeaderComponent={detailHeader}
           ListEmptyComponent={detailEmpty}
           renderItem={({ item }) => {
-            const category = item.categories;
-            const iconName = (category?.icon || 'pricetag-outline') as any;
-            const iconBgColor = category?.color || theme.colors.border;
+  const category = item.categories;
+  const iconName = getFilledIcon(category?.icon || 'pricetag-outline') as any;
+  const tile = getCategoryTile(category?.color);
 
-            return (
-              <View style={monitoringStyles.txRow}>
-                <View style={[monitoringStyles.txIconBox, { backgroundColor: iconBgColor }]}>
-                  <Ionicons name={iconName} size={18} color={theme.colors.brandDark} />
-                </View>
+  return (
+    <View style={monitoringStyles.txRow}>
+      <View
+        style={[
+          monitoringStyles.txIconBox,
+          {
+            backgroundColor: tile.bg,
+            width: 48,
+            height: 48,
+            borderRadius: theme.radius.lg,
+            alignItems: 'center',
+            justifyContent: 'center',
+          },
+        ]}
+      >
+        <Ionicons name={iconName} size={22} color={tile.icon} />
+      </View>
 
                 <View style={monitoringStyles.txBody}>
                   <View style={monitoringStyles.txNameRow}>
