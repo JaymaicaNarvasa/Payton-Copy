@@ -28,6 +28,7 @@ import Svg, {
   Line,
   Path,
   Polyline,
+  Rect,
   Stop,
   LinearGradient as SvgLinearGradient,
   Text as SvgText,
@@ -167,6 +168,113 @@ interface DailyTrendItem {
   amount: number;
 }
 
+interface TrendBarItem {
+  label: string;
+  amount: number;
+  isCurrent: boolean;
+}
+
+/** 1250 -> "1.3k", 12000 -> "12k", 2500000 -> "2.5M" (keeps chart labels short). */
+function formatCompact(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(n >= 10_000_000 ? 0 : 1).replace(/\.0$/, '')}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(n >= 10_000 ? 0 : 1).replace(/\.0$/, '')}k`;
+  return String(Math.round(n));
+}
+
+/** Bar chart used by the Monthly trend card. The current month is drawn in full color. */
+function BarTrendChart({ data }: { data: TrendBarItem[] }) {
+  const chartWidth = SCREEN_WIDTH - 92;
+  const chartHeight = 190;
+  const paddingLeft = 34;
+  const paddingRight = 14;
+  const paddingTop = 22; // extra room for the value labels above the tallest bar
+  const paddingBottom = 34;
+
+  const usableWidth = chartWidth - paddingLeft - paddingRight;
+  const usableHeight = chartHeight - paddingTop - paddingBottom;
+  const baseY = paddingTop + usableHeight;
+
+  const maxAmount = Math.max(...data.map((d) => d.amount), 100);
+  const slot = usableWidth / (data.length || 1);
+  const barWidth = Math.min(30, slot * 0.58);
+
+  return (
+    <Svg width={chartWidth} height={chartHeight}>
+      {[0, 0.5, 1].map((ratio, idx) => {
+        const yPos = paddingTop + usableHeight * ratio;
+        return (
+          <G key={idx}>
+            <Line
+              x1={paddingLeft}
+              y1={yPos}
+              x2={chartWidth - paddingRight}
+              y2={yPos}
+              stroke={theme.colors.border}
+              strokeDasharray="3,5"
+              strokeWidth="1"
+            />
+            <SvgText
+              x={paddingLeft - 10}
+              y={yPos + 3.5}
+              fontSize="10"
+              fontFamily={theme.fontFamily.regular}
+              fill={theme.colors.textSecondary}
+              textAnchor="end"
+            >
+              {formatCompact(maxAmount * (1 - ratio))}
+            </SvgText>
+          </G>
+        );
+      })}
+
+      {data.map((item, index) => {
+        const barHeight = item.amount > 0 ? Math.max((item.amount / maxAmount) * usableHeight, 3) : 0;
+        const x = paddingLeft + slot * index + (slot - barWidth) / 2;
+        const y = baseY - barHeight;
+        const cx = x + barWidth / 2;
+
+        return (
+          <G key={index}>
+            {barHeight > 0 && (
+              <Rect
+                x={x}
+                y={y}
+                width={barWidth}
+                height={barHeight}
+                rx={Math.min(6, barWidth / 2)}
+                fill={theme.colors.dueGreen}
+                fillOpacity={item.isCurrent ? 1 : 0.45}
+              />
+            )}
+            {item.amount > 0 && (
+              <SvgText
+                x={cx}
+                y={y - 5}
+                fontSize="8.5"
+                fontFamily={theme.fontFamily.regular}
+                fill={item.isCurrent ? theme.colors.dueGreen : theme.colors.textSecondary}
+                textAnchor="middle"
+              >
+                {formatCompact(item.amount)}
+              </SvgText>
+            )}
+            <SvgText
+              x={cx}
+              y={chartHeight - 8}
+              fontSize="9.5"
+              fontFamily={theme.fontFamily.regular}
+              fill={theme.colors.textSecondary}
+              textAnchor="middle"
+            >
+              {item.label}
+            </SvgText>
+          </G>
+        );
+      })}
+    </Svg>
+  );
+}
+
 /** Skeleton version of the whole personal dashboard (header + sections), shown while loading. */
 function PersonalHomeSkeleton({ topInset, headerHeight }: { topInset: number; headerHeight: number }) {
   const onDark = theme.colors.alpha.white[30];
@@ -246,6 +354,17 @@ function PersonalHomeSkeleton({ topInset, headerHeight }: { topInset: number; he
             <Skeleton width="100%" height={150} radius={theme.radius.lg} />
           </View>
         </View>
+
+        {/* Monthly trend */}
+        <View style={styles.sectionBlock}>
+          <View style={styles.sectionHeaderRow}>
+            <Skeleton width={170} height={18} radius={9} />
+          </View>
+          <View style={styles.trendCard}>
+            <Skeleton width="70%" height={11} radius={6} style={{ marginBottom: theme.space[12] }} />
+            <Skeleton width="100%" height={150} radius={theme.radius.lg} />
+          </View>
+        </View>
       </View>
     </View>
   );
@@ -267,6 +386,8 @@ export default function PersonalHomeScreen() {
   const [overallTotalExpenses, setOverallTotalExpenses] = useState<number>(0);
   const [dailyTrends, setDailyTrends] = useState<DailyTrendItem[]>([]);
   const [rawExpenses, setRawExpenses] = useState<any[]>([]);
+  // Expenses for the Daily/Monthly trend charts: all of the user's expenses, regardless of is_archived
+  const [trendExpenses, setTrendExpenses] = useState<any[]>([]);
 
   // "Expense per Category" period filter (All time / Today / This Week / This Month / This Year)
   type StatsPeriod = 'all' | 'today' | 'weekly' | 'monthly' | 'yearly';
@@ -400,6 +521,36 @@ export default function PersonalHomeScreen() {
       if (profileData?.avatar_url) setAvatarUrl(profileData.avatar_url);
       if (profileData?.role) setPersonalRole(profileData.role);
 
+      // Daily/Monthly trend data: every expense of this user, NOT limited to non-archived income.
+      // Only goes back as far as the monthly chart needs (start of the month, 5 months ago).
+      const now = new Date();
+      const trendStart = new Date(now.getFullYear(), now.getMonth() - 5, 1);
+      const { data: trendRowsData, error: trendError } = await supabase
+        .from('expenses')
+        .select('amount, spent_at')
+        .eq('user_id', user.id)
+        .gte('spent_at', trendStart.toISOString());
+      if (trendError) throw trendError;
+
+      const trendRows = trendRowsData || [];
+      setTrendExpenses(trendRows);
+
+      // Past 7 days for the Daily line graph
+      const dailyData: DailyTrendItem[] = [];
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(now.getDate() - i);
+        const yyyyMmDd = d.toISOString().split('T')[0];
+        const displayLabel = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+        const dayTotal = trendRows
+          .filter((exp: any) => exp.spent_at?.startsWith(yyyyMmDd))
+          .reduce((sum: number, exp: any) => sum + Number(exp.amount || 0), 0);
+
+        dailyData.push({ dateStr: yyyyMmDd, displayDay: displayLabel, amount: dayTotal });
+      }
+      setDailyTrends(dailyData);
+
       const { data: incomeData, error: incomeError } = await supabase
         .from('income')
         .select('id, source_name, amount, received_at')
@@ -442,27 +593,6 @@ export default function PersonalHomeScreen() {
         setOverallTotalExpenses(totalSpentCounter);
         setRawExpenses(expensesData || []);
 
-        // Compute past 7 days trend data for the Line Graph
-        const todayObj = new Date();
-        const trendData: DailyTrendItem[] = [];
-        
-        for (let i = 6; i >= 0; i--) {
-          const d = new Date();
-          d.setDate(todayObj.getDate() - i);
-          const yyyyMmDd = d.toISOString().split('T')[0];
-          const displayLabel = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-
-          const dayExpenses = (expensesData || []).filter((exp: any) => exp.spent_at?.startsWith(yyyyMmDd));
-          const dayTotal = dayExpenses.reduce((sum: number, exp: any) => sum + Number(exp.amount || 0), 0);
-
-          trendData.push({
-            dateStr: yyyyMmDd,
-            displayDay: displayLabel,
-            amount: dayTotal,
-          });
-        }
-        setDailyTrends(trendData);
-
         setSummary({
           incomeId: incomeIds[0], 
           sourceName: incomeData.map(i => i.source_name).join(', '),
@@ -475,7 +605,6 @@ export default function PersonalHomeScreen() {
         setSummary(null);
         setOverallTotalExpenses(0);
         setRawExpenses([]);
-        setDailyTrends([]);
       }
 
       const { data: duesData, error: duesError } = await supabase
@@ -840,6 +969,38 @@ export default function PersonalHomeScreen() {
     return { total, stats };
   })();
   const categoryStats = periodTotalExpenses.stats;
+
+  // Monthly trend: total spent in each of the last 6 calendar months
+  const monthlyTrends: TrendBarItem[] = (() => {
+    const now = new Date();
+    const months: (TrendBarItem & { start: number; end: number })[] = [];
+    for (let i = 5; i >= 0; i--) {
+      const start = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const end = new Date(now.getFullYear(), now.getMonth() - i + 1, 1);
+      months.push({
+        label: start.toLocaleDateString('en-US', { month: 'short' }),
+        amount: 0,
+        isCurrent: i === 0,
+        start: start.getTime(),
+        end: end.getTime(),
+      });
+    }
+
+    trendExpenses.forEach((exp: any) => {
+      if (!exp.spent_at) return;
+      const t = new Date(exp.spent_at).getTime();
+      const month = months.find((m) => t >= m.start && t < m.end);
+      if (month) month.amount += Number(exp.amount || 0);
+    });
+
+    return months.map(({ label, amount, isCurrent }) => ({ label, amount, isCurrent }));
+  })();
+
+  // This month vs last month (null when last month has no spending to compare against)
+  const thisMonthAmount = monthlyTrends[monthlyTrends.length - 1]?.amount ?? 0;
+  const lastMonthAmount = monthlyTrends[monthlyTrends.length - 2]?.amount ?? 0;
+  const monthChangePct = lastMonthAmount > 0 ? ((thisMonthAmount - lastMonthAmount) / lastMonthAmount) * 100 : null;
+  const monthSpendingUp = (monthChangePct ?? 0) > 0;
 
   const donutSegments = (() => {
     let acc = 0;
@@ -1346,6 +1507,48 @@ export default function PersonalHomeScreen() {
                   </Svg>
                 );
               })()}
+            </View>
+          </View>
+        </View>
+
+        {/* MONTHLY SPENDING TREND BAR CHART */}
+        <View style={styles.sectionBlock}>
+          <View style={styles.sectionHeaderRow}>
+            <Text style={styles.sectionTitle}>Monthly Spending Trend</Text>
+            {monthChangePct !== null && (
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: theme.space[4],
+                  paddingHorizontal: theme.space[10],
+                  paddingVertical: theme.space[4],
+                  borderRadius: theme.radius.sm,
+                  backgroundColor: monthSpendingUp ? theme.colors.dangerBg : theme.colors.alpha.olive[15],
+                }}
+              >
+                <Ionicons
+                  name={monthSpendingUp ? 'trending-up' : 'trending-down'}
+                  size={13}
+                  color={monthSpendingUp ? theme.colors.danger : theme.colors.olive}
+                />
+                <Text
+                  style={{
+                    fontFamily: theme.fontFamily.semibold,
+                    fontSize: theme.fontSize.caption,
+                    color: monthSpendingUp ? theme.colors.danger : theme.colors.olive,
+                  }}
+                >
+                  {Math.abs(monthChangePct).toFixed(0)}% vs last month
+                </Text>
+              </View>
+            )}
+          </View>
+
+          <View style={styles.trendCard}>
+            <Text style={styles.lineGraphSubtitle}>Total expenses per month (Past 6 Months)</Text>
+            <View style={styles.graphWrapper}>
+              <BarTrendChart data={monthlyTrends} />
             </View>
           </View>
         </View>
