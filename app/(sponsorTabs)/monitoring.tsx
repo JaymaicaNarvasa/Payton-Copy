@@ -396,11 +396,8 @@ export default function MonitoringScreen() {
   const spendRows = useMemo<SpendRow[]>(() => {
     const total = categoryGroups.reduce((s, g) => s + g.total, 0);
     const pctOf = (v: number) => (total > 0 ? Math.round((v / total) * 100) : 0);
-    const collapse = categoryGroups.length > 4;
-    const top = collapse ? categoryGroups.slice(0, 3) : categoryGroups;
-    const rest = collapse ? categoryGroups.slice(3) : [];
-
-    const rows: SpendRow[] = top.map((g) => ({
+    // Show every category directly in the overview (no "Other" collapse)
+    const rows: SpendRow[] = categoryGroups.map((g) => ({
       key: g.key,
       name: g.name,
       icon: g.icon,
@@ -409,19 +406,6 @@ export default function MonitoringScreen() {
       color: g.color || EXTENDED_COLORS[0],
       group: g,
     }));
-
-    if (rest.length) {
-      const restTotal = rest.reduce((s, g) => s + g.total, 0);
-      rows.push({
-        key: OTHER_KEY,
-        name: 'Other',
-        icon: 'ellipsis-horizontal',
-        total: restTotal,
-        pct: pctOf(restTotal),
-        color: '#6B7280',
-        isOtherGroup: true,
-      });
-    }
     return rows;
   }, [categoryGroups]);
 
