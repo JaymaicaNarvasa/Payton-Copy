@@ -1,12 +1,13 @@
 import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
+  Animated,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  StatusBar,
   StyleSheet,
   Text,
   TextInput,
@@ -14,19 +15,68 @@ import {
   View,
 } from 'react-native';
 
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
 import { supabase } from '../../lib/supabase';
+import { useKeyboardScroll } from '../../lib/useKeyboardScroll';
+
+const COLORS = {
+  ink: '#013237',
+  brand: '#4CA771',
+  brandSoft: '#EAF9E7',
+  brandLine: '#C0E6BA',
+  border: '#DCE8E1',
+  muted: '#6B7F78',
+  placeholder: '#8FA19A',
+  surface: '#FFFFFF',
+  error: '#D64545',
+  errorSoft: '#FDECEC',
+};
+
+type Field = 'password' | 'confirm' | null;
+
+/** Pulsing skeleton bar used in place of a spinner while a request is running. */
+function SkeletonBar({ width = 96, color = 'rgba(255,255,255,0.55)' }: { width?: number; color?: string }) {
+  const opacity = useRef(new Animated.Value(0.35)).current;
+
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(opacity, { toValue: 1, duration: 700, useNativeDriver: true }),
+        Animated.timing(opacity, { toValue: 0.35, duration: 700, useNativeDriver: true }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [opacity]);
+
+  return <Animated.View style={{ width, height: 10, borderRadius: 5, backgroundColor: color, opacity }} />;
+}
 
 export default function ResetPasswordScreen() {
   const router = useRouter();
+  const { scrollRef, keyboardHeight, onScroll, trackField } = useKeyboardScroll();
+  const passwordWrapRef = useRef<View>(null);
+  const confirmWrapRef = useRef<View>(null);
+  const insets = useSafeAreaInsets();
+  const confirmRef = useRef<TextInput>(null);
+
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [focused, setFocused] = useState<Field>(null);
 
   const [passwordError, setPasswordError] = useState('');
   const [confirmError, setConfirmError] = useState('');
   const [generalError, setGeneralError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+
+  // Entrance animation
+  const fade = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.timing(fade, { toValue: 1, duration: 450, useNativeDriver: true }).start();
+  }, [fade]);
 
   const handleUpdatePassword = async () => {
     setPasswordError('');
@@ -77,100 +127,184 @@ export default function ResetPasswordScreen() {
     }
   };
 
+  const renderEye = () => (
+    <TouchableOpacity
+      onPress={() => setShowPassword((v) => !v)}
+      style={styles.eyeIcon}
+      disabled={loading}
+      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+      accessibilityRole="button"
+      accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
+    >
+      <Feather name={showPassword ? 'eye-off' : 'eye'} color={COLORS.muted} size={19} />
+    </TouchableOpacity>
+  );
+
   return (
-    <LinearGradient colors={['#EAF9E7', '#FFFFFF']} style={styles.container}>
+    <LinearGradient colors={[COLORS.brandSoft, '#F6FCF5', '#FFFFFF']} style={styles.container}>
+      <StatusBar barStyle="dark-content" />
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={styles.flex}
       >
-        <ScrollView contentContainerStyle={styles.scrollContainer} keyboardShouldPersistTaps="handled">
-          
-          <TouchableOpacity 
-            style={styles.backButton} 
+        <ScrollView
+          ref={scrollRef}
+          onScroll={onScroll}
+          scrollEventThrottle={16}
+          contentContainerStyle={[
+            styles.scrollContainer,
+            { paddingTop: insets.top + 72, paddingBottom: 32 + keyboardHeight },
+          ]}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <TouchableOpacity
+            style={[styles.backButton, { top: insets.top + 12 }]}
             onPress={() => router.replace('/login')}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            accessibilityRole="button"
+            accessibilityLabel="Back to sign in"
           >
-            <Feather name="arrow-left" size={24} color="#013237" />
+            <Feather name="arrow-left" size={20} color={COLORS.ink} />
           </TouchableOpacity>
 
-          <View style={styles.iconContainer}>
-            <View style={styles.iconBackground}>
-              <Feather name="lock" size={44} color="#013237" />
-            </View>
-          </View>
-
-          <View style={styles.headerContainer}>
-            <Text style={styles.title}>Reset Password</Text>
-            <Text style={styles.subtitle}>Enter your new password below to regain access to your account.</Text>
-          </View>
-
-          <View style={styles.form}>
-            {generalError ? (
-              <Text style={styles.generalErrorText}>{generalError}</Text>
-            ) : null}
-
-            {successMessage ? (
-              <View style={styles.successContainer}>
-                <Text style={styles.successText}>{successMessage}</Text>
-                <TouchableOpacity onPress={() => router.replace('/login')} style={styles.backLinkButton}>
-                  <Text style={styles.backLinkText}>Sign In with New Password</Text>
-                </TouchableOpacity>
+          <Animated.View style={{ opacity: fade }}>
+            <View style={styles.headerContainer}>
+              <View style={styles.iconTile}>
+                <Feather name="lock" size={34} color={COLORS.ink} />
               </View>
-            ) : (
-              <>
-                <View style={[styles.inputWrapper, passwordError ? styles.inputWrapperError : null]}>
-                  <Feather name="lock" color="#4CA771" size={20} style={styles.inputIcon} />
-                  <TextInput
-                    style={styles.input}
-                    placeholder="New Password"
-                    placeholderTextColor="#7A8A85"
-                    value={password}
-                    onChangeText={(text) => {
-                      setPassword(text);
-                      if (passwordError) setPasswordError('');
-                    }}
-                    secureTextEntry={!showPassword}
-                    autoCapitalize="none"
-                    editable={!loading}
-                  />
-                  <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeIcon}>
-                    <Feather name={showPassword ? 'eye-off' : 'eye'} color="#4CA771" size={20} />
+              <Text style={styles.title}>Reset password</Text>
+              <Text style={styles.subtitle}>
+                Enter your new password below to regain access to your account.
+              </Text>
+            </View>
+
+            <View style={styles.form}>
+              {generalError ? (
+                <View style={styles.banner} accessibilityRole="alert">
+                  <Feather name="alert-circle" size={18} color={COLORS.error} />
+                  <Text style={styles.bannerText}>{generalError}</Text>
+                </View>
+              ) : null}
+
+              {successMessage ? (
+                <View style={styles.successContainer} accessibilityRole="alert">
+                  <View style={styles.successBadge}>
+                    <Feather name="check" size={22} color="#FFFFFF" />
+                  </View>
+                  <Text style={styles.successTitle}>All set</Text>
+                  <Text style={styles.successText}>{successMessage}</Text>
+                  <TouchableOpacity
+                    onPress={() => router.replace('/login')}
+                    style={styles.primaryButton}
+                    activeOpacity={0.85}
+                    accessibilityRole="button"
+                  >
+                    <Text style={styles.buttonText}>Sign In with New Password</Text>
                   </TouchableOpacity>
                 </View>
-                {passwordError ? <Text style={styles.errorText}>{passwordError}</Text> : null}
+              ) : (
+                <>
+                  <Text style={styles.label}>New password</Text>
+                  <View
+                    ref={passwordWrapRef}
+                    collapsable={false}
+                    style={[
+                      styles.inputWrapper,
+                      focused === 'password' && styles.inputFocused,
+                      !!passwordError && styles.inputError,
+                    ]}
+                  >
+                    <Feather
+                      name="lock"
+                      size={19}
+                      color={passwordError ? COLORS.error : focused === 'password' ? COLORS.brand : COLORS.muted}
+                      style={styles.inputIcon}
+                    />
+                    <TextInput
+                      style={styles.input}
+                      placeholder="At least 8 characters"
+                      placeholderTextColor={COLORS.placeholder}
+                      value={password}
+                      onChangeText={(text) => {
+                        setPassword(text);
+                        if (passwordError) setPasswordError('');
+                      }}
+                      onFocus={() => {
+                    setFocused('password');
+                    trackField(passwordWrapRef);
+                  }}
+                      onBlur={() => setFocused(null)}
+                      secureTextEntry={!showPassword}
+                      autoCapitalize="none"
+                      returnKeyType="next"
+                      blurOnSubmit={false}
+                      onSubmitEditing={() => confirmRef.current?.focus()}
+                      editable={!loading}
+                      underlineColorAndroid="transparent"
+                      accessibilityLabel="New password"
+                    />
+                    {renderEye()}
+                  </View>
+                  {passwordError ? <Text style={styles.fieldError}>{passwordError}</Text> : null}
 
-                <View style={[styles.inputWrapper, confirmError ? styles.inputWrapperError : null]}>
-                  <Feather name="lock" color="#4CA771" size={20} style={styles.inputIcon} />
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Confirm New Password"
-                    placeholderTextColor="#7A8A85"
-                    value={confirmPassword}
-                    onChangeText={(text) => {
-                      setConfirmPassword(text);
-                      if (confirmError) setConfirmError('');
-                    }}
-                    secureTextEntry={!showPassword}
-                    autoCapitalize="none"
-                    editable={!loading}
-                  />
-                  <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeIcon}>
-                    <Feather name={showPassword ? 'eye-off' : 'eye'} color="#4CA771" size={20} />
+                  <Text style={[styles.label, styles.labelSpaced]}>Confirm new password</Text>
+                  <View
+                    ref={confirmWrapRef}
+                    collapsable={false}
+                    style={[
+                      styles.inputWrapper,
+                      focused === 'confirm' && styles.inputFocused,
+                      !!confirmError && styles.inputError,
+                    ]}
+                  >
+                    <Feather
+                      name="shield"
+                      size={19}
+                      color={confirmError ? COLORS.error : focused === 'confirm' ? COLORS.brand : COLORS.muted}
+                      style={styles.inputIcon}
+                    />
+                    <TextInput
+                      ref={confirmRef}
+                      style={styles.input}
+                      placeholder="Re-enter your password"
+                      placeholderTextColor={COLORS.placeholder}
+                      value={confirmPassword}
+                      onChangeText={(text) => {
+                        setConfirmPassword(text);
+                        if (confirmError) setConfirmError('');
+                      }}
+                      onFocus={() => {
+                    setFocused('confirm');
+                    trackField(confirmWrapRef);
+                  }}
+                      onBlur={() => setFocused(null)}
+                      secureTextEntry={!showPassword}
+                      autoCapitalize="none"
+                      returnKeyType="done"
+                      onSubmitEditing={handleUpdatePassword}
+                      editable={!loading}
+                      underlineColorAndroid="transparent"
+                      accessibilityLabel="Confirm new password"
+                    />
+                    {renderEye()}
+                  </View>
+                  {confirmError ? <Text style={styles.fieldError}>{confirmError}</Text> : null}
+
+                  <TouchableOpacity
+                    style={[styles.primaryButton, styles.buttonSpaced, loading && styles.buttonDisabled]}
+                    onPress={handleUpdatePassword}
+                    disabled={loading}
+                    activeOpacity={0.85}
+                    accessibilityRole="button"
+                    accessibilityLabel="Update password"
+                  >
+                    {loading ? <SkeletonBar width={120} /> : <Text style={styles.buttonText}>Update Password</Text>}
                   </TouchableOpacity>
-                </View>
-                {confirmError ? <Text style={styles.errorText}>{confirmError}</Text> : null}
-
-                <TouchableOpacity 
-                  style={[styles.primaryButton, loading && { opacity: 0.8 }]} 
-                  onPress={handleUpdatePassword}
-                  disabled={loading}
-                >
-                  {loading ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.buttonText}>Update Password</Text>}
-                </TouchableOpacity>
-              </>
-            )}
-          </View>
-
+                </>
+              )}
+            </View>
+          </Animated.View>
         </ScrollView>
       </KeyboardAvoidingView>
     </LinearGradient>
@@ -178,129 +312,193 @@ export default function ResetPasswordScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { 
-    flex: 1, 
+  flex: { flex: 1 },
+  container: {
+    flex: 1,
   },
-  scrollContainer: { 
-    flexGrow: 1, 
-    paddingHorizontal: 28, 
+  scrollContainer: {
+    flexGrow: 1,
+    paddingHorizontal: 24,
+    paddingVertical: 32,
     justifyContent: 'center',
-    paddingVertical: 20,
   },
   backButton: {
-    marginBottom: 10,
-    alignSelf: 'flex-start',
-  },
-  iconContainer: {
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  iconBackground: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
-    backgroundColor: '#FFFFFF',
+    position: 'absolute',
+    top: 8,
+    left: 20,
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    backgroundColor: COLORS.surface,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    zIndex: 2,
   },
-  headerContainer: { 
-    marginBottom: 28,
+
+  // Header
+  headerContainer: {
     alignItems: 'center',
+    marginBottom: 30,
   },
-  title: { 
-    fontSize: 28, 
-    fontWeight: '700', 
-    color: '#013237', 
-    marginBottom: 8, 
+  iconTile: {
+    width: 84,
+    height: 84,
+    borderRadius: 24,
+    backgroundColor: COLORS.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 22,
+    shadowColor: COLORS.ink,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.1,
+    shadowRadius: 16,
+    elevation: 6,
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: COLORS.ink,
+    letterSpacing: -0.5,
+    marginBottom: 8,
     textAlign: 'center',
   },
-  subtitle: { 
-    fontSize: 14, 
-    color: '#4CA771', 
+  subtitle: {
+    fontSize: 15,
+    color: COLORS.muted,
     textAlign: 'center',
-    lineHeight: 20, 
+    lineHeight: 22,
+    paddingHorizontal: 8,
   },
-  form: { 
-    width: '100%', 
+
+  // Banner
+  banner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: COLORS.errorSoft,
+    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    marginBottom: 18,
+    borderWidth: 1,
+    borderColor: '#F6C9C9',
+  },
+  bannerText: {
+    flex: 1,
+    color: COLORS.error,
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '500',
+  },
+
+  // Form
+  form: {
+    width: '100%',
+  },
+  label: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: COLORS.ink,
+    marginBottom: 8,
+    marginLeft: 4,
+  },
+  labelSpaced: {
+    marginTop: 16,
   },
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 30,
-    paddingHorizontal: 20,
-    height: 56,
-    marginTop: 10,
-  },
-  inputWrapperError: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 16,
     borderWidth: 1.5,
-    borderColor: '#E53E3E',
+    borderColor: COLORS.border,
+    paddingHorizontal: 16,
+    height: 56,
   },
-  inputIcon: { 
-    marginRight: 12, 
+  inputFocused: {
+    borderColor: COLORS.brand,
   },
-  input: { 
-    flex: 1, 
-    fontSize: 15, 
-    color: '#013237', 
-    height: '100%', 
+  inputError: {
+    borderColor: COLORS.error,
   },
-  eyeIcon: { 
-    padding: 4, 
+  inputIcon: {
+    marginRight: 12,
   },
-  errorText: {
-    color: '#E53E3E',
-    fontSize: 12,
-    marginTop: 4,
-    marginLeft: 20,
-  },
-  generalErrorText: {
-    color: '#E53E3E',
-    fontSize: 14,
-    textAlign: 'center',
-    marginBottom: 15,
-  },
-  successContainer: {
-    marginTop: 15,
-    padding: 20,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    alignItems: 'center',
-  },
-  successText: {
-    color: '#013237',
+  input: {
+    flex: 1,
     fontSize: 15,
-    textAlign: 'center',
-    marginBottom: 16,
-    lineHeight: 22,
-    fontWeight: '500',
+    color: COLORS.ink,
+    height: '100%',
   },
-  backLinkButton: {
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    backgroundColor: '#013237',
-    borderRadius: 20,
+  eyeIcon: {
+    padding: 4,
+    marginLeft: 8,
   },
-  backLinkText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '600',
+  fieldError: {
+    color: COLORS.error,
+    fontSize: 12,
+    marginTop: 6,
+    marginLeft: 4,
   },
+
+  // Buttons
   primaryButton: {
-    backgroundColor: '#013237',
-    borderRadius: 30,
+    backgroundColor: COLORS.ink,
+    borderRadius: 16,
     height: 56,
     alignItems: 'center',
     justifyContent: 'center',
+    alignSelf: 'stretch',
+    shadowColor: COLORS.ink,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.22,
+    shadowRadius: 14,
+    elevation: 6,
+  },
+  buttonSpaced: {
     marginTop: 24,
   },
-  buttonText: { 
-    color: '#FFFFFF', 
-    fontSize: 16, 
-    fontWeight: '600', 
+  buttonDisabled: {
+    opacity: 0.75,
+  },
+  buttonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+    letterSpacing: 0.2,
+  },
+
+  // Success
+  successContainer: {
+    padding: 22,
+    backgroundColor: COLORS.surface,
+    borderRadius: 20,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.brandLine,
+  },
+  successBadge: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: COLORS.brand,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 14,
+  },
+  successTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: COLORS.ink,
+    marginBottom: 6,
+  },
+  successText: {
+    color: COLORS.muted,
+    fontSize: 14,
+    textAlign: 'center',
+    marginBottom: 20,
+    lineHeight: 20,
   },
 });
