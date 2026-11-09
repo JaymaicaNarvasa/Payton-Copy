@@ -18,8 +18,8 @@ import {
   View,
 } from 'react-native';
 
-import { useKeyboardScroll } from '../../lib/useKeyboardScroll';
 import { supabase } from '../../lib/supabase';
+import { useKeyboardScroll } from '../../lib/useKeyboardScroll';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -259,7 +259,7 @@ export default function LoginScreen() {
             <View style={styles.headerContainer}>
               <View style={styles.logoTile}>
                 <Image
-                  source={require('../../assets/images/pin.jpg')}
+                  source={require('../../assets/images/logo-light1.png')}
                   style={styles.logoImage}
                   resizeMode="contain"
                 />

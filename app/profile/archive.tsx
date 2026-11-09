@@ -132,14 +132,20 @@ export default function ArchiveScreen() {
 
         if (!error) setInactiveItems(income || []);
       } else {
-        const { data: allowances, error } = await supabase
-          .from('allowances')
-          .select('*')
-          .or(`spender_id.eq.${user.id},sponsor_id.eq.${user.id}`)
-          .eq('is_archived', true)
-          .order('end_date', { ascending: false });
+        // Inside fetchArchivedData() for Sponsor role:
+const { data: allowances, error } = await supabase
+  .from('allowances')
+  .select(`
+    *,
+    spender:profiles!allowances_spender_id_fkey (
+      full_name
+    )
+  `)
+  .or(`spender_id.eq.${user.id},sponsor_id.eq.${user.id}`)
+  .eq('is_archived', true)
+  .order('end_date', { ascending: false });
 
-        if (!error) setInactiveItems(allowances || []);
+if (!error) setInactiveItems(allowances || []);
       }
     } catch (err) {
       console.error('Error fetching archive:', err);
@@ -536,76 +542,87 @@ export default function ArchiveScreen() {
         </View>
       ) : (
         <FlatList
-          data={inactiveItems}
-          keyExtractor={(item) => item.id}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={monitoringStyles.listContent}
-          renderItem={({ item }) => (
-            <View style={incomeStyles.incomeCard}>
-              <TouchableOpacity activeOpacity={0.7} onPress={() => handleSelectItem(item)}>
-                <View style={incomeStyles.cardHeaderRow}>
-                  <View style={incomeStyles.cardHeaderLeft}>
-                    <View style={incomeStyles.statusBadge}>
-                      <Ionicons name="archive-outline" size={20} color={theme.colors.success} />
-                    </View>
-                    <View style={incomeStyles.titleWrapper}>
-                      <Text style={incomeStyles.sourceText} numberOfLines={1}>
-                        {item.allowance_name || item.source_name}
-                      </Text>
-                    </View>
-                  </View>
-                  <View style={incomeStyles.amountContainer}>
-                    <Text style={incomeStyles.amountText}>₱{Number(item.amount).toLocaleString()}</Text>
-                  </View>
-                </View>
-              </TouchableOpacity>
+  data={inactiveItems}
+  keyExtractor={(item) => item.id}
+  showsVerticalScrollIndicator={false}
+  contentContainerStyle={monitoringStyles.listContent}
+  renderItem={({ item }) => {
+    // Check if it's an allowance and if a spender name is available
+    const spenderName = item.spender?.full_name || item.spender?.name;
 
-              <View style={incomeStyles.cardDivider} />
-
-              <View style={incomeStyles.cardFooterRow}>
-                <View style={incomeStyles.dateContainer}>
-                  <Ionicons name="time-outline" size={12} color={theme.colors.textMuted} />
-                  <Text style={incomeStyles.dateText} numberOfLines={1}>
-                    {formatDateRange(item.start_date, item.end_date)}
+    return (
+      <View style={incomeStyles.incomeCard}>
+        <TouchableOpacity activeOpacity={0.7} onPress={() => handleSelectItem(item)}>
+          <View style={incomeStyles.cardHeaderRow}>
+            <View style={incomeStyles.cardHeaderLeft}>
+              <View style={incomeStyles.statusBadge}>
+                <Ionicons name="archive-outline" size={20} color={theme.colors.success} />
+              </View>
+              <View style={incomeStyles.titleWrapper}>
+                <Text style={incomeStyles.sourceText} numberOfLines={1}>
+                  {item.allowance_name || item.source_name}
+                </Text>
+                {/* Display spender name if userRole is Sponsor and spender data exists */}
+                {userRole === 'Sponsor' && spenderName ? (
+                  <Text style={[incomeStyles.dateText, { color: theme.colors.textSubtle, marginTop: 2 }]}>
+                    Spender: {spenderName}
                   </Text>
-                </View>
-
-                <View style={incomeStyles.actionButtonsRow}>
-                  <TouchableOpacity
-                    style={[incomeStyles.actionButton, incomeStyles.archiveButtonBorder]}
-                    onPress={() => handleSelectItem(item)}
-                    accessibilityRole="button"
-                    accessibilityLabel="View expenses"
-                  >
-                    <Ionicons name="chevron-forward" size={16} color={theme.colors.brand} />
-                  </TouchableOpacity>
-
-                  {userRole !== 'Spender' && (
-                    <TouchableOpacity
-                      style={[incomeStyles.actionButton, incomeStyles.archiveButtonBorder]}
-                      onPress={() => confirmUnarchiveItem(item)}
-                      accessibilityRole="button"
-                      accessibilityLabel="Restore record"
-                    >
-                      <Ionicons name="arrow-undo-outline" size={16} color={theme.colors.brand} />
-                    </TouchableOpacity>
-                  )}
-
-                  {userRole !== 'Spender' && (
-                    <TouchableOpacity
-                      style={[incomeStyles.actionButton, incomeStyles.deleteButtonBorder]}
-                      onPress={() => confirmDeleteItem(item)}
-                      accessibilityRole="button"
-                      accessibilityLabel="Delete record"
-                    >
-                      <Ionicons name="trash-outline" size={16} color={theme.colors.danger} />
-                    </TouchableOpacity>
-                  )}
-                </View>
+                ) : null}
               </View>
             </View>
-          )}
-        />
+            <View style={incomeStyles.amountContainer}>
+              <Text style={incomeStyles.amountText}>₱{Number(item.amount).toLocaleString()}</Text>
+            </View>
+          </View>
+        </TouchableOpacity>
+
+        <View style={incomeStyles.cardDivider} />
+
+        <View style={incomeStyles.cardFooterRow}>
+          <View style={incomeStyles.dateContainer}>
+            <Ionicons name="time-outline" size={12} color={theme.colors.textMuted} />
+            <Text style={incomeStyles.dateText} numberOfLines={1}>
+              {formatDateRange(item.start_date, item.end_date)}
+            </Text>
+          </View>
+
+          <View style={incomeStyles.actionButtonsRow}>
+            <TouchableOpacity
+              style={[incomeStyles.actionButton, incomeStyles.archiveButtonBorder]}
+              onPress={() => handleSelectItem(item)}
+              accessibilityRole="button"
+              accessibilityLabel="View expenses"
+            >
+              <Ionicons name="chevron-forward" size={16} color={theme.colors.brand} />
+            </TouchableOpacity>
+
+            {userRole !== 'Spender' && (
+              <TouchableOpacity
+                style={[incomeStyles.actionButton, incomeStyles.archiveButtonBorder]}
+                onPress={() => confirmUnarchiveItem(item)}
+                accessibilityRole="button"
+                accessibilityLabel="Restore record"
+              >
+                <Ionicons name="arrow-undo-outline" size={16} color={theme.colors.brand} />
+              </TouchableOpacity>
+            )}
+
+            {userRole !== 'Spender' && (
+              <TouchableOpacity
+                style={[incomeStyles.actionButton, incomeStyles.deleteButtonBorder]}
+                onPress={() => confirmDeleteItem(item)}
+                accessibilityRole="button"
+                accessibilityLabel="Delete record"
+              >
+                <Ionicons name="trash-outline" size={16} color={theme.colors.danger} />
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+      </View>
+    );
+  }}
+/>
       )}
 
       {/* Delete / Restore confirmation (shared PaytonAlertDialog, local-state API) */}
