@@ -1,5 +1,6 @@
 import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as Linking from 'expo-linking';
 import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
@@ -77,6 +78,47 @@ export default function ResetPasswordScreen() {
   useEffect(() => {
     Animated.timing(fade, { toValue: 1, duration: 450, useNativeDriver: true }).start();
   }, [fade]);
+
+  // Turn the link from the reset email into a session so updateUser works.
+  const url = Linking.useURL();
+  const handledUrl = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!url || handledUrl.current === url) return;
+    handledUrl.current = url;
+
+    (async () => {
+      try {
+        const parsed = Linking.parse(url);
+        const params: Record<string, any> = { ...(parsed.queryParams || {}) };
+
+        if (url.includes('#')) {
+          const hash = new URLSearchParams(url.split('#')[1]);
+          if (!params.access_token) params.access_token = hash.get('access_token');
+          if (!params.refresh_token) params.refresh_token = hash.get('refresh_token');
+          if (!params.code) params.code = hash.get('code');
+          if (!params.error_description) params.error_description = hash.get('error_description');
+        }
+
+        if (params.error_description) {
+          throw new Error(String(params.error_description).replace(/\+/g, ' '));
+        }
+
+        if (params.code) {
+          const { error } = await supabase.auth.exchangeCodeForSession(params.code as string);
+          if (error) throw error;
+        } else if (params.access_token && params.refresh_token) {
+          const { error } = await supabase.auth.setSession({
+            access_token: params.access_token as string,
+            refresh_token: params.refresh_token as string,
+          });
+          if (error) throw error;
+        }
+      } catch (e: any) {
+        setGeneralError(e.message || 'This reset link is invalid or has expired.');
+      }
+    })();
+  }, [url]);
 
   const handleUpdatePassword = async () => {
     setPasswordError('');
@@ -231,9 +273,9 @@ export default function ResetPasswordScreen() {
                         if (passwordError) setPasswordError('');
                       }}
                       onFocus={() => {
-                    setFocused('password');
-                    trackField(passwordWrapRef);
-                  }}
+                        setFocused('password');
+                        trackField(passwordWrapRef);
+                      }}
                       onBlur={() => setFocused(null)}
                       secureTextEntry={!showPassword}
                       autoCapitalize="none"
@@ -275,9 +317,9 @@ export default function ResetPasswordScreen() {
                         if (confirmError) setConfirmError('');
                       }}
                       onFocus={() => {
-                    setFocused('confirm');
-                    trackField(confirmWrapRef);
-                  }}
+                        setFocused('confirm');
+                        trackField(confirmWrapRef);
+                      }}
                       onBlur={() => setFocused(null)}
                       secureTextEntry={!showPassword}
                       autoCapitalize="none"

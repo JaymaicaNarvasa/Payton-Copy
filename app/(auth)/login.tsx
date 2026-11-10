@@ -208,6 +208,7 @@ export default function LoginScreen() {
     setActiveAction(provider);
     try {
       const redirectTo = Linking.createURL('/login');
+      
 
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider,

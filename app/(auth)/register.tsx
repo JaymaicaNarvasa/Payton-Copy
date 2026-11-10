@@ -213,7 +213,16 @@ export default function RegisterScreen() {
       return;
     }
 
-    router.push('/verify-email');
+    // Email confirmation is disabled, so signUp returns a live session.
+    const userId = data.user?.id ?? data.session?.user?.id;
+    if (!userId) {
+      setGeneralError('Sign up succeeded but no session was created. Please sign in.');
+      router.replace('/login');
+      return;
+    }
+
+    await logActivity(userId, 'signed up with email.');
+    await navigateBasedOnRole(userId);
   } catch (e: any) {
     setGeneralError(e.message || 'An unexpected error occurred.');
   } finally {
@@ -256,6 +265,8 @@ export default function RegisterScreen() {
     setActiveAction(provider);
     try {
       const redirectTo = Linking.createURL('/login');
+      console.log('redirectTo:', redirectTo);
+      
 
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider,

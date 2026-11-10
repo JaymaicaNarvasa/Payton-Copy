@@ -9,7 +9,7 @@ export default function WelcomeScreen() {
   
   // 1. Create animated values for both opacity and scale
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const scaleAnim = useRef(new Animated.Value(0.7)).current; // Start at half size
+  const scaleAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
     // 2. Run both animations at the same time
@@ -55,7 +55,7 @@ export default function WelcomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fdfdfd', justifyContent: 'space-between' },
+  container: { flex: 1, backgroundColor: '#ffffff', justifyContent: 'space-between' },
   contentContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32 },
-  logo: { width: 150, height: 150, marginBottom: 25 },
+  logo: { width: 200, height: 200 },
 });

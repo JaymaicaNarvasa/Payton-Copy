@@ -3,8 +3,9 @@
 // The AI call (getAiModel), the system instruction and the chat logic are unchanged.
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
+  Keyboard,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -12,8 +13,10 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import PrimaryButton from '../../components/profile/PrimaryButton';
 import ProfileScreen from '../../components/profile/ProfileScreen';
@@ -32,7 +35,14 @@ const FAQS = [
   { q: "How do I update my email?", a: "Registered email addresses are locked for security. Please contact our administrators to submit an update request." },
   { q: "How do I reset my password?", a: "You can securely reset your password by tapping 'Forgot Password' on the login screen, or via your profile settings if you are currently logged in." },
   { q: "Is my balance ledger encrypted?", a: "Yes, Payton uses end-to-end Row Level Security protocols integrated securely via Supabase database networks." },
-  { q: "How long do image uploads take?", a: "Avatar uploads stream in real-time, generally updating within 2-5 seconds depending on network bandwidth." }
+  { q: "How long do image uploads take?", a: "Avatar uploads stream in real-time, generally updating within 2-5 seconds depending on network bandwidth." },
+  { q: "What are the Personal, Spender and Sponsor roles?", a: "Your role decides what you see in the app. Personal is for managing your own money, Spender is for tracking spending, and Sponsor is for providing and monitoring funds for a Spender. You choose your role when you first set up your account." },
+  { q: "Can I sign in with Google or Facebook?", a: "Yes. On the login or sign-up screen, tap Google or Facebook to continue with that account. You will be returned to Payton once you finish signing in." },
+  { q: "I didn't receive my password reset email. What should I do?", a: "Check your spam or junk folder first and make sure you typed the same email you registered with. If it still doesn't arrive after a few minutes, request a new link. Only the most recent link will work." },
+  { q: "Can Payton AI see my balance or transactions?", a: "No. For your privacy, the Ask Payton assistant cannot view your personal database, balances, or transaction history. It can help with general budgeting tips, saving strategies, and app questions." },
+  { q: "Is my password stored safely?", a: "Yes. Your password is handled by a secure authentication service and is never visible to other users or to the app's administrators." },
+  { q: "The app is slow or not loading my data. What can I do?", a: "Check that you have a stable internet connection, then close and reopen the app. If the problem continues, sign out and sign back in. You can also ask Payton for help below." },
+  { q: "How do I contact support?", a: "Tap 'Ask Payton for help' below for instant answers. For account changes such as updating your email, please contact the administrators." }
 ];
 
 export default function HelpScreen() {
@@ -45,6 +55,25 @@ export default function HelpScreen() {
   const [inputText, setInputText] = useState('');
   const [loading, setLoading] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
+
+  // Android (standalone build): a Modal doesn't resize with the keyboard, so track its height manually.
+  const { height: windowHeight } = useWindowDimensions();
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const insets = useSafeAreaInsets();
+
+  // Never let the sheet grow past the status bar, with or without the keyboard.
+  const roomAbove = windowHeight - keyboardHeight - insets.top - 16;
+  const maxSheetHeight = keyboardHeight ? roomAbove : Math.min(windowHeight * 0.75, roomAbove);
+
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+    const showSub = Keyboard.addListener('keyboardDidShow', (e) => setKeyboardHeight(e.endCoordinates.height));
+    const hideSub = Keyboard.addListener('keyboardDidHide', () => setKeyboardHeight(0));
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   const handleSendMessage = async () => {
     if (!inputText.trim()) return;
@@ -91,7 +120,7 @@ export default function HelpScreen() {
       const errorReply: Message = {
         id: (Date.now() + 1).toString(),
         sender: 'payton',
-        text: "Pasayloha ko, buddy. Naa koy gamit nga nasugatan sa pagtubag karon. Palihog og sulayi og usab."
+        text: "Sorry about that. I ran into a problem while replying. Please try again."
       };
       setMessages(prev => [...prev, errorReply]);
     } finally {
@@ -147,14 +176,22 @@ export default function HelpScreen() {
         visible={chatVisible}
         animationType="slide"
         transparent={true}
+        statusBarTranslucent
+        navigationBarTranslucent
         onRequestClose={() => setChatVisible(false)}
       >
         <View style={incomeStyles.modalOverlay}>
           <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            style={{ width: '100%', maxHeight: '75%', justifyContent: 'flex-end' }}
+            enabled={Platform.OS === 'ios'}
+            behavior="padding"
+            style={{
+              width: '100%',
+              maxHeight: maxSheetHeight,
+              justifyContent: 'flex-end',
+              marginBottom: Platform.OS === 'android' ? keyboardHeight : 0,
+            }}
           >
-            <View style={incomeStyles.modalSheet}>
+            <View style={[incomeStyles.modalSheet, { flexShrink: 1, maxHeight: maxSheetHeight }]}>
               {/* Chat Header */}
               <View style={incomeStyles.modalHeaderRow}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
