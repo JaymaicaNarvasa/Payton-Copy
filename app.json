@@ -1,17 +1,18 @@
 {
   "expo": {
-    "name": "PaytonExpo",
-    "slug": "PaytonExpo",
+    "name": "Payton",
+    "slug": "Payton",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/logo-light1.png",
-    "scheme": "paytonexpo",
+    "scheme": "payton",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true
     },
     "android": {
+      "package": "com.tracker.payton",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/logo-light1.png",
@@ -49,6 +50,12 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "c2aa8ef7-16c1-4893-b139-83049a182bdb"
+      }
     }
   }
 }
