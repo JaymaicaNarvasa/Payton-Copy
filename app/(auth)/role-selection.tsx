@@ -145,7 +145,7 @@ export default function RoleSelectionScreen() {
   };
 
   return (
-    <LinearGradient colors={[COLORS.brandSoft, '#F6FCF5', '#FFFFFF']} style={styles.container}>
+    <LinearGradient colors={['#FFFFFF', '#FFFFFF', '#FFFFFF']} style={styles.container}>
       <StatusBar barStyle="dark-content" />
       <Animated.View
         style={[

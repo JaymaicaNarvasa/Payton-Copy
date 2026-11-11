@@ -3,6 +3,8 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect, useRef } from 'react';
 import { Animated, StyleSheet, View } from 'react-native';
 
+import { supabase } from '../lib/supabase';
+
 
 export default function WelcomeScreen() {
   const router = useRouter();
@@ -26,11 +28,45 @@ export default function WelcomeScreen() {
       })
     ]).start();
 
-    const timer = setTimeout(() => {
-      router.replace("/login"); 
-    }, 2000); 
+    let cancelled = false;
 
-    return () => clearTimeout(timer);
+    // Where should this user go? Checked while the logo animation plays.
+    const resolveDestination = async (): Promise<string> => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) return '/login';
+
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', session.user.id)
+          .maybeSingle();
+
+        switch (profile?.role) {
+          case 'Personal':
+            return '/(personalTabs)/home';
+          case 'Spender':
+            return '/(spenderTabs)/home';
+          case 'Sponsor':
+            return '/(sponsorTabs)/home';
+          default:
+            return '/role-selection';
+        }
+      } catch {
+        return '/login';
+      }
+    };
+
+    // Keep the splash visible for at least 2 seconds, then go.
+    const minDelay = new Promise<void>((resolve) => setTimeout(resolve, 2000));
+
+    Promise.all([resolveDestination(), minDelay]).then(([destination]) => {
+      if (!cancelled) router.replace(destination as any);
+    });
+
+    return () => {
+      cancelled = true;
+    };
   }, [fadeAnim, scaleAnim, router]);
 
   return (

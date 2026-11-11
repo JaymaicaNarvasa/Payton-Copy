@@ -319,7 +319,7 @@ export default function RegisterScreen() {
   );
 
   return (
-    <LinearGradient colors={[COLORS.brandSoft, '#F6FCF5', '#FFFFFF']} style={styles.container}>
+    <LinearGradient colors={['#FFFFFF', '#FFFFFF', '#FFFFFF']} style={styles.container}>
       <StatusBar barStyle="dark-content" />
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
