@@ -1148,11 +1148,7 @@ function TransactionsScreenContent() {
         </View>
       </Modal>
 
-      {showScrollTop && (
-        <TouchableOpacity style={styles.scrollTopFAB} activeOpacity={0.8} onPress={scrollToTop}>
-          <Ionicons name="arrow-up" size={20} color={theme.colors.white} />
-        </TouchableOpacity>
-      )}
+      
     </View>
   );
 }

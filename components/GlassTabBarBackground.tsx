@@ -1,41 +1,32 @@
 // components/GlassTabBar.tsx
-// Floating frosted-glass tab bar. ONE file: glass settings + the bar itself.
-// Needs:  npx expo install expo-blur   (SDK 55+ API: BlurTargetView + blurTarget + blurMethod)
-//
-// Why it is not a normal `tabBarBackground`: on Android the blur only works when the content behind it is wrapped
-// in <BlurTargetView> and the <BlurView> sits NEXT to it (not inside it). So the layout does:
-//   <View>
-//     <BlurTargetView ref={ref}><Tabs /></BlurTargetView>
-//     <GlassTabBar blurTarget={ref} ... />
-//   </View>
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { usePathname, useRouter } from 'expo-router';
 import type { ComponentProps, RefObject } from 'react';
 import { Pressable, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context'; // 1. Import this
 import { theme } from '../constants/theme';
 import { tabLayoutStyles as styles } from '../constants/ui.styles';
 
 type IconName = ComponentProps<typeof Ionicons>['name'];
 
 export type GlassTabItem = {
-  name: string; // route file name, e.g. "home"
+  name: string;
   title: string;
-  icon: IconName; // inactive
+  icon: IconName;
   iconActive: IconName;
-  center?: boolean; // the raised scan button
+  center?: boolean;
 };
 
-// ---- glass settings (edit here) ----
 export const glass = {
   intensity: 60,
   tint: 'dark',
-  blurMethod: 'dimezisBlurView', // Android. 'dimezisBlurViewSdk31Plus' = no blur on Android 11 and older
+  blurMethod: 'dimezisBlurView',
   blurReductionFactor: 4,
 } as const;
 
 type Props = {
-  group: string; // route group folder, e.g. "(spenderTabs)"
+  group: string;
   items: GlassTabItem[];
   blurTarget: RefObject<View | null>;
 };
@@ -43,6 +34,10 @@ type Props = {
 export function GlassTabBar({ group, items, blurTarget }: Props) {
   const router = useRouter();
   const pathname = usePathname();
+  const insets = useSafeAreaInsets(); // 2. Hook to get system navigation bar height
+
+  // 3. Dynamically calculate bottom offset based on whether 3-button or gesture navigation is active
+  const bottomOffset = Math.max(insets.bottom, 12);
 
   const isActive = (name: string) =>
     pathname === `/${name}` ||
@@ -50,7 +45,10 @@ export function GlassTabBar({ group, items, blurTarget }: Props) {
     (name === 'home' && pathname === '/');
 
   return (
-    <View style={styles.tabBar} pointerEvents="box-none">
+    <View 
+      style={[styles.tabBar, { bottom: bottomOffset }]} // 4. Apply dynamic bottom positioning here
+      pointerEvents="box-none"
+    >
       <View style={styles.tabBarGlassClip} pointerEvents="none">
         <BlurView
           blurTarget={blurTarget}
