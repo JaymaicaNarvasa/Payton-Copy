@@ -56,6 +56,17 @@ serve(async (_req) => {
       }
       const userEmail = userData.user.email;
 
+      // Fetch the user's actual name from the "profiles" table
+      // (Change "full_name" or "name" below depending on what your column is named in the profiles table)
+      const { data: profileData } = await supabaseAdmin
+        .from("profiles")
+        .select("full_name")
+        .eq("id", reminder.user_id)
+        .single();
+
+      // Fallback order: profile name -> part of email before '@' -> "User"
+      const userName = profileData?.full_name || userEmail.split("@")[0] || "User";
+
       // 5. Send email using EmailJS REST API
       const emailData = {
         service_id: EMAILJS_SERVICE_ID,
@@ -63,7 +74,7 @@ serve(async (_req) => {
         user_id: EMAILJS_PUBLIC_KEY,
         template_params: {
           email: userEmail,
-          name: "User",
+          name: userName,
           title: reminder.title,
           amount: reminder.amount.toFixed(2),
           due_date: reminder.due_date,
