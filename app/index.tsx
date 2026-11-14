@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useRef, useState } from 'react';
@@ -20,6 +21,8 @@ const COLORS = {
   primary: '#013237',
   primaryPressed: '#0f4349',
   primarySoft: '#E6F4EA',
+  gradientStart: '#75C093',
+  gradientEnd: '#013237',
   accent: '#4ADE80',
   onPrimary: '#FFFFFF',
   text: '#0F172A',
@@ -197,7 +200,12 @@ export default function WelcomeScreen() {
       <StatusBar style="light" />
 
       {/* Visual hero */}
-      <View style={[styles.hero, { height: heroHeight, paddingTop: insets.top }]}>
+      <LinearGradient
+        colors={[COLORS.gradientStart, COLORS.gradientEnd]}
+        start={{ x: 0.5, y: 0 }}
+        end={{ x: 0.5, y: 1 }}
+        style={[styles.hero, { height: heroHeight, paddingTop: insets.top }]}
+      >
         {/* Decorative background shapes */}
         <View style={[styles.orb, styles.orbLarge]} />
         <View style={[styles.orb, styles.orbSmall]} />
@@ -278,7 +286,7 @@ export default function WelcomeScreen() {
             </View>
           </Floating>
         </Animated.View>
-      </View>
+      </LinearGradient>
 
       {/* Minimal copy + CTA */}
       <Animated.View
@@ -346,7 +354,6 @@ const styles = StyleSheet.create({
 
   // Hero
   hero: {
-    backgroundColor: COLORS.primary,
     borderBottomLeftRadius: 40,
     borderBottomRightRadius: 40,
     overflow: 'hidden',
