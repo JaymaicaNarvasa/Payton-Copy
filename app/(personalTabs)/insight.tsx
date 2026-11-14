@@ -20,6 +20,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { theme } from '@/constants/theme';
 import { GradientBackground } from '../../components/GradientBackground';
+import { PaytonAlertDialog, useAlert } from '../../components/PaytonAlert';
 import { supabase } from '../../lib/supabase';
 import { getAiModel } from '../../services/aiClient';
 
@@ -31,6 +32,8 @@ const AI_MODEL = 'gemini-3.5-flash-lite';
 const AI_TIMEOUT_MS = 25_000;
 const MAX_INPUT_LENGTH = 500;
 const HISTORY_TURNS = 6;
+const HISTORY_LOAD_LIMIT = 100;
+const WELCOME_ID = 'welcome';
 const COACH_AVATAR = require('../../assets/images/coachpayton.png');
 
 const QUICK_PROMPTS = [
@@ -159,6 +162,10 @@ const deriveRunwayDays = (m: PacingMetrics): number | null => {
     if (avg <= 0) return null; // no spending yet, so there is no burn rate to project
     return Math.round((Math.max(0, toNumber(m.remaining_balance)) / avg) * 10) / 10;
 };
+
+/** Text used when searching a message (pacing cards are searched by their copy). */
+const searchableText = (m: Message): string =>
+    m.kind === 'pacing' && m.report ? `${m.report.summary} ${m.report.tip}` : m.content ?? '';
 
 const STATUS_CONFIG: Record<
     PacingStatus,
@@ -307,6 +314,21 @@ const PacingSkeleton = memo(function PacingSkeleton() {
     );
 });
 
+/** Placeholder shown above the welcome message while saved messages load. */
+const HistorySkeleton = memo(function HistorySkeleton() {
+    return (
+        <View style={styles.historySkeleton} accessibilityLabel="Loading conversation" accessibilityLiveRegion="polite">
+            <View style={styles.userRow}>
+                <SkeletonBlock width={150} height={40} radius={18} />
+            </View>
+            <View style={styles.coachRow}>
+                <SkeletonBlock width={30} height={30} radius={15} />
+                <SkeletonBlock width="65%" height={56} radius={18} />
+            </View>
+        </View>
+    );
+});
+
 const TypingDot = ({ delay }: { delay: number }) => {
     const value = useRef(new Animated.Value(0)).current;
     useEffect(() => {
@@ -351,7 +373,7 @@ const MetricTile = ({ label, value }: { label: string; value: string }) => (
 );
 
 const PacingCard = memo(function PacingCard({ report }: { report: PacingReport }) {
-    const cfg = STATUS_CONFIG[report.status];
+    const cfg = STATUS_CONFIG[report.status] ?? STATUS_CONFIG.ON_TRACK;
     const usedPct = Math.max(0, Math.min(100, (report.totalSpent / (report.totalAllowance || 1)) * 100));
 
     return (
@@ -472,9 +494,15 @@ export default function InsightScreen() {
 
     const [pending, setPending] = useState<Pending>(null);
     const [inputText, setInputText] = useState('');
+    const [loadingHistory, setLoadingHistory] = useState(true);
+    const [searchOpen, setSearchOpen] = useState(false);
+    const [query, setQuery] = useState('');
+    const [confirmOpen, setConfirmOpen] = useState(false);
+    const [deleting, setDeleting] = useState(false);
+    const { showAlert } = useAlert();
     const [messages, setMessages] = useState<Message[]>(() => [
         {
-            id: nextId(),
+            id: WELCOME_ID,
             sender: 'coach',
             kind: 'text',
             createdAt: Date.now(),
@@ -485,6 +513,7 @@ export default function InsightScreen() {
     const listRef = useRef<FlatList<Message>>(null);
     const busyRef = useRef(false);
     const mountedRef = useRef(true);
+    const userIdRef = useRef<string | null>(null);
     const messagesRef = useRef(messages);
     messagesRef.current = messages;
 
@@ -495,9 +524,82 @@ export default function InsightScreen() {
         };
     }, []);
 
-    const push = useCallback((message: Message) => {
-        if (mountedRef.current) setMessages((prev) => [...prev, message]);
+    const getUserId = useCallback(async (): Promise<string | null> => {
+        if (userIdRef.current) return userIdRef.current;
+        const {
+            data: { session },
+        } = await supabase.auth.getSession();
+        userIdRef.current = session?.user.id ?? null;
+        return userIdRef.current;
     }, []);
+
+    /** Fire-and-forget: a failed save must never break the chat. Errors are not saved. */
+    const persist = useCallback(
+        async (m: Message) => {
+            if (m.kind === 'error') return;
+            try {
+                const uid = await getUserId();
+                if (!uid) return;
+                const { error } = await supabase.from('coach_messages').insert({
+                    user_id: uid,
+                    sender: m.sender,
+                    kind: m.kind,
+                    content: m.content ?? null,
+                    report: m.report ?? null,
+                    created_at: new Date(m.createdAt).toISOString(),
+                });
+                if (error) throw error;
+            } catch (err) {
+                if (__DEV__) console.warn('[InsightScreen] could not save message', err);
+            }
+        },
+        [getUserId],
+    );
+
+    // Load saved conversation when the screen opens.
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            try {
+                const uid = await getUserId();
+                if (!uid) return;
+                const { data, error } = await supabase
+                    .from('coach_messages')
+                    .select('id, sender, kind, content, report, created_at')
+                    .eq('user_id', uid)
+                    .order('created_at', { ascending: false })
+                    .limit(HISTORY_LOAD_LIMIT);
+                if (error) throw error;
+                if (cancelled) return;
+
+                const loaded: Message[] = (data ?? []).reverse().map((row) => ({
+                    id: row.id as string,
+                    sender: row.sender as Message['sender'],
+                    kind: row.kind as Message['kind'],
+                    createdAt: new Date(row.created_at as string).getTime(),
+                    content: (row.content as string | null) ?? undefined,
+                    report: (row.report as PacingReport | null) ?? undefined,
+                }));
+                // Welcome stays first; anything sent while loading stays last.
+                setMessages((prev) => [prev[0], ...loaded, ...prev.slice(1)]);
+            } catch (err) {
+                if (__DEV__) console.warn('[InsightScreen] could not load messages', err);
+            } finally {
+                if (!cancelled) setLoadingHistory(false);
+            }
+        })();
+        return () => {
+            cancelled = true;
+        };
+    }, [getUserId]);
+
+    const push = useCallback(
+        (message: Message) => {
+            if (mountedRef.current) setMessages((prev) => [...prev, message]);
+            void persist(message); // still saved if the user leaves before the reply arrives
+        },
+        [persist],
+    );
 
     const makeMessage = (partial: Omit<Message, 'id' | 'createdAt'>): Message => ({
         id: nextId(),
@@ -628,6 +730,57 @@ export default function InsightScreen() {
         [requestPacing, sendMessage],
     );
 
+    /* ------------------------------ Search / delete ----------------------------- */
+
+    const normalizedQuery = query.trim().toLowerCase();
+    const hasHistory = messages.length > 1;
+
+    const visibleMessages = useMemo(() => {
+        if (!normalizedQuery) return messages;
+        return messages.filter((m) => searchableText(m).toLowerCase().includes(normalizedQuery));
+    }, [messages, normalizedQuery]);
+
+    const closeSearch = useCallback(() => {
+        setSearchOpen(false);
+        setQuery('');
+    }, []);
+
+    const clearConversation = useCallback(async () => {
+        if (deleting || busyRef.current) return;
+        setDeleting(true);
+        try {
+            const uid = await getUserId();
+            if (!uid) throw new Error('No active session.');
+            const { error } = await supabase.from('coach_messages').delete().eq('user_id', uid);
+            if (error) throw error;
+
+            if (mountedRef.current) {
+                setMessages((prev) => prev.slice(0, 1)); // back to just the welcome message
+                closeSearch();
+                setConfirmOpen(false);
+                showAlert({
+                    type: 'success',
+                    title: 'Conversation deleted',
+                    message: 'Your chat with Coach Payton has been cleared.',
+                });
+            }
+        } catch (err) {
+            if (__DEV__) console.warn('[InsightScreen] could not delete messages', err);
+            if (mountedRef.current) {
+                setConfirmOpen(false);
+                showAlert({
+                    type: 'error',
+                    title: "Couldn't delete",
+                    message: 'Something went wrong while deleting the conversation. Please try again.',
+                });
+            }
+        } finally {
+            if (mountedRef.current) setDeleting(false);
+        }
+    }, [closeSearch, deleting, getUserId, showAlert]);
+
+    /* --------------------------------- Render ---------------------------------- */
+
     const isBusy = pending !== null;
     const canSend = inputText.trim().length > 0 && !isBusy;
 
@@ -658,7 +811,7 @@ export default function InsightScreen() {
                 {/* Header */}
                 <View style={[styles.header, { marginTop: insets.top + 8 }]}>
                     <TouchableOpacity
-                        style={styles.backButton}
+                        style={styles.iconButton}
                         onPress={() => router.back()}
                         hitSlop={8}
                         accessibilityRole="button"
@@ -674,17 +827,66 @@ export default function InsightScreen() {
                         <Text style={styles.headerTitle}>Coach Payton</Text>
                         <Text style={styles.headerSubtitle}>AI financial coach</Text>
                     </View>
+                    <TouchableOpacity
+                        style={styles.iconButton}
+                        onPress={() => (searchOpen ? closeSearch() : setSearchOpen(true))}
+                        hitSlop={8}
+                        accessibilityRole="button"
+                        accessibilityLabel={searchOpen ? 'Close search' : 'Search messages'}
+                    >
+                        <Ionicons name={searchOpen ? 'close' : 'search'} size={20} color={theme.colors.emerald900} />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        style={[styles.iconButton, (!hasHistory || isBusy) && styles.iconButtonDisabled]}
+                        onPress={() => setConfirmOpen(true)}
+                        disabled={!hasHistory || isBusy}
+                        hitSlop={8}
+                        accessibilityRole="button"
+                        accessibilityLabel="Delete conversation"
+                    >
+                        <Ionicons name="trash-outline" size={20} color={theme.colors.danger} />
+                    </TouchableOpacity>
                 </View>
+
+                {searchOpen && (
+                    <View style={styles.searchBar}>
+                        <Ionicons name="search" size={16} color={palette.muted} />
+                        <TextInput
+                            style={styles.searchInput}
+                            value={query}
+                            onChangeText={setQuery}
+                            placeholder="Search messages..."
+                            placeholderTextColor={theme.colors.textSubtle}
+                            autoFocus
+                            autoCorrect={false}
+                            returnKeyType="search"
+                            accessibilityLabel="Search messages"
+                        />
+                        {query.length > 0 && (
+                            <TouchableOpacity onPress={() => setQuery('')} hitSlop={8} accessibilityLabel="Clear search">
+                                <Ionicons name="close-circle" size={18} color={palette.muted} />
+                            </TouchableOpacity>
+                        )}
+                    </View>
+                )}
 
                 {/* Conversation */}
                 <FlatList
                     ref={listRef}
-                    data={messages}
+                    data={visibleMessages}
                     keyExtractor={(item) => item.id}
                     renderItem={renderItem}
+                    ListHeaderComponent={loadingHistory ? <HistorySkeleton /> : null}
                     ListFooterComponent={footer}
+                    ListEmptyComponent={
+                        normalizedQuery ? (
+                            <Text style={styles.emptyText}>No messages match "{query.trim()}"</Text>
+                        ) : null
+                    }
                     contentContainerStyle={styles.listContent}
-                    onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: true })}
+                    onContentSizeChange={() => {
+                        if (!normalizedQuery) listRef.current?.scrollToEnd({ animated: true });
+                    }}
                     keyboardShouldPersistTaps="handled"
                     keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
                     showsVerticalScrollIndicator={false}
@@ -748,6 +950,19 @@ export default function InsightScreen() {
                     </View>
                 </View>
             </KeyboardAvoidingView>
+
+            <PaytonAlertDialog
+                visible={confirmOpen}
+                type="warning"
+                title="Delete conversation?"
+                message="This permanently removes all your messages with Coach Payton, including past reports."
+                busy={deleting}
+                buttons={[
+                    { text: 'Cancel', style: 'cancel', onPress: () => setConfirmOpen(false) },
+                    { text: 'Delete', style: 'destructive', onPress: clearConversation },
+                ]}
+                onDismiss={() => setConfirmOpen(false)}
+            />
         </View>
     );
 }
@@ -778,7 +993,7 @@ const styles = StyleSheet.create({
         backgroundColor: palette.surface,
         ...shadow,
     },
-    backButton: {
+    iconButton: {
         width: 36,
         height: 36,
         borderRadius: 18,
@@ -786,6 +1001,7 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         backgroundColor: palette.surfaceMuted,
     },
+    iconButtonDisabled: { opacity: 0.4 },
     headerAvatar: { width: 42, height: 42, borderRadius: 21 },
     onlineBadge: {
         position: 'absolute',
@@ -801,8 +1017,25 @@ const styles = StyleSheet.create({
     headerTitle: { fontSize: 16, fontWeight: '700', color: palette.ink },
     headerSubtitle: { fontSize: 12, color: palette.muted, marginTop: 1 },
 
+    /* Search */
+    searchBar: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        marginHorizontal: 16,
+        marginTop: 8,
+        paddingHorizontal: 14,
+        height: 42,
+        borderRadius: 21,
+        backgroundColor: palette.surface,
+        ...shadow,
+    },
+    searchInput: { flex: 1, fontSize: 15, color: palette.ink, paddingVertical: 0 },
+    emptyText: { textAlign: 'center', color: 'rgba(255,255,255,0.85)', marginTop: 24, fontSize: 14 },
+
     /* List */
     listContent: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8, gap: 14 },
+    historySkeleton: { gap: 14, marginBottom: 14 },
     coachRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 8, paddingRight: 24 },
     coachContent: { flexShrink: 1, flexGrow: 1, alignItems: 'flex-start' },
     userRow: { alignItems: 'flex-end', paddingLeft: 48 },
