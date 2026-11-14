@@ -1,12 +1,16 @@
 // app/monitoring.tsx
 import { Ionicons } from '@expo/vector-icons';
+import * as FileSystem from 'expo-file-system/legacy';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import * as Sharing from 'expo-sharing';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   FlatList,
   Image,
   Modal,
+  Platform,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -19,8 +23,84 @@ import {
 
 import { theme } from '@/constants/theme';
 import { monitoringStyles as styles } from '@/constants/ui.styles';
+import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GradientBackground } from '../../components/GradientBackground';
+import { useAlert } from '../../components/PaytonAlert';
+import { MODAL_SWAP_DELAY } from '../../components/Sheet';
 import { supabase } from '../../lib/supabase';
+
+/**
+ * expo-media-library needs a native build (dev build / APK). Expo Go doesn't ship it and throws on import,
+ * so it's loaded lazily: returns null in Expo Go and the caller falls back to the share sheet.
+ */
+const loadMediaLibrary = (): typeof import('expo-media-library') | null => {
+  try {
+    return require('expo-media-library');
+  } catch {
+    return null;
+  }
+};
+
+const viewerStyles = StyleSheet.create({
+  topBar: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: theme.space[16],
+    paddingBottom: theme.space[12],
+    gap: theme.space[12],
+  },
+  title: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '600',
+    color: theme.colors.white,
+  },
+  actions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.space[12],
+  },
+  circleButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.16)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.18)',
+  },
+  circleButtonDisabled: {
+    opacity: 0.7,
+  },
+  toast: {
+    position: 'absolute',
+    left: theme.space[20],
+    right: theme.space[20],
+    zIndex: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.space[8],
+    paddingVertical: theme.space[12],
+    paddingHorizontal: theme.space[16],
+    borderRadius: theme.radius.lg,
+    backgroundColor: 'rgba(20,20,20,0.92)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+  },
+  toastText: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '500',
+    color: theme.colors.white,
+  },
+});
 
 /* ---------- Types ---------- */
 interface ExpenseItem {
@@ -230,8 +310,22 @@ const MonitoringSkeleton = () => (
   </View>
 );
 
-export default function MonitoringScreen() {
+export default function MonitoringScreenWrapper() {
+  return (
+    <SafeAreaProvider>
+      <MonitoringScreen />
+    </SafeAreaProvider>
+  );
+}
+
+function MonitoringScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const { showAlert } = useAlert();
+  /** The image viewer and the alert are both Modals: close the viewer first, then show the alert once it is gone. */
+  const notify = (config: Parameters<typeof showAlert>[0]) => {
+    setTimeout(() => showAlert(config), MODAL_SWAP_DELAY);
+  };
   const { spenderId, allocated, allowanceName, endDate } = useLocalSearchParams<{
     spenderId: string;
     allocated?: string;
@@ -258,7 +352,80 @@ export default function MonitoringScreen() {
   
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedImageUri, setSelectedImageUri] = useState<string | null>(null);
+  const [isDownloading, setIsDownloading] = useState(false);
+  // Alerts can't present on top of the image Modal, so download errors show as a toast inside the viewer.
+  const [viewerToast, setViewerToast] = useState<string | null>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [periodMenuOpen, setPeriodMenuOpen] = useState(false);
+
+  const showViewerToast = (text: string) => {
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    setViewerToast(text);
+    toastTimer.current = setTimeout(() => setViewerToast(null), 3000);
+  };
+
+  const closeImageViewer = () => {
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    setViewerToast(null);
+    setSelectedImageUri(null);
+  };
+
+  /** Downloads the receipt photo to the cache, then saves it to the photo library (share sheet in Expo Go). */
+  const handleDownloadImage = async () => {
+    if (!selectedImageUri || isDownloading) return;
+
+    setIsDownloading(true);
+    let localUri: string | null = null;
+    try {
+      const MediaLibrary = loadMediaLibrary();
+
+      if (MediaLibrary) {
+        // writeOnly = true: we only add photos, so Android doesn't ask for audio/media read access.
+        const permission = await MediaLibrary.requestPermissionsAsync(true);
+        if (!permission.granted) {
+          showViewerToast('Allow photo access in Settings to save images.');
+          return;
+        }
+      }
+
+      const extMatch = selectedImageUri.split('?')[0].match(/\.(jpe?g|png|webp|heic)$/i);
+      const ext = extMatch ? extMatch[1].toLowerCase() : 'jpg';
+      const target = `${FileSystem.cacheDirectory}payton-receipt-${Date.now()}.${ext}`;
+
+      const result = await FileSystem.downloadAsync(selectedImageUri, target);
+      localUri = result.uri;
+      if (result.status !== 200) throw new Error(`Download failed (${result.status})`);
+
+      if (!MediaLibrary) {
+        // Expo Go fallback: open the system share sheet ("Save image", etc.).
+        if (!(await Sharing.isAvailableAsync())) {
+          showViewerToast('Saving images is not supported on this device.');
+          return;
+        }
+        await Sharing.shareAsync(result.uri, {
+          mimeType: ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg',
+          dialogTitle: 'Save receipt photo',
+        });
+        return;
+      }
+
+      await MediaLibrary.saveToLibraryAsync(result.uri);
+
+      // Close the viewer first, then show the success alert once the Modal is gone.
+      closeImageViewer();
+      notify({
+        type: 'success',
+        title: 'Image saved',
+        message: 'The receipt photo was saved to your photo library.',
+      });
+    } catch (err: any) {
+      console.error('Error downloading image:', err?.message);
+      showViewerToast('Could not save the image. Please try again.');
+    } finally {
+      if (localUri) FileSystem.deleteAsync(localUri, { idempotent: true }).catch(() => {});
+      setIsDownloading(false);
+    }
+  };
 
   const filterButtonRef = useRef<View>(null);
   const [menuLayout, setMenuLayout] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
@@ -509,7 +676,7 @@ export default function MonitoringScreen() {
             <View style={[styles.heroFill, { width: `${remainingPct}%` }]} />
           </View>
 
-          {!!endLabel && <Text style={styles.heroCaption}>Allowance ends on {endLabel}</Text>}
+          {!!endLabel && <Text style={styles.heroCaption}>Allowance expected to end on {endLabel}</Text>}
         </View>
       )}
     </View>
@@ -884,18 +1051,58 @@ export default function MonitoringScreen() {
         visible={!!selectedImageUri}
         transparent
         animationType="fade"
-        onRequestClose={() => setSelectedImageUri(null)}
+        onRequestClose={closeImageViewer}
         statusBarTranslucent
       >
         <View style={styles.imageOverlay}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={() => setSelectedImageUri(null)} />
-          <TouchableOpacity
-            style={styles.closeImageButton}
-            onPress={() => setSelectedImageUri(null)}
-            activeOpacity={0.8}
+          <Pressable style={StyleSheet.absoluteFill} onPress={closeImageViewer} />
+
+          <View
+            style={[
+              viewerStyles.topBar,
+              { paddingTop: Platform.OS === 'android' ? insets.top + 12 : insets.top + 8 },
+            ]}
           >
-            <Ionicons name="close" size={22} color={C.white} />
-          </TouchableOpacity>
+            <Text style={viewerStyles.title} numberOfLines={1}>
+              {expenses.find((e) => e.photo_url === selectedImageUri)?.description ?? ''}
+            </Text>
+
+            <View style={viewerStyles.actions}>
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={handleDownloadImage}
+                disabled={isDownloading}
+                style={[viewerStyles.circleButton, isDownloading && viewerStyles.circleButtonDisabled]}
+                accessibilityRole="button"
+                accessibilityLabel="Download image"
+                accessibilityState={{ disabled: isDownloading, busy: isDownloading }}
+              >
+                {isDownloading ? (
+                  <ActivityIndicator size="small" color={C.white} />
+                ) : (
+                  <Ionicons name="download-outline" size={22} color={C.white} />
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={closeImageViewer}
+                style={viewerStyles.circleButton}
+                accessibilityRole="button"
+                accessibilityLabel="Close image"
+              >
+                <Ionicons name="close" size={24} color={C.white} />
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {viewerToast ? (
+            <View style={[viewerStyles.toast, { bottom: insets.bottom + 24 }]}>
+              <Ionicons name="alert-circle-outline" size={18} color={C.white} />
+              <Text style={viewerStyles.toastText}>{viewerToast}</Text>
+            </View>
+          ) : null}
+
           {selectedImageUri ? (
             <Image source={{ uri: selectedImageUri }} style={styles.fullScreenImage} resizeMode="contain" />
           ) : null}

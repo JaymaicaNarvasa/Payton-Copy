@@ -38,7 +38,14 @@
       "expo-image",
       "expo-status-bar",
       "expo-sharing",
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "Payton needs access to your photos to save receipts.",
+          "savePhotosPermission": "Payton needs permission to save receipts to your photo library."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

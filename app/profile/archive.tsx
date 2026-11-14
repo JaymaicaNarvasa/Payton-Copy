@@ -2,9 +2,23 @@
 // Skeleton cards / rows while loading, shared InlineMessage banner, shared header shell.
 // Delete / restore confirmation still uses PaytonAlertDialog. All Supabase / business logic is unchanged.
 import { Ionicons } from '@expo/vector-icons';
+import * as FileSystem from 'expo-file-system/legacy';
 import { useRouter } from 'expo-router';
+import * as Sharing from 'expo-sharing';
 import { useEffect, useRef, useState } from 'react';
-import { FlatList, Image, Modal, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import {
+  ActivityIndicator,
+  FlatList,
+  Image,
+  Modal,
+  Platform,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { PaytonAlertDialog } from '../../components/PaytonAlert';
 import InlineMessage, { MessageType } from '../../components/profile/InlineMessage';
@@ -13,6 +27,79 @@ import { SkeletonArchiveCard, SkeletonGroup, SkeletonTxRow } from '../../compone
 import { theme } from '../../constants/theme';
 import { incomeStyles, monitoringStyles, profileStyles } from '../../constants/ui.styles';
 import { supabase } from '../../lib/supabase';
+
+/**
+ * expo-media-library needs a native build (dev build / APK). Expo Go doesn't ship it and throws on import,
+ * so it's loaded lazily: returns null in Expo Go and the caller falls back to the share sheet.
+ */
+const loadMediaLibrary = (): typeof import('expo-media-library') | null => {
+  try {
+    return require('expo-media-library');
+  } catch {
+    return null;
+  }
+};
+
+const viewerStyles = StyleSheet.create({
+  topBar: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: theme.space[16],
+    paddingBottom: theme.space[12],
+    gap: theme.space[12],
+  },
+  title: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '600',
+    color: theme.colors.white,
+  },
+  actions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.space[12],
+  },
+  circleButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.16)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.18)',
+  },
+  circleButtonDisabled: {
+    opacity: 0.7,
+  },
+  toast: {
+    position: 'absolute',
+    left: theme.space[20],
+    right: theme.space[20],
+    zIndex: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.space[8],
+    paddingVertical: theme.space[12],
+    paddingHorizontal: theme.space[16],
+    borderRadius: theme.radius.lg,
+    backgroundColor: 'rgba(20,20,20,0.92)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+  },
+  toastText: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '500',
+    color: theme.colors.white,
+  },
+});
 
 // Builds the soft tile + matching icon color from a category color.
 // - Saturated color (e.g. #F97316) -> 15% tint background, icon uses the color itself
@@ -47,6 +134,7 @@ const getFilledIcon = (name: string) => {
 
 export default function ArchiveScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(true);
   const [inactiveItems, setInactiveItems] = useState<any[]>([]);
   const [selectedItem, setSelectedItem] = useState<any | null>(null);
@@ -60,6 +148,10 @@ export default function ArchiveScreen() {
 
   // Fullscreen photo modal state
   const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
+  const [isDownloading, setIsDownloading] = useState(false);
+  // Errors during download show as a toast inside the photo viewer (the screen banner sits behind the Modal).
+  const [viewerToast, setViewerToast] = useState<string | null>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Inline alert banner state
   const [alertBanner, setAlertBanner] = useState<{
@@ -102,6 +194,71 @@ export default function ArchiveScreen() {
     setAlertBanner({ visible: true, type, message });
     if (autoDismiss) {
       bannerTimer.current = setTimeout(hideBanner, 4000);
+    }
+  };
+
+  const showViewerToast = (text: string) => {
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    setViewerToast(text);
+    toastTimer.current = setTimeout(() => setViewerToast(null), 3000);
+  };
+
+  const closePhotoViewer = () => {
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    setViewerToast(null);
+    setSelectedPhoto(null);
+  };
+
+  /** Downloads the receipt photo to the cache, then saves it to the photo library (share sheet in Expo Go). */
+  const handleDownloadPhoto = async () => {
+    if (!selectedPhoto || isDownloading) return;
+
+    setIsDownloading(true);
+    let localUri: string | null = null;
+    try {
+      const MediaLibrary = loadMediaLibrary();
+
+      if (MediaLibrary) {
+        // writeOnly = true: we only add photos, so Android doesn't ask for audio/media read access.
+        const permission = await MediaLibrary.requestPermissionsAsync(true);
+        if (!permission.granted) {
+          showViewerToast('Allow photo access in Settings to save images.');
+          return;
+        }
+      }
+
+      const extMatch = selectedPhoto.split('?')[0].match(/\.(jpe?g|png|webp|heic)$/i);
+      const ext = extMatch ? extMatch[1].toLowerCase() : 'jpg';
+      const target = `${FileSystem.cacheDirectory}payton-receipt-${Date.now()}.${ext}`;
+
+      const result = await FileSystem.downloadAsync(selectedPhoto, target);
+      localUri = result.uri;
+      if (result.status !== 200) throw new Error(`Download failed (${result.status})`);
+
+      if (!MediaLibrary) {
+        // Expo Go fallback: open the system share sheet ("Save image", etc.).
+        if (!(await Sharing.isAvailableAsync())) {
+          showViewerToast('Saving images is not supported on this device.');
+          return;
+        }
+        await Sharing.shareAsync(result.uri, {
+          mimeType: ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg',
+          dialogTitle: 'Save receipt photo',
+        });
+        return;
+      }
+
+      await MediaLibrary.saveToLibraryAsync(result.uri);
+
+      // Close the viewer, then confirm with this screen's inline banner.
+      closePhotoViewer();
+      showAlertBanner('success', 'The receipt photo was saved to your photo library.');
+    } catch (err: any) {
+      console.error('Error downloading image:', err?.message);
+      showViewerToast('Could not save the image. Please try again.');
+    } finally {
+      if (localUri) FileSystem.deleteAsync(localUri, { idempotent: true }).catch(() => {});
+      setIsDownloading(false);
     }
   };
 
@@ -643,16 +800,54 @@ if (!error) setInactiveItems(allowances || []);
       />
 
       {/* Fullscreen photo viewer */}
-      <Modal visible={!!selectedPhoto} transparent animationType="fade" onRequestClose={() => setSelectedPhoto(null)}>
+      <Modal visible={!!selectedPhoto} transparent animationType="fade" onRequestClose={closePhotoViewer}>
         <View style={monitoringStyles.imageOverlay}>
-          <TouchableOpacity
-            style={monitoringStyles.closeImageButton}
-            onPress={() => setSelectedPhoto(null)}
-            accessibilityRole="button"
-            accessibilityLabel="Close photo"
+          <View
+            style={[
+              viewerStyles.topBar,
+              { paddingTop: Platform.OS === 'android' ? insets.top + 12 : insets.top + 8 },
+            ]}
           >
-            <Ionicons name="close" size={24} color={theme.colors.white} />
-          </TouchableOpacity>
+            <Text style={viewerStyles.title} numberOfLines={1}>
+              {expenses.find((e) => e.photo_url === selectedPhoto)?.description ?? ''}
+            </Text>
+
+            <View style={viewerStyles.actions}>
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={handleDownloadPhoto}
+                disabled={isDownloading}
+                style={[viewerStyles.circleButton, isDownloading && viewerStyles.circleButtonDisabled]}
+                accessibilityRole="button"
+                accessibilityLabel="Download photo"
+                accessibilityState={{ disabled: isDownloading, busy: isDownloading }}
+              >
+                {isDownloading ? (
+                  <ActivityIndicator size="small" color={theme.colors.white} />
+                ) : (
+                  <Ionicons name="download-outline" size={22} color={theme.colors.white} />
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={closePhotoViewer}
+                style={viewerStyles.circleButton}
+                accessibilityRole="button"
+                accessibilityLabel="Close photo"
+              >
+                <Ionicons name="close" size={24} color={theme.colors.white} />
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {viewerToast ? (
+            <View style={[viewerStyles.toast, { bottom: insets.bottom + 24 }]}>
+              <Ionicons name="alert-circle-outline" size={18} color={theme.colors.white} />
+              <Text style={viewerStyles.toastText}>{viewerToast}</Text>
+            </View>
+          ) : null}
+
           {selectedPhoto && (
             <Image source={{ uri: selectedPhoto }} style={monitoringStyles.fullScreenImage} resizeMode="contain" />
           )}
