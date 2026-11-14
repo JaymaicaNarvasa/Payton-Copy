@@ -30,6 +30,7 @@ const MENU: MenuGroup[] = [
       { id: 'personal', label: 'Personal Details', icon: 'person-outline', route: '/profile/personal' },
       { id: 'password', label: 'Change Password', icon: 'shield-checkmark-outline', route: '/profile/change-password' },
       { id: 'logs', label: 'Activity Logs', icon: 'list-outline', route: '/profile/logs' },
+      { id: 'delete', label: 'Delete Account', icon: 'trash-outline', route: '/profile/delete-account' },
     ],
   },
   {
