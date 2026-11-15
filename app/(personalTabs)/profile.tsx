@@ -46,6 +46,7 @@ const MENU: MenuGroup[] = [
       { id: 'help', label: 'Help Desk', icon: 'chatbubbles-outline', route: '/profile/help' },
       { id: 'feedback', label: 'Send Feedback', icon: 'chatbox-ellipses-outline', route: '/profile/feedback' },
       { id: 'terms', label: 'Terms of Use', icon: 'document-attach-outline', route: '/profile/terms' },
+      { id: 'privacy', label: 'Privacy Policy', icon: 'lock-closed-outline', route: '/profile/privacy' },
       { id: 'about', label: 'App Version', icon: 'information-circle-outline', route: '/profile/about' },
     ],
   },

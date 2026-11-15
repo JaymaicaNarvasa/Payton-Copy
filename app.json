@@ -8,7 +8,8 @@
     "scheme": "payton",
     "userInterfaceStyle": "light",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "buildNumber": "1"
     },
     "android": {
       "package": "com.tracker.payton",
@@ -16,7 +17,8 @@
         "backgroundColor": "#ffffff",
         "foregroundImage": "./assets/images/adaptive-icon.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "versionCode": 1
     },
     "web": {
       "output": "static",
@@ -55,7 +57,8 @@
       "router": {},
       "eas": {
         "projectId": "c2aa8ef7-16c1-4893-b139-83049a182bdb"
-      }
+      },
+      "releaseStage": "beta"
     }
   }
 }

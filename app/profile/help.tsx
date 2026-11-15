@@ -1,12 +1,13 @@
 // app/profile/help.tsx
 // FAQ accordion + "Ask Payton" chat sheet. While Payton is answering, a skeleton bubble is shown.
-// The AI call (getAiModel), the system instruction and the chat logic are unchanged.
+// The system instruction is built in constants/appGuide.ts so the AI only describes real app screens.
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
   Keyboard,
   KeyboardAvoidingView,
+  Linking,
   Modal,
   Platform,
   ScrollView,
@@ -21,6 +22,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import PrimaryButton from '../../components/profile/PrimaryButton';
 import ProfileScreen from '../../components/profile/ProfileScreen';
 import { Skeleton, SkeletonGroup } from '../../components/profile/Skeleton';
+import { buildHelpSystemInstruction } from '../../constants/appGuide';
+import { SUPPORT_EMAIL } from '../../constants/privacyPolicy';
 import { theme } from '../../constants/theme';
 import { incomeStyles, insightStyles, profileStyles } from '../../constants/ui.styles';
 import { getAiModel } from '../../services/aiClient';
@@ -32,17 +35,19 @@ interface Message {
 }
 
 const FAQS = [
-  { q: "How do I update my email?", a: "Registered email addresses are locked for security. Please contact our administrators to submit an update request." },
-  { q: "How do I reset my password?", a: "You can securely reset your password by tapping 'Forgot Password' on the login screen, or via your profile settings if you are currently logged in." },
-  { q: "Is my balance ledger encrypted?", a: "Yes, Payton uses end-to-end Row Level Security protocols integrated securely via Supabase database networks." },
-  { q: "How long do image uploads take?", a: "Avatar uploads stream in real-time, generally updating within 2-5 seconds depending on network bandwidth." },
+  { q: "How do I report a problem or contact the Payton team?", a: `Go to Account > Support & Info > Send Feedback, choose a category such as Bug or problem, write your message and send it. You can also e-mail ${SUPPORT_EMAIL}.` },
+  { q: "How do I update my email?", a: `Your e-mail is locked for security and shows as read-only in Personal Details. To change it, send feedback under "Account issue" (Account > Support & Info > Send Feedback) or e-mail ${SUPPORT_EMAIL}.` },
+  { q: "How do I reset or change my password?", a: "If you are logged out, tap 'Forgot Password' on the login screen. If you are logged in, go to Account > Account & Security > Change Password. You will need your current password, and you will be signed out afterwards." },
+  { q: "How do I change my name or photo?", a: "Go to Account > Account & Security > Personal Details, update your full name or tap your photo to change it, then tap SAVE." },
+  { q: "How do I export my data?", a: "Go to Account > Data Ledger > Export Data and tap GENERATE EXCEL REPORT. It creates an Excel (.xlsx) file with a summary, monthly expenses, categories and all transactions." },
+  { q: "How do I delete my account?", a: "Go to Account > Account & Security > Delete Account, enter your password and type DELETE. This permanently removes your account and data and cannot be undone, so export your data first if you want a copy." },
+  { q: "Is my data protected?", a: "Your data is sent over encrypted connections and protected by access controls, so you can only see your own records and the ones shared with you. Read the Privacy Policy under Account > Support & Info for details." },
+  { q: "How long do image uploads take?", a: "Avatar uploads usually update within 2-5 seconds, depending on your network connection." },
   { q: "What are the Personal, Spender and Sponsor roles?", a: "Your role decides what you see in the app. Personal is for managing your own money, Spender is for tracking spending, and Sponsor is for providing and monitoring funds for a Spender. You choose your role when you first set up your account." },
-  { q: "Can I sign in with Google or Facebook?", a: "Yes. On the login or sign-up screen, tap Google or Facebook to continue with that account. You will be returned to Payton once you finish signing in." },
   { q: "I didn't receive my password reset email. What should I do?", a: "Check your spam or junk folder first and make sure you typed the same email you registered with. If it still doesn't arrive after a few minutes, request a new link. Only the most recent link will work." },
   { q: "Can Payton AI see my balance or transactions?", a: "No. For your privacy, the Ask Payton assistant cannot view your personal database, balances, or transaction history. It can help with general budgeting tips, saving strategies, and app questions." },
   { q: "Is my password stored safely?", a: "Yes. Your password is handled by a secure authentication service and is never visible to other users or to the app's administrators." },
-  { q: "The app is slow or not loading my data. What can I do?", a: "Check that you have a stable internet connection, then close and reopen the app. If the problem continues, sign out and sign back in. You can also ask Payton for help below." },
-  { q: "How do I contact support?", a: "Tap 'Ask Payton for help' below for instant answers. For account changes such as updating your email, please contact the administrators." }
+  { q: "The app is slow or not loading my data. What can I do?", a: "Check that you have a stable internet connection, then close and reopen the app. If the problem continues, sign out and sign back in, or report it under Account > Support & Info > Send Feedback." },
 ];
 
 export default function HelpScreen() {
@@ -94,15 +99,7 @@ export default function HelpScreen() {
         model: "gemini-3.5-flash-lite",
       });
 
-      const systemInstruction = `
-        You are Payton, a friendly financial advisor, system help desk specialist, and customer support for the Payton mobile app.
-        Today's date is ${new Date().toDateString()}.
-
-        YOUR ROLE AND CONSTRAINTS:
-        - You do NOT have direct access to the user's personal database, balance ledgers, or specific account balances. If they ask about their personal remaining balance, account total, or private transaction history, politely explain that for security and privacy reasons, you cannot view their personal database, and guide them to check their dashboard or transaction tabs instead.
-        - Answer questions regarding general personal finance advice, budgeting tips (like the 50/30/20 rule), savings strategies, and app FAQs/troubleshooting.
-        - Provide your response in plain text or a warm conversational tone.
-      `;
+      const systemInstruction = buildHelpSystemInstruction(new Date().toDateString());
 
       const result = await model.generateContent([systemInstruction, `User Input: ${currentInput}`]);
       const responseText = result.response.text();
@@ -143,6 +140,31 @@ export default function HelpScreen() {
       }
     >
       <View style={profileStyles.modernCardGroup}>
+        <View style={incomeStyles.incomeCard}>
+          <Text style={[incomeStyles.sourceText, { marginBottom: theme.space[6] }]}>Need to report something?</Text>
+          <Text style={[incomeStyles.toggleSubtext, { lineHeight: 20, marginBottom: theme.space[12] }]}>
+            Send a report straight to the Payton team, or e-mail {SUPPORT_EMAIL}.
+          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <TouchableOpacity
+              onPress={() => router.push('/profile/feedback' as any)}
+              accessibilityRole="button"
+              style={{ flexDirection: 'row', alignItems: 'center', marginRight: theme.space[20] }}
+            >
+              <Ionicons name="chatbox-ellipses-outline" size={16} color={theme.colors.brand} style={{ marginRight: 6 }} />
+              <Text style={{ color: theme.colors.brand }}>Send Feedback</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => Linking.openURL(`mailto:${SUPPORT_EMAIL}`)}
+              accessibilityRole="button"
+              style={{ flexDirection: 'row', alignItems: 'center' }}
+            >
+              <Ionicons name="mail-outline" size={16} color={theme.colors.brand} style={{ marginRight: 6 }} />
+              <Text style={{ color: theme.colors.brand }}>E-mail us</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
         <Text style={profileStyles.groupContextLabel}>Frequently Asked Questions</Text>
 
         {FAQS.map((faq, idx) => {

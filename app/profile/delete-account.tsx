@@ -3,8 +3,8 @@
 // then the `delete-account` Edge Function removes the data and the login.
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useCallback, useRef, useState } from 'react';
-import { Text, TextInput, View } from 'react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Keyboard, Platform, Text, TextInput, View } from 'react-native';
 
 import { AlertConfig, PaytonAlertDialog } from '../../components/PaytonAlert';
 import { FormField } from '../../components/profile/FormField';
@@ -41,6 +41,18 @@ export default function DeleteAccountScreen() {
 
   const passwordRef = useRef<TextInput>(null);
   const confirmRef = useRef<TextInput>(null);
+
+  // Android: leave room under the content while the keyboard is open so the last field can scroll into view.
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+    const showSub = Keyboard.addListener('keyboardDidShow', (e) => setKeyboardHeight(e.endCoordinates.height));
+    const hideSub = Keyboard.addListener('keyboardDidHide', () => setKeyboardHeight(0));
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   const clearError = (key: keyof FieldErrors) => {
     setErrors((prev) => (prev[key] ? { ...prev, [key]: undefined } : prev));
@@ -154,26 +166,6 @@ export default function DeleteAccountScreen() {
           </Text>
         </View>
 
-        {/* What gets removed */}
-        <View style={[profileStyles.groupCard, { padding: theme.space[16], marginBottom: theme.space[20] }]}>
-          <Text style={[profileStyles.rowPrimaryLabel, { marginBottom: theme.space[8] }]}>This will delete:</Text>
-          {WILL_BE_DELETED.map((line) => (
-            <View key={line} style={{ flexDirection: 'row', marginTop: theme.space[6] }}>
-              <Ionicons
-                name="close-circle-outline"
-                size={16}
-                color={theme.colors.dangerBright}
-                style={{ marginRight: theme.space[8], marginTop: 2 }}
-              />
-              <Text style={[incomeStyles.toggleSubtext, { flex: 1, lineHeight: 20 }]}>{line}</Text>
-            </View>
-          ))}
-          <Text style={[incomeStyles.toggleSubtext, { marginTop: theme.space[12], lineHeight: 20 }]}>
-            Sponsors and spenders linked to you will lose their link and any allowances between you. Export your
-            data first if you want a copy.
-          </Text>
-        </View>
-
         <FormField
           ref={passwordRef}
           label="Password"
@@ -219,6 +211,28 @@ export default function DeleteAccountScreen() {
             onDismiss={formMessage.type === 'error' ? () => setFormMessage(null) : undefined}
           />
         ) : null}
+
+        {/* What gets removed (below the inputs so the keyboard never covers them) */}
+        <View style={[profileStyles.groupCard, { padding: theme.space[16], marginTop: theme.space[20] }]}>
+          <Text style={[profileStyles.rowPrimaryLabel, { marginBottom: theme.space[8] }]}>This will delete:</Text>
+          {WILL_BE_DELETED.map((line) => (
+            <View key={line} style={{ flexDirection: 'row', marginTop: theme.space[6] }}>
+              <Ionicons
+                name="close-circle-outline"
+                size={16}
+                color={theme.colors.dangerBright}
+                style={{ marginRight: theme.space[8], marginTop: 2 }}
+              />
+              <Text style={[incomeStyles.toggleSubtext, { flex: 1, lineHeight: 20 }]}>{line}</Text>
+            </View>
+          ))}
+          <Text style={[incomeStyles.toggleSubtext, { marginTop: theme.space[12], lineHeight: 20 }]}>
+            Sponsors and spenders linked to you will lose their link and any allowances between you. Export your
+            data first if you want a copy.
+          </Text>
+        </View>
+
+        {keyboardHeight > 0 ? <View style={{ height: keyboardHeight }} /> : null}
       </View>
 
       <PaytonAlertDialog {...alert} busy={isDeleting} onDismiss={closeAlert} />

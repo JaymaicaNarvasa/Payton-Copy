@@ -24,6 +24,10 @@ const SECTIONS: Section[] = [
     title: 'Account Security & Privacy',
     blocks: [
       {
+        kind: 'note',
+        text: 'How Payton collects and uses your information is explained in our Privacy Policy, available under Account > Privacy Policy and at https://payton-privacy.netlify.app/.',
+      },
+      {
         kind: 'p',
         text: 'Users must provide accurate information and keep their account credentials confidential. Payton protects personal and financial information through controlled access, secure storage, monitoring, and other security measures. Users must immediately report suspected unauthorized access or suspicious activity.',
       },
