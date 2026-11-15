@@ -688,8 +688,27 @@ export default function InsightScreen() {
 
                     const [remindersRes, splitsRes] = await Promise.all([
                         supabase.from('reminders').select('*').eq('user_id', userId).eq('status', 'pending').limit(50),
-                        supabase.from('split_friends').select('*, friends ( name )').limit(50),
+                        supabase
+                            .from('split_friends')
+                            .select('id, owed_amount, status, friends ( full_name ), split_expenses!inner ( user_id, description )')
+                            .eq('status', 'unpaid')
+                            .eq('split_expenses.user_id', userId)
+                            .limit(50),
                     ]);
+
+                    if (splitsRes.error && __DEV__) console.warn('[Insight] splits:', splitsRes.error);
+
+                    const unpaid = (splitsRes.data ?? []) as any[];
+                    const totalToCollect = unpaid.reduce((sum, r) => sum + toNumber(r.owed_amount), 0);
+                    const byFriend = Object.values(
+                        unpaid.reduce<Record<string, { friend: string; owed: number }>>((acc, r) => {
+                            const name = r.friends?.full_name ?? 'Unknown';
+                            acc[name] = { friend: name, owed: (acc[name]?.owed ?? 0) + toNumber(r.owed_amount) };
+                            return acc;
+                        }, {}),
+                    ).map((b) => ({ friend: b.friend, owed: formatPeso(b.owed) }));
+
+                    const splitSummary = { totalToCollect: formatPeso(totalToCollect), byFriend };
 
                     const ai = await generateJson<{ replyText?: string }>(
                         'coach',

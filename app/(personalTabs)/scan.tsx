@@ -33,7 +33,7 @@ const MODEL_NAME = 'gemini-3.5-flash-lite';
 
 // Live receipt tracking. Set to false to use a fixed, centered frame instead
 // (saves API calls). Each detection tick sends one small snapshot to Gemini.
-const LIVE_DETECTION = true;
+const LIVE_DETECTION = false;
 const DETECT_INTERVAL_MS = 1600;
 const MISSES_BEFORE_RELEASE = 2; // consecutive misses before the frame lets go
 
