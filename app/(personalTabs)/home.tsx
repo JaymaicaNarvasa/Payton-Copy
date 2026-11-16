@@ -138,6 +138,7 @@ interface ReminderItem {
   amount: number;
   due_date: string;
   status: string;
+  paid_at?: string | null;
   category_id?: string | null;
   categories?: {
     name?: string;
@@ -179,6 +180,19 @@ function formatCompact(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(n >= 10_000_000 ? 0 : 1).replace(/\.0$/, '')}M`;
   if (n >= 1_000) return `${(n / 1_000).toFixed(n >= 10_000 ? 0 : 1).replace(/\.0$/, '')}k`;
   return String(Math.round(n));
+}
+
+/** Mixes a hex color toward white. amount 0 = original, 1 = white. Non-hex colors are returned unchanged. */
+function lightenColor(color: string, amount = 0.6): string {
+  const m = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(color.trim());
+  if (!m) return color;
+  let hex = m[1];
+  if (hex.length === 3) hex = hex.split('').map((c) => c + c).join('');
+  const mix = (i: number) => {
+    const v = parseInt(hex.slice(i, i + 2), 16);
+    return Math.round(v + (255 - v) * amount).toString(16).padStart(2, '0');
+  };
+  return `#${mix(0)}${mix(2)}${mix(4)}`;
 }
 
 /** Bar chart used by the Monthly trend card. The current month is drawn in full color. */
@@ -615,6 +629,7 @@ export default function PersonalHomeScreen() {
           amount,
           due_date,
           status,
+          paid_at,
           category_id,
           categories ( name, icon, color )
         `)
@@ -833,7 +848,7 @@ export default function PersonalHomeScreen() {
 
       const { error: updateError } = await supabase
         .from('reminders')
-        .update({ status: 'paid' })
+        .update({ status: 'paid', paid_at: new Date().toISOString() })
         .eq('id', reminder.id);
       if (updateError) throw updateError;
 
@@ -854,7 +869,7 @@ export default function PersonalHomeScreen() {
         details: `settled reminder "${reminder.title}" (${reminder.amount}).`,
       });
 
-      setDuesBanner({ type: 'success', text: `"${reminder.title}" has been settled and recorded.` });
+      setDuesBanner({ type: 'success', text: `"${reminder.title}" was settled and marked as Paid.` });
       fetchDashboardData();
     } catch (error: unknown) {
       console.error('Error settling reminder:', extractErrorMessage(error));
@@ -1017,7 +1032,7 @@ export default function PersonalHomeScreen() {
         index,
         midAngle: (startAngle + endAngle) / 2,
         full,
-        gradient: { from: stat.color, to: stat.color },
+        gradient: { from: stat.color, to: lightenColor(stat.color, 0.6) },
         gx1: full ? center : start.x,
         gy1: full ? 0 : start.y,
         gx2: full ? center : end.x,
@@ -1190,7 +1205,15 @@ export default function PersonalHomeScreen() {
               .filter((due) => due.status === 'pending')
               .sort((x, y) => x.due_date.localeCompare(y.due_date));
 
-            if (pendingDues.length === 0) {
+            // Most recently paid reminders follow the pending ones in the same strip.
+            const recentPaid = upcomingDues
+              .filter((due) => due.status === 'paid')
+              .sort((x, y) => (y.paid_at ?? y.due_date).localeCompare(x.paid_at ?? x.due_date))
+              .slice(0, 5);
+
+            const stripDues = [...pendingDues, ...recentPaid];
+
+            if (stripDues.length === 0) {
               return (
                 <View style={styles.dueEmpty}>
                   <Text style={styles.dueEmptyText}>No upcoming dues. Tap “Set Reminders” to add one.</Text>
@@ -1204,29 +1227,48 @@ export default function PersonalHomeScreen() {
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={styles.dueStripContainer}
               >
-                {pendingDues.map((due, index) => {
+                {stripDues.map((due, index) => {
+                  const isPaid = due.status === 'paid';
                   const [y, m, d] = due.due_date.split('-').map(Number);
                   const monthShort = new Date(y, m - 1, d).toLocaleString('en-US', { month: 'short' });
                   const daysInfo = getDaysInfo(due.due_date);
+                  const paidDateLabel = due.paid_at
+                    ? new Date(due.paid_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                    : `${monthShort} ${d}`;
 
                   return (
                     <TouchableOpacity
                       key={due.id}
                       activeOpacity={0.85}
                       onPress={() => handleDatePress(due.due_date)}
-                      style={styles.dueCard}
+                      style={[styles.dueCard, isPaid && { opacity: 0.75 }]}
                     >
-                      <View style={[styles.dueDateBlock, index % 2 === 1 && styles.dueDateBlockAlt]}>
-                        <Text style={styles.dueDay}>{d}</Text>
-                        <Text style={styles.dueMonth}>{monthShort}</Text>
+                      <View
+                        style={[
+                          styles.dueDateBlock,
+                          !isPaid && index % 2 === 1 && styles.dueDateBlockAlt,
+                          isPaid && { backgroundColor: theme.colors.alpha.olive[15] },
+                        ]}
+                      >
+                        {isPaid ? (
+                          <Ionicons name="checkmark" size={24} color={theme.colors.olive} />
+                        ) : (
+                          <>
+                            <Text style={styles.dueDay}>{d}</Text>
+                            <Text style={styles.dueMonth}>{monthShort}</Text>
+                          </>
+                        )}
                       </View>
                       <View style={styles.dueInfo}>
                         <Text style={styles.dueTitle} numberOfLines={1}>{due.title}</Text>
                         <Text style={styles.dueAmount} numberOfLines={1}>
                           ₱{Number(due.amount).toLocaleString('en-US')}
                         </Text>
-                        <Text style={[styles.dueMeta, daysInfo.urgent && styles.dueMetaUrgent]} numberOfLines={2}>
-                          Due {monthShort} {d} · {daysInfo.text}
+                        <Text
+                          style={[styles.dueMeta, !isPaid && daysInfo.urgent && styles.dueMetaUrgent]}
+                          numberOfLines={2}
+                        >
+                          {isPaid ? `Paid ${paidDateLabel}` : `Due ${monthShort} ${d} · ${daysInfo.text}`}
                         </Text>
                       </View>
                       <Ionicons name="chevron-forward" size={14} color={theme.colors.textSubtle} />
@@ -1356,7 +1398,7 @@ export default function PersonalHomeScreen() {
                 const ly = CHART_BOX / 2 + labelRadius * Math.sin(seg.midAngle);
                 return (
                   <View key={`lbl-${seg.stat.categoryId}`} style={[styles.donutLabelWrap, { left: lx - 30, top: ly - 9 }]}>
-                    <Ionicons name={(seg.stat.icon || 'pricetag-outline') as any} size={12} color={seg.gradient.to} />
+                    <Ionicons name={(seg.stat.icon || 'pricetag-outline') as any} size={12} color={seg.stat.color} />
                     <Text style={styles.donutLabelText}>{Math.round(seg.stat.percentage)}%</Text>
                   </View>
                 );
@@ -1583,15 +1625,14 @@ export default function PersonalHomeScreen() {
 
         {filteredDues.length > 0 ? (
           <View style={{ gap: theme.space[10] }}>
-            {filteredDues.map((due, index) => {
-              const cardBgColor = theme.chart.lightCards[index % theme.chart.lightCards.length];
+            {filteredDues.map((due) => {
               const categoryIcon = due.categories?.icon || 'pricetag-outline';
               const isPaid = due.status === 'paid';
 
               return (
                 <View
                   key={due.id}
-                  style={[styles.reminderCardHome, { backgroundColor: cardBgColor, opacity: isPaid ? 0.75 : 1 }]}
+                  style={[styles.reminderCardHome, { backgroundColor: theme.colors.surfaceAlt, opacity: isPaid ? 0.75 : 1 }]}
                 >
                   <View style={styles.calendarBadgeHome}>
                     <Ionicons name={categoryIcon as any} size={22} color={theme.colors.brand} />

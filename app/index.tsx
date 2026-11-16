@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
@@ -31,6 +32,9 @@ const COLORS = {
   surface: '#F8FAFC',
   background: '#FFFFFF',
 };
+
+// Persisted flag: set once the user taps Get Started. Never clear this on logout.
+const ONBOARDING_KEY = 'hasSeenOnboarding';
 
 type Status = 'checking' | 'landing';
 
@@ -121,13 +125,19 @@ export default function WelcomeScreen() {
 
     let cancelled = false;
 
-    // Returns a route for signed-in users, or null to show the landing page.
+    // Returns a route, or null to show the landing page (first-time users only).
     const resolveDestination = async (): Promise<string | null> => {
       try {
         const {
           data: { session },
         } = await supabase.auth.getSession();
-        if (!session) return null;
+
+        if (!session) {
+          // Logged out: returning users go straight to login,
+          // only first-time users see the landing page.
+          const seen = await AsyncStorage.getItem(ONBOARDING_KEY);
+          return seen === 'true' ? '/login' : null;
+        }
 
         const { data: profile } = await supabase
           .from('profiles')
@@ -179,6 +189,17 @@ export default function WelcomeScreen() {
       }),
     ]).start();
   }, [status, contentFade, contentSlide]);
+
+  // Remember that onboarding was seen, then go to login.
+  // replace() so the back button on login doesn't return to the landing page.
+  const handleGetStarted = async () => {
+    try {
+      await AsyncStorage.setItem(ONBOARDING_KEY, 'true');
+    } catch {
+      // If storage fails, still let the user continue.
+    }
+    router.replace('/login');
+  };
 
   if (status === 'checking') {
     return (
@@ -305,7 +326,7 @@ export default function WelcomeScreen() {
 
         <View>
           <Pressable
-            onPress={() => router.push('/login')}
+            onPress={handleGetStarted}
             accessibilityRole="button"
             accessibilityLabel="Get started"
             style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
@@ -315,7 +336,7 @@ export default function WelcomeScreen() {
           </Pressable>
 
           <Pressable
-            onPress={() => router.push('/login')}
+            onPress={handleGetStarted}
             accessibilityRole="button"
             accessibilityLabel="Sign in"
             hitSlop={8}

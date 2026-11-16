@@ -305,60 +305,70 @@ function TransactionsScreenContent() {
 
   /** Downloads the receipt photo to the cache, then saves it to the photo library (share sheet in Expo Go). */
   const handleDownloadImage = async () => {
-    if (!selectedImageUri || isDownloading) return;
+  if (!selectedImageUri || isDownloading) return;
 
-    setIsDownloading(true);
-    let localUri: string | null = null;
-    try {
-      const MediaLibrary = loadMediaLibrary();
+  setIsDownloading(true);
+  let localUri: string | null = null;
+  let stage = 'start';
+  try {
+    const MediaLibrary = loadMediaLibrary();
 
-      if (MediaLibrary) {
-        // writeOnly = true: we only add photos, so Android doesn't ask for audio/media read access.
-        const permission = await MediaLibrary.requestPermissionsAsync(true);
-        if (!permission.granted) {
-          showViewerToast('Allow photo access in Settings to save images.');
-          return;
-        }
-      }
-
-      const extMatch = selectedImageUri.split('?')[0].match(/\.(jpe?g|png|webp|heic)$/i);
-      const ext = extMatch ? extMatch[1].toLowerCase() : 'jpg';
-      const target = `${FileSystem.cacheDirectory}payton-receipt-${Date.now()}.${ext}`;
-
-      const result = await FileSystem.downloadAsync(selectedImageUri, target);
-      localUri = result.uri;
-      if (result.status !== 200) throw new Error(`Download failed (${result.status})`);
-
-      if (!MediaLibrary) {
-        // Expo Go fallback: open the system share sheet ("Save image", etc.).
-        if (!(await Sharing.isAvailableAsync())) {
-          showViewerToast('Saving images is not supported on this device.');
-          return;
-        }
-        await Sharing.shareAsync(result.uri, {
-          mimeType: ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg',
-          dialogTitle: 'Save receipt photo',
-        });
+    if (MediaLibrary) {
+      stage = 'permission';
+      const permission = await MediaLibrary.requestPermissionsAsync(true);
+      if (!permission.granted) {
+        showViewerToast('Allow photo access in Settings to save images.');
         return;
       }
-
-      await MediaLibrary.saveToLibraryAsync(result.uri);
-
-      // Close the viewer first, then show the success alert once the Modal is gone.
-      closeImageViewer();
-      notify({
-        type: 'success',
-        title: 'Image saved',
-        message: 'The receipt photo was saved to your photo library.',
-      });
-    } catch (err: any) {
-      console.error('Error downloading image:', err?.message);
-      showViewerToast('Could not save the image. Please try again.');
-    } finally {
-      if (localUri) FileSystem.deleteAsync(localUri, { idempotent: true }).catch(() => {});
-      setIsDownloading(false);
     }
-  };
+
+    const extMatch = selectedImageUri.split('?')[0].match(/\.(jpe?g|png|webp|heic)$/i);
+    const ext = extMatch ? extMatch[1].toLowerCase() : 'jpg';
+    const mimeType = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
+    const target = `${FileSystem.cacheDirectory}payton-receipt-${Date.now()}.${ext}`;
+
+    stage = 'download';
+    const result = await FileSystem.downloadAsync(selectedImageUri, target);
+    localUri = result.uri;
+    if (result.status !== 200) throw new Error(`Download failed (${result.status})`);
+
+    const shareInstead = async () => {
+      if (!(await Sharing.isAvailableAsync())) {
+        showViewerToast('Saving images is not supported on this device.');
+        return;
+      }
+      await Sharing.shareAsync(result.uri, { mimeType, dialogTitle: 'Save receipt photo' });
+    };
+
+    if (!MediaLibrary) {
+      await shareInstead();
+      return;
+    }
+
+    stage = 'save';
+    try {
+      await MediaLibrary.saveToLibraryAsync(result.uri);
+    } catch (saveErr: any) {
+      console.error('saveToLibrary failed:', saveErr?.message);
+      showViewerToast(`[save] ${saveErr?.message ?? 'unknown'}`); // debug, remove later
+      await shareInstead();                                       // fallback so the button still works
+      return;
+    }
+
+    closeImageViewer();
+    notify({
+      type: 'success',
+      title: 'Image saved',
+      message: 'The receipt photo was saved to your photo library.',
+    });
+  } catch (err: any) {
+    console.error(`Error downloading image [${stage}]:`, err?.message);
+    showViewerToast(`[${stage}] ${err?.message ?? 'Could not save the image.'}`); // debug, remove later
+  } finally {
+    if (localUri) FileSystem.deleteAsync(localUri, { idempotent: true }).catch(() => {});
+    setIsDownloading(false);
+  }
+};
 
   const handleBackPress = () => {
     router.push('/home'); 

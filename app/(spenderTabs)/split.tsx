@@ -1066,7 +1066,7 @@ export default function SplitScreen() {
       const { data: latestAllowance, error: allowanceErr } = await supabase
         .from('allowances')
         .select('id, amount')
-        .eq('user_id', user.id)
+        .eq('spender_id', user.id)
         .eq('is_archived', false)
         .order('received_at', { ascending: false })
         .limit(1)
@@ -1182,7 +1182,7 @@ export default function SplitScreen() {
       const { data: latestAllowance, error: allowanceErr } = await supabase
         .from('allowances')
         .select('id, amount')
-        .eq('user_id', user.id)
+        .eq('spender_id', user.id)
         .eq('is_archived', false)
         .order('received_at', { ascending: false })
         .limit(1)
