@@ -45,7 +45,6 @@ const FAQS = [
   { q: "How long do image uploads take?", a: "Avatar uploads usually update within 2-5 seconds, depending on your network connection." },
   { q: "What are the Personal, Spender and Sponsor roles?", a: "Your role decides what you see in the app. Personal is for managing your own money, Spender is for tracking spending, and Sponsor is for providing and monitoring funds for a Spender. You choose your role when you first set up your account." },
   { q: "I didn't receive my password reset email. What should I do?", a: "Check your spam or junk folder first and make sure you typed the same email you registered with. If it still doesn't arrive after a few minutes, request a new link. Only the most recent link will work." },
-  { q: "Can Payton AI see my balance or transactions?", a: "No. For your privacy, the Ask Payton assistant cannot view your personal database, balances, or transaction history. It can help with general budgeting tips, saving strategies, and app questions." },
   { q: "Is my password stored safely?", a: "Yes. Your password is handled by a secure authentication service and is never visible to other users or to the app's administrators." },
   { q: "The app is slow or not loading my data. What can I do?", a: "Check that you have a stable internet connection, then close and reopen the app. If the problem continues, sign out and sign back in, or report it under Account > Support & Info > Send Feedback." },
 ];

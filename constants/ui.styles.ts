@@ -762,7 +762,7 @@ inlineSuccessText: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: theme.space[10],
-    width: 170,
+    width: 165,
     backgroundColor: theme.colors.white,
     borderRadius: theme.radius.lg,
     padding: theme.space[10],

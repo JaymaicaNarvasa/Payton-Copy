@@ -1244,7 +1244,7 @@ export default function SpenderHomeScreen() {
                           style={[styles.dueMeta, !isPaid && daysInfo.urgent && styles.dueMetaUrgent]}
                           numberOfLines={2}
                         >
-                          {isPaid ? `Paid ${paidDateLabel}` : `Due ${monthShort} ${d} · ${daysInfo.text}`}
+                          {isPaid ? `Paid ${paidDateLabel}` : ` ${daysInfo.text}`}
                         </Text>
                       </View>
                       <Ionicons name="chevron-forward" size={14} color={theme.colors.textSubtle} />

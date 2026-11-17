@@ -33,9 +33,9 @@ import { supabase } from '../../lib/supabase';
  * expo-media-library needs a native build (dev build / APK). Expo Go doesn't ship it and throws on import,
  * so it's loaded lazily: returns null in Expo Go and the caller falls back to the share sheet.
  */
-const loadMediaLibrary = (): typeof import('expo-media-library') | null => {
+const loadMediaLibrary = (): typeof import('expo-media-library/legacy') | null => {
   try {
-    return require('expo-media-library');
+    return require('expo-media-library/legacy');
   } catch {
     return null;
   }
@@ -371,17 +371,16 @@ function MonitoringScreen() {
   };
 
   /** Downloads the receipt photo to the cache, then saves it to the photo library (share sheet in Expo Go). */
-  const handleDownloadImage = async () => {
+const handleDownloadImage = async () => {
   if (!selectedImageUri || isDownloading) return;
 
   setIsDownloading(true);
   let localUri: string | null = null;
-  let stage = 'start';
+  let keepFile = false; // true when the share sheet may still need the file
   try {
     const MediaLibrary = loadMediaLibrary();
 
     if (MediaLibrary) {
-      stage = 'permission';
       const permission = await MediaLibrary.requestPermissionsAsync(true);
       if (!permission.granted) {
         showViewerToast('Allow photo access in Settings to save images.');
@@ -394,7 +393,6 @@ function MonitoringScreen() {
     const mimeType = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
     const target = `${FileSystem.cacheDirectory}payton-receipt-${Date.now()}.${ext}`;
 
-    stage = 'download';
     const result = await FileSystem.downloadAsync(selectedImageUri, target);
     localUri = result.uri;
     if (result.status !== 200) throw new Error(`Download failed (${result.status})`);
@@ -404,6 +402,7 @@ function MonitoringScreen() {
         showViewerToast('Saving images is not supported on this device.');
         return;
       }
+      keepFile = true; // don't delete it, the receiving app reads it after this resolves
       await Sharing.shareAsync(result.uri, { mimeType, dialogTitle: 'Save receipt photo' });
     };
 
@@ -412,13 +411,11 @@ function MonitoringScreen() {
       return;
     }
 
-    stage = 'save';
     try {
       await MediaLibrary.saveToLibraryAsync(result.uri);
     } catch (saveErr: any) {
       console.error('saveToLibrary failed:', saveErr?.message);
-      showViewerToast(`[save] ${saveErr?.message ?? 'unknown'}`); // debug, remove later
-      await shareInstead();                                       // fallback so the button still works
+      await shareInstead();
       return;
     }
 
@@ -429,10 +426,10 @@ function MonitoringScreen() {
       message: 'The receipt photo was saved to your photo library.',
     });
   } catch (err: any) {
-    console.error(`Error downloading image [${stage}]:`, err?.message);
-    showViewerToast(`[${stage}] ${err?.message ?? 'Could not save the image.'}`); // debug, remove later
+    console.error('Error downloading image:', err?.message);
+    showViewerToast('Could not save the image. Please try again.');
   } finally {
-    if (localUri) FileSystem.deleteAsync(localUri, { idempotent: true }).catch(() => {});
+    if (localUri && !keepFile) FileSystem.deleteAsync(localUri, { idempotent: true }).catch(() => {});
     setIsDownloading(false);
   }
 };
