@@ -102,7 +102,85 @@ const viewerStyles = StyleSheet.create({
   },
 });
 
+/**
+ * Budget wallet styles. Kept local so this screen doesn't depend on transactionStyles;
+ * move them into monitoringStyles in ui.styles if you want them shared.
+ */
+const walletStyles = StyleSheet.create({
+  section: {
+    marginBottom: theme.space[16],
+  },
+  strip: {
+    gap: theme.space[12],
+    // extra room so the card shadow isn't clipped by the horizontal ScrollView
+    paddingTop: 4,
+    paddingBottom: 12,
+    paddingHorizontal: 4,
+  },
+  card: {
+    width: 200,
+    padding: theme.space[14],
+    gap: theme.space[12],
+    borderRadius: theme.radius.lg,
+    backgroundColor: theme.colors.white,
+    // soft raised edge instead of a flat border
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.space[8],
+  },
+  iconCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  name: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '600',
+    color: theme.colors.textStrong,
+  },
+  remainingLabel: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: theme.colors.textSubtle,
+  },
+  remainingAmount: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  allocated: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: theme.colors.textSubtle,
+  },
+});
+
 /* ---------- Types ---------- */
+interface BudgetWallet {
+  category_id: string;
+  category_name: string;
+  icon: string;
+  color: string;
+  allocated_amount: number;
+  spent_amount: number;
+  remaining_amount: number;
+}
+
+interface BudgetRow {
+  category_id: string;
+  allocated_amount: number | string | null;
+  categories?: { name?: string; icon?: string; color?: string } | { name?: string; icon?: string; color?: string }[] | null;
+}
+
 interface ExpenseItem {
   id: string;
   description: string;
@@ -338,6 +416,7 @@ function MonitoringScreen() {
   const [spenderName, setSpenderName] = useState('Spender');
   const [spenderAvatar, setSpenderAvatar] = useState<string | null>(null);
   const [expenses, setExpenses] = useState<ExpenseItem[]>([]);
+  const [budgetRows, setBudgetRows] = useState<BudgetRow[]>([]);
 
   const [totalAllocatedDb, setTotalAllocatedDb] = useState<number>(0);
   const [primaryAllowanceName, setPrimaryAllowanceName] = useState<string | null>(null);
@@ -460,7 +539,7 @@ const handleDownloadImage = async () => {
 
       const { data: allowancesData } = await supabase
         .from('allowances')
-        .select('amount, allowance_name, end_date, received_at')
+        .select('id, amount, allowance_name, end_date, received_at')
         .eq('spender_id', spenderId)
         .eq('is_archived', false)
         .order('received_at', { ascending: false });
@@ -470,6 +549,28 @@ const handleDownloadImage = async () => {
         setTotalAllocatedDb(sumAllocated);
         setPrimaryAllowanceName(allowancesData[0].allowance_name);
         setLatestEndDate(allowancesData[0].end_date);
+      }
+
+      // Per-category budgets the sponsor set on this spender's active allowances
+      const activeAllowanceIds = (allowancesData || []).map((a: any) => a.id);
+      if (activeAllowanceIds.length > 0) {
+        const { data: budgetData, error: budgetError } = await supabase
+          .from('budgets')
+          .select(`
+            category_id,
+            allocated_amount,
+            categories (name, icon, color)
+          `)
+          .in('allowance_id', activeAllowanceIds);
+
+        if (budgetError) {
+          console.error('Error loading budgets:', budgetError.message);
+          setBudgetRows([]);
+        } else {
+          setBudgetRows((budgetData as BudgetRow[]) || []);
+        }
+      } else {
+        setBudgetRows([]);
       }
 
       // Fetch categories including color from database
@@ -536,6 +637,40 @@ const handleDownloadImage = async () => {
   const endLabel = formatShortDate(finalEndDate ?? undefined);
 
   const recentExpenses = useMemo(() => expenses.slice(0, RECENT_LIMIT), [expenses]);
+
+  // Budget wallets: sum budgets per category across active allowances, subtract that category's spending.
+  // Sorted so the lowest remaining budget comes first.
+  const budgetWallets = useMemo<BudgetWallet[]>(() => {
+    const walletMap: Record<string, BudgetWallet> = {};
+
+    budgetRows.forEach((b) => {
+      const catId = b.category_id;
+      if (!catId) return;
+      const rawCat = Array.isArray(b.categories) ? b.categories[0] : b.categories;
+      if (!walletMap[catId]) {
+        walletMap[catId] = {
+          category_id: catId,
+          category_name: rawCat?.name || 'Category',
+          icon: rawCat?.icon || 'receipt-outline',
+          color: rawCat?.color || C.brand,
+          allocated_amount: 0,
+          spent_amount: 0,
+          remaining_amount: 0,
+        };
+      }
+      walletMap[catId].allocated_amount += Number(b.allocated_amount || 0);
+    });
+
+    expenses.forEach((exp) => {
+      if (exp.category_id && walletMap[exp.category_id]) {
+        walletMap[exp.category_id].spent_amount += Number(exp.amount);
+      }
+    });
+
+    return Object.values(walletMap)
+      .map((w) => ({ ...w, remaining_amount: w.allocated_amount - w.spent_amount }))
+      .sort((a, b) => a.remaining_amount - b.remaining_amount);
+  }, [budgetRows, expenses]);
 
   const allTabExpenses = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -752,6 +887,53 @@ const handleDownloadImage = async () => {
     );
   };
 
+  const renderBudgetWallets = () => {
+    if (budgetWallets.length === 0) return null;
+    return (
+      <View style={walletStyles.section}>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Budget Wallets</Text>
+        </View>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={walletStyles.strip}
+          nestedScrollEnabled
+        >
+          {budgetWallets.map((wallet) => {
+            const color = wallet.color || C.brand;
+            const isNegative = wallet.remaining_amount < 0;
+            const negativeColor = StyleSheet.flatten(styles.txAmount)?.color ?? C.dangerDeep;
+            return (
+              <View key={wallet.category_id} style={walletStyles.card}>
+                <View style={walletStyles.headerRow}>
+                  <View style={[walletStyles.iconCircle, { backgroundColor: tint(color) }]}>
+                    <Ionicons name={(wallet.icon as any) || 'receipt-outline'} size={14} color={color} />
+                  </View>
+                  <Text style={walletStyles.name} numberOfLines={1}>
+                    {wallet.category_name}
+                  </Text>
+                </View>
+
+                <View>
+                  <Text style={walletStyles.remainingLabel}>Remaining</Text>
+                  <Text
+                    style={[walletStyles.remainingAmount, { color: isNegative ? negativeColor : C.dueGreen }]}
+                    numberOfLines={1}
+                  >
+                    {isNegative ? '-' : ''}
+                    {formatPeso(Math.abs(wallet.remaining_amount))}
+                    <Text style={walletStyles.allocated}> / {formatPeso(wallet.allocated_amount)}</Text>
+                  </Text>
+                </View>
+              </View>
+            );
+          })}
+        </ScrollView>
+      </View>
+    );
+  };
+
   const renderOverviewHeader = () => (
     <View>
       <View style={styles.sectionHeader}>
@@ -802,6 +984,8 @@ const handleDownloadImage = async () => {
           </Text>
         </View>
       </View>
+
+      {renderBudgetWallets()}
 
       {renderSearch()}
 
