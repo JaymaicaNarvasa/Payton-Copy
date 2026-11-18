@@ -11,8 +11,8 @@
 // Sponsor  -> all allowances the sponsor gave the selected spender + their expenses
 // Personal -> all income sources + expenses
 import { supabase } from './supabase';
-import { Workbook, sheetRange, quoteSheet } from './xlsxWriter';
-import type { Sheet, StyleSpec, ChartSpec } from './xlsxWriter';
+import type { ChartSpec, Sheet, StyleSpec } from './xlsxWriter';
+import { Workbook, quoteSheet, sheetRange } from './xlsxWriter';
 
 /* ───────────────────────────── public API ───────────────────────────── */
 

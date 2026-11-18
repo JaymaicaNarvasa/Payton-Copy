@@ -36,6 +36,7 @@
     "expo-linking": "~57.0.14",
     "expo-media-library": "~57.0.6",
     "expo-navigation-bar": "~57.0.3",
+    "expo-print": "~57.0.2",
     "expo-router": "~57.0.31",
     "expo-sharing": "~57.0.26",
     "expo-splash-screen": "~57.0.11",

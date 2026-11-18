@@ -20,9 +20,10 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { PaytonAlertDialog } from '../../components/PaytonAlert';
+import { PaytonAlertDialog, PaytonAlertProvider, useAlert } from '../../components/PaytonAlert';
 import InlineMessage, { MessageType } from '../../components/profile/InlineMessage';
 import ProfileScreen from '../../components/profile/ProfileScreen';
+import { MODAL_SWAP_DELAY } from '../../components/Sheet';
 import { SkeletonArchiveCard, SkeletonGroup, SkeletonTxRow } from '../../components/profile/Skeleton';
 import { theme } from '../../constants/theme';
 import { incomeStyles, monitoringStyles, profileStyles } from '../../constants/ui.styles';
@@ -132,7 +133,7 @@ const getFilledIcon = (name: string) => {
   return (Ionicons.glyphMap as Record<string, number>)[filled] ? filled : name;
 };
 
-export default function ArchiveScreen() {
+function ArchiveScreenContent() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(true);
@@ -145,6 +146,12 @@ export default function ArchiveScreen() {
 
   // Search state for associated expenses
   const [searchQuery, setSearchQuery] = useState('');
+
+  const { showAlert } = useAlert();
+  /** The photo viewer and the alert are both Modals: close the viewer first, then show the alert once it is gone. */
+  const notify = (config: Parameters<typeof showAlert>[0]) => {
+    setTimeout(() => showAlert(config), MODAL_SWAP_DELAY);
+  };
 
   // Fullscreen photo modal state
   const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
@@ -867,7 +874,15 @@ if (!error) setInactiveItems(allowances || []);
     </ProfileScreen>
   );
 }
-function notify(arg0: { type: string; title: string; message: string; }) {
-  throw new Error('Function not implemented.');
-}
 
+/**
+ * The root layout doesn't mount <PaytonAlertProvider> above this route, so useAlert() would throw here.
+ * Wrap the screen so the "Image saved" alert works exactly like transaction and monitoring.
+ */
+export default function ArchiveScreen() {
+  return (
+    <PaytonAlertProvider>
+      <ArchiveScreenContent />
+    </PaytonAlertProvider>
+  );
+}
